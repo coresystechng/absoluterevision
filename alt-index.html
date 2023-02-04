@@ -12,12 +12,12 @@
 <nav class="bg-gradient-to-r from-purple-200 to-white w-100 px-8 md:px-auto md:fixed md:top-0 md:left-0 md:right-0 md:z-50">
 	<div class="md:h-16 h-28 mx-auto md:px-4 container flex items-center justify-between flex-wrap md:flex-nowrap">
 		<!-- Logo Container -->
-		<div class="text-purple-500 md:align-center md:order-1">
+		<div class="align-center hidden md:block md:order-1">
 			<!-- Logo Img -->
-			<img src="img/logo.png" alt="main logo" width="50%">
+			<img src="img/logo.png" alt="main logo" class="w-3/4 h-3/4 md:w-1/2">
 		</div>
     <!-- Nav Links -->
-		<div class="text-gray-500 order-3 w-full md:w-auto md:order-2">
+		<div class="text-gray-900 order-2 w-full hidden md:block md:w-auto md:order-2">
 			<ul class="flex font-semibold justify-between">
 				<li class="md:px-4 md:py-2 hover:text-purple-800 hover:underline hover:font-bold"><a href="/">Home</a></li>
 				<li class="md:px-4 md:py-2 hover:text-purple-800 hover:underline hover:font-bold"><a href="#">About</a></li>
@@ -25,6 +25,10 @@
 				<li class="md:px-4 md:py-2 text-purple-800 hover:underline hover:font-bold"><a href="#">Pricing</a></li>
 				<li class="md:px-4 md:py-2 hover:text-purple-800 hover:underline hover:font-bold"><a href="#">Contact</a></li>
 			</ul>
+		</div>
+    <div class="align-center block md:hidden md:order-1">
+			<!-- Logo Img -->
+			<img src="img/logo.png" alt="main logo" class="">
 		</div>
 	</div>
 </nav>
@@ -160,9 +164,9 @@
     
     <h1 class="text-center text-4xl bg-white text-purple-800 pt-24 font-bold leading-4 md:block hidden">What Service Do You Need?</h1>
     <h1 class="text-center text-2xl bg-white text-purple-800 py-12 font-bold leading-4 md:hidden block">What Service Do You Need?</h1>
-    <div class="lg:flex items-center justify-between bg-white md:py-20">
+    <div class="lg:flex items-center justify-between bg-white md:py-20 mb-10">
       <div class="lg:w-1/2 w-full container mb-2 mr-2">
-          <img src="img/stx-5.jpg" alt="" class="h-full w-full rounded-xl ">
+          <img src="img/stx-2.jpg" alt="" class="h-full w-full rounded-xl ">
       </div>
       <div class="xl:w-1/2 lg:w-7/12 relative w-full lg:mt-0 md:mt-12 md:px-8 container" role="list">
           <div class="cursor-pointer shadow rounded-lg p-8 relative z-30 mb-4 hover:shadow-xl border border-purple-800">
@@ -262,7 +266,7 @@
               <div class="mx-auto container px-4 xl:px-12 2xl:px-4">
                   <div class="lg:flex">
                       <div class="w-full lg:w-1/2 mb-16 lg:mb-0 flex">
-                          <div class="w-full lg:w-1/2 px-6">
+                          <div class="w-full lg:w-1/2 px-6 hidden md:block">
                               <ul class="">
                                   <li>
                                     <h4>
@@ -291,7 +295,7 @@
                           </div>
                       </div>
                       <div class="w-full lg:w-1/2 flex">
-                          <div class="w-full lg:w-1/2 px-6">
+                          <div class="w-full lg:w-1/2 px-6 hidden md:block">
                             <ul class="">
                               <li><h4>
                                 <span class="uppercase text-purple-800 text-xl font-semibold">Legal</span>
