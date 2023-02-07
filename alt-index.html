@@ -96,7 +96,39 @@
             </div>
         </div>
       </div>
-
+      <div class="slider-container">
+        <div class="slider">
+          <div class="slide">
+            <div class="client-info">
+              <div>
+                <img src="https://images.unsplash.com/photo-1547425260-76bcadfb4f2c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=870&q=80" alt="Client 1 Profile Image" class="client-img">
+                <p class="client-name">John Doe</p>
+              </div>
+            </div>
+            <p class="comment">"I had an amazing experience working with your team! They went above and beyond to make sure I was happy with the final product."</p>
+          </div>
+          <div class="slide">
+            <div class="client-info">
+              <div>
+                <img src="https://images.unsplash.com/photo-1552058544-f2b08422138a?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=399&q=80" alt="Client 2 Profile Image" class="client-img">
+                <p class="client-name">Jane Doe</p>
+              </div>
+            </div>
+            <p class="comment">"I was blown away by the quality of work and attention to detail provided by your team. I would highly recommend them to anyone."</p>
+          </div>
+          <div class="slide">
+            <div class="client-info">
+              <div>
+                <img src="https://images.unsplash.com/photo-1615813967515-e1838c1c5116?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=387&q=80" alt="Client 3 Profile Image" class="client-img">
+                <p class="client-name">John Smith</p>
+              </div>
+            </div>
+            <p class="comment">"Working with your company was an absolute pleasure. Their communication and customer service was top-notch."</p>
+          </div>
+        </div>
+        <div class="dots"></div>
+      </div>      
+      
   <!-- Why Choose Absolute Revision? -->
   <section class="max-w-8xl mx-auto bg-purple-800 pt-16">
     <div>
@@ -327,6 +359,75 @@
         </div>
     </footer>
   </div>
-
+  <script>
+    // Get the slider elements
+    const slider = document.querySelector('.slider');
+    const slides = document.querySelectorAll('.slide');
+    const dotsContainer = document.querySelector('.dots');
+  
+    // Create the dots
+    for (let i = 0; i < slides.length; i++) {
+      const dot = document.createElement('span');
+      dot.classList.add('dot');
+      dotsContainer.appendChild(dot);
+    }
+  
+    // Get the dots
+    const dots = document.querySelectorAll('.dot');
+  
+    // Set the initial slide index
+    let currentSlide = 0;
+  
+    // Show the first slide
+    slides[currentSlide].style.display = "flex";
+    dots[currentSlide].classList.add("active");
+  
+    // Function to show the next slide
+    function nextSlide() {
+      // Remove the active class from the current dot
+      dots[currentSlide].classList.remove("active");
+  
+      // Hide the current slide
+      slides[currentSlide].style.display = "none";
+  
+      // Increase the current slide index
+      currentSlide = (currentSlide + 1) % slides.length;
+  
+      // Show the next slide
+      slides[currentSlide].style.display = "flex";
+  
+      // Add the active class to the new dot
+      dots[currentSlide].classList.add("active");
+    }
+  
+    // Automatically show the next slide after 5 seconds
+    setInterval(nextSlide, 5000);
+  </script>
+  <script>
+  
+    function changeSlide() {
+      for (let i = 0; i < slides.length; i++) {
+        slides[i].style.display = "none";
+      }
+  
+      for (let i = 0; i < dots.length; i++) {
+        dots[i].classList.remove("active");
+      }
+  
+      slides[currentSlide].style.display = "flex";
+      dots[currentSlide].classList.add("active");
+    }
+  
+    for (let i = 0; i < dots.length; i++) {
+      dots[i].addEventListener("click", function() {
+        currentSlide = i;
+        changeSlide();
+      });
+    }
+  
+    changeSlide();
+  </script>
+  
+  
 </body>
 </html>
