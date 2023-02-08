@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="shortcut icon" href="img/icon.png" type="image/x-icon">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <title>Pricing | Absolute Revision</title>
 </head>
 <body class="h-screen bg-grey-100 text-gray-500 relative">
@@ -19,11 +20,11 @@
     <!-- Nav Links -->
 		<div class="text-gray-500 order-3 w-full md:w-auto md:order-2">
 			<ul class="flex font-semibold justify-between">
-				<li class="md:px-4 md:py-2 hover:text-purple-500 hover:underline"><a href="alt-index.html">Home</a></li>
-				<li class="md:px-4 md:py-2 hover:text-purple-500 hover:underline"><a href="alt-index.html">About</a></li>
-				<li class="md:px-4 md:py-2 hover:text-purple-500 hover:underline"><a href="alt-index.html">Reviews</a></li>
+				<li class="md:px-4 md:py-2 hover:text-purple-500 hover:underline"><a href="index.html">Home</a></li>
+				<li class="md:px-4 md:py-2 hover:text-purple-500 hover:underline"><a href="index.html#about">About</a></li>
+				<li class="md:px-4 md:py-2 hover:text-purple-500 hover:underline"><a href="index.html#rev">Reviews</a></li>
 				<li class="md:px-4 md:py-2 text-purple-500 hover:underline"><a href="#">Pricing</a></li>
-				<li class="md:px-4 md:py-2 hover:text-purple-400 hover:underline"><a href="alt-index.html">Contact</a></li>
+				<li class="md:px-4 md:py-2 hover:text-purple-400 hover:underline"><a href="index.html#contact">Contact</a></li>
 			</ul>
 		</div>
 	</div>
@@ -121,10 +122,10 @@
                                 <br>
                               </li>
                                 <li><a class="hover:underline hover:font-semibold" href="">Back To Top</a></li>
-                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="">About Us</a></li>
-                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="">Why Chose Us</a></li>
-                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="">Our Services</a></li>
-                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="">Pricing</a></li>
+                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="index.html#about">About Us</a></li>
+                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="index.html">Why Chose Us</a></li>
+                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="index.html">Our Services</a></li>
+                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="#">Pricing</a></li>
                               </ul>
                           </div>
                       </div>
@@ -136,8 +137,8 @@
                               </h4>
                               <br>
                             </li>
-                              <li><a class="hover:underline hover:font-semibold" href="">Privacy Policy</a></li>
-                              <li class="mt-4"><a class="hover:underline hover:font-semibold" href="">Site Terms </a></li>
+                              <li><a class="hover:underline hover:font-semibold" target="_blank" href="assets/privacy.md">Privacy Policy</a></li>
+                              <li class="mt-4"><a class="hover:underline hover:font-semibold" target="_blank" href="assets/terms.md">Site Terms </a></li>
                             </ul>
                           </div>
                           <div class="w-full lg:w-1/2 px-6 flex flex-col justify-between">
@@ -149,7 +150,7 @@
                             </li>
                               <li><a class="hover:underline hover:font-semibold" href="">Twitter</a></li>
                               <li class="mt-4"><a class="hover:underline hover:font-semibold" href="">Telegram</a></li>
-                              <li class="mt-4"><a class="hover:underline hover:font-semibold" href="">Instagram</a></li>
+                              <li class="mt-4"><a class="hover:underline hover:font-semibold" href="https://Instagram.com/absoluterevision">Instagram</a></li>
                             </ul>
                           </div>
                       </div>
@@ -157,9 +158,48 @@
               </div>
           </div>
           <div class="mt-5 mb-5 text-center">
-            <h4 class="text-sm text-purple-800 font-semibold pb-20"> &COPY; 2023 Absolute Revision. Built By <a href="https://github.com/coresystechng" class="underline">CORE TECH</a></h4>
+            <h4 class="text-sm text-purple-800 font-semibold pb-20"> &COPY; 2023 Absolute Revision. Built By <a target="_blank" href="https://github.com/coresystechng" class="underline">CORE TECH</a></h4>
           </div>
       </footer>
     </div>
+    <script>
+          // Select all links with hashes
+$('a[href*="#"]')
+  // Remove links that don't actually link to anything
+  .not('[href="#"]')
+  .not('[href="#0"]')
+  .click(function(event) {
+    // On-page links
+    if (
+      location.pathname.replace(/^\//, '') == this.pathname.replace(/^\//, '') 
+      && 
+      location.hostname == this.hostname
+    ) {
+      // Figure out element to scroll to
+      var target = $(this.hash);
+      target = target.length ? target : $('[name=' + this.hash.slice(1) + ']');
+      // Does a scroll target exist?
+      if (target.length) {
+        // Only prevent default if animation is actually gonna happen
+        event.preventDefault();
+        $('html, body').animate({
+          scrollTop: target.offset().top
+        }, 1000, function() {
+          // Callback after animation
+          // Must change focus!
+          var $target = $(target);
+          $target.focus();
+          if ($target.is(":focus")) { // Checking if the target was focused
+            return false;
+          } else {
+            $target.attr('tabindex','-1'); // Adding tabindex for elements not focusable
+            $target.focus(); // Set focus again
+          };
+        });
+      }
+    }
+  });
+
+    </script>
   </body>
   </html>
