@@ -65,7 +65,7 @@ align-items: center;
   height: 70px;
   border-radius: 50%;
   object-fit: cover;
-  margin-left: 3px;
+  margin-left: calc(50% - 45px);
 }
 .accordion-title {
   margin-top: 10px;
