@@ -210,10 +210,12 @@
   <h1 class="text-center text-2xl bg-white text-purple-800 py-12 font-bold leading-4 md:hidden block">What Service Do You Need?</h1>
   <div class="lg:flex items-center justify-between bg-white md:py-20 mb-10">
       <div class="lg:w-1/2 w-full container mb-2 mr-2">
-          <img src="img/slide (1).jpg" alt="" class="h-full w-full rounded-xl slide-img">
-          <img src="img/slide (1).png" alt="" class="h-full w-full rounded-xl slide-img">
-          <img src="img/slide (2).jpg" alt="" class="h-full w-full rounded-xl slide-img">
-          <img src="img/slide (2).png" alt="" class="h-full w-full rounded-xl slide-img">
+        <div id="rounded-images">
+          <img src="img/slide (1).jpg" alt="" class="h-full w-full rounded-xl rounded hidden">
+          <img src="img/slide (1).png" alt="" class="h-[400px] w-full object-cover rounded-xl rounded hidden">
+          <img src="img/slide (2).jpg" alt="" class="h-full w-full rounded-xl rounded hidden">
+          <img src="img/slide (2).png" alt="" class="h-full w-full rounded-xl rounded hidden">
+        </div>
       </div>
       <div class="xl:w-1/2 lg:w-7/12 relative w-full lg:mt-0 md:mt-12 md:px-8 container" role="list">
           <div class="cursor-pointer shadow rounded-lg p-8 relative z-30 mb-4 hover:shadow-xl border border-purple-800">
@@ -561,6 +563,19 @@
     }
   
     changeSlide();
+  </script>
+  <script>
+    const round = document.querySelectorAll("#rounded-images .rounded");
+    let currentRound = 0;
+    
+    function nextSlide2() {
+      round[currentRound].style.display = "none";
+      currentRound = (currentRound + 1) % round.length;
+      round[currentRound].style.display = "block";
+    }
+    
+    setInterval(nextSlide2, 2500);
+    nextSlide2()
   </script>
   
   
