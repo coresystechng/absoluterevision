@@ -5,7 +5,7 @@ We're overhauling the entire homepage and making some UI changes to the Absolute
 
 * [TailwindCSS](https://tailwindcss.com/)
 * [Heroicons](https://heroicons.com/)
-* Slide.js
+* [Slide.js](https://splidejs.com/)
 
 ### Contributors
 
