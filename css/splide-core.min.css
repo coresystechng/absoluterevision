@@ -55,10 +55,26 @@ align-items: center;
 }
 
 .dot.active {
-  background-color: black;
+  background-color: rgb(107 33 168);
+}
+#sidebar {
+  display: none;
 }
 
+.align-centers {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 
+.bg-trans
+{
+  background-color: #f2f2f212;
+}
+
+.open {
+  display: block !important;
+}
 
 .client-img {
   width: 70px;
