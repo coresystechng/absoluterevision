@@ -19,7 +19,7 @@
       <!-- Logo Container -->
       <div class="align-center hidden md:block md:order-1">
         <!-- Logo Img -->
-        <img src="img/logo.png" alt="main logo" class="w-3/4 h-3/4 md:w-1/2">
+        <a href="index.html"><img src="img/logo.png" alt="main logo" class="w-3/4 h-3/4 md:w-1/2"></a>
       </div>
       <!-- Nav Links -->
       <div class="text-gray-900 order-2 w-full hidden md:block md:w-auto md:order-2">
@@ -31,12 +31,52 @@
           <li class="md:px-4 md:py-2 hover:text-purple-800 hover:underline hover:font-bold"><a href="#contact">Contact</a></li>
         </ul>
       </div>
-      <div class="align-center block md:hidden md:order-1">
+      <!-- Mobile Nav -->
+      <div class="bg-gradient-to-r from-purple-200 to-white w-100 flex align-center md:hidden fixed py-3 px-3 top-0 left-0 right-0 z-50">
         <!-- Logo Img -->
-        <img src="img/logo.png" alt="main logo" class="">
+        <div class="flex-initial">
+          <img src="img/logo.png" alt="main logo" class="w-3/4">
+        </div>
+        <!-- Hamburger Menu Icon -->
+        <div class="flex-initial md:hidden">
+          <button class="w-8 h-8 p-2 rounded-full text-gray-900 " id="nav-toggle">
+            <svg class="w-8 h-8 fill-current hover:text-purple-800 focus:text-white" viewBox="0 0 20 20">
+              <path d="M0 3h20v2H0V3zm0 6h20v2H0V9zm0 6h20v2H0v-2z"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </nav>
+<!-- Sidebar -->
+<div>
+  <div class="fixed bg-gradient-to-r from-purple-200 to-white bg-trans z-40 h-screen w-full overflow-y-auto" id="sidebar">
+    <a href=""></a>
+    <!-- Navigation -->
+    <nav class="mt-10">
+      <!-- Navigation List -->
+      <ul class="list-none p-0 text-center">
+        <li class="mb-6">
+          <a href="index.html" class="block text-purple-800 hover:text-purple-500 font-medium py-2 z-81">Home</a>
+        </li>
+        <li class="mb-6">
+          <a href="#about" class="block text-purple-800 hover:text-purple-500 font-medium py-2 z-41">About</a>
+        </li>
+        <li class="mb-6">
+          <a href="#rev" class="block text-purple-800 hover:text-purple-500 font-medium py-2 z-41">Reviews</a>
+        </li>
+        <li class="mb-6">
+          <a href="pricing.html" class="block text-purple-800 hover:text-purple-500 font-medium py-2 z-41">Pricing</a>
+        </li>
+        <li class="mb-6">
+          <a href="#contact" class="block text-purple-800 hover:text-purple-500 font-medium py-2 z-41">Contact</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</div>
+
+
 
   <!-- Hero Section-->
   <div class="relative items-center justify-center">
@@ -113,7 +153,7 @@
             <div class="client-info">
               <div>
                 <img src="https://images.unsplash.com/photo-1529688530647-93a6e1916f5f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=436&q=80"   alt="Client 1 Profile Image" class="client-img">
-                <p class="client-name">Shedrack Oche</p>
+                <p class="client-name text-purple-800">Shedrack Oche</p>
               </div>
             </div>
             <p class="comment">"I had an amazing experience working with your team! They went above and beyond to make sure I was happy with the final product."</p>
@@ -122,7 +162,7 @@
             <div class="client-info">
               <div>
                 <img src="https://images.unsplash.com/photo-1589635021366-24ce21374163?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=387&q=80" alt="Client 2 Profile Image" class="client-img">
-                <p class="client-name">Fatima Muhammad</p>
+                <p class="client-name text-purple-800">Fatima Muhammad</p>
               </div>
             </div>
             <p class="comment">"I was blown away by the quality of work and attention to detail provided by your team. I would highly recommend them to anyone."</p>
@@ -131,7 +171,7 @@
             <div class="client-info">
               <div>
                 <img src="https://images.unsplash.com/photo-1615813967515-e1838c1c5116?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=387&q=80" alt="Client 3 Profile Image" class="client-img">
-                <p class="client-name">Francis Chukwuemeka</p>
+                <p class="client-name text-purple-800">Francis Chukwuemeka</p>
               </div>
             </div>
             <p class="comment">"Working with your company was an absolute pleasure. Their communication and customer service was top-notch."</p>
@@ -140,7 +180,7 @@
             <div class="client-info">
               <div>
                 <img src="https://images.unsplash.com/photo-1618944207632-4064a84f4e5f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=435&q=80" alt="Client 3 Profile Image" class="client-img">
-                <p class="client-name">Emmanuel Ese</p>
+                <p class="client-name text-purple-800">Emmanuel Ese</p>
               </div>
             </div>
             <p class="comment">"Working with Absolute Revision was a delightful experience. Their communication and customer service were excellent."</p>
@@ -257,7 +297,7 @@
     <div class="container mx-auto py-10 lg:flex justify-between md:py-20 mb-10 mt-20 p-10">
       <!-- FAQ -->
       <div class="bg-white px-8 pt-6 pb-8 mb-5 lg:w-1/2 w-full container mb-2 mr-2  rounded-xl">
-        <h2 class="text-lg font-medium mb-5">Frequently Asked Questions</h2>
+        <h2 class="text-lg font-medium mb-5 text-purple-800"><b>Frequently Asked Questions</b></h2>
         <div class="accordion-item">
           <div class="accordion-title hover:bg-purple-500 hover:text-white flex justify-between items-center cursor-pointer">
             <p>What are your prices?</p>
@@ -379,10 +419,10 @@
         </div>
       <!-- Form -->
       <div class="bg-white px-8 pt-6 pb-8 mb-5 lg:w-1/2 w-full container mb-2 mr-2 rounded-xl" id="contact">
-        <h2 class="text-lg font-medium mb-5">Contact Us</h2>
+        <h2 class="text-lg font-medium mb-5 text-purple-800"><b>Contact Us</b></h2>
         <form class="">
           <div class="mb-4">
-            <label class="block text-gray-700 font-medium mb-2" for="name">
+            <label class="block font-medium mb-2 text-purple-800" for="name">
               Name
             </label>
             <input
@@ -393,7 +433,7 @@
             />
           </div>
           <div class="mb-4">
-            <label class="block text-gray-700 font-medium mb-2" for="email">
+            <label class="block text-purple-800 font-medium mb-2" for="email">
               Email
             </label>
             <input
@@ -404,7 +444,7 @@
             />
           </div>
           <div class="mb-4">
-            <label class="block text-gray-700 font-medium mb-2" for="message">
+            <label class="block text-purple-800 font-medium mb-2" for="message">
               Message
             </label>
             <textarea
@@ -430,74 +470,75 @@
 
   <!-- Footer --> 
   <div class="pt-12">
-    <!-- Footer --> 
-    <div>
-      <footer id="footer" class="relative bg-gradient-to-r border-t border-purple-400 from-purple-200 text-gray-900">
-          <div tabindex="0" aria-label="footer" class="py-16">
-              <div class="mx-auto container px-4 xl:px-12 2xl:px-4">
-                  <div class="lg:flex">
-                      <div class="w-full lg:w-1/2 mb-16 lg:mb-0 flex">
-                          <div class="w-full lg:w-1/2 px-6 hidden md:block">
-                              <ul class="">
-                                  <li>
-                                    <h4>
-                                      <span class="uppercase text-purple-800 text-xl font-semibold">ABOUT US</span>
-                                      <br> <br>
-                                      With several years of experience serving clients worldwide, Absolute Revision provides high-quality editing, proofreading and formatting services to researchers, authors, students and businesses. 
-                                      <br> <br>
-                                      Our professional editors are native English speakers with advanced qualifications from top universities in the UK, US, Australia and Canada.
-                                    </h4>
-                                  </li>
-                              </ul>
+        <!-- Footer --> 
+        <div>
+          <footer id="footer" class="relative bg-gradient-to-r border-t border-purple-400 from-purple-200 text-gray-900">
+              <div tabindex="0" aria-label="footer" class="py-16">
+                  <div class="mx-auto container px-4 xl:px-12 2xl:px-4">
+                      <div class="lg:flex">
+                          <div class="w-full lg:w-1/2 mb-16 lg:mb-0 flex">
+                              <div class="w-full lg:w-1/2 px-6 hidden md:block">
+                                  <ul class="">
+                                      <li>
+                                        <h4>
+                                          <span class="uppercase text-purple-800 text-xl font-semibold">ABOUT US</span>
+                                          <br> <br>
+                                          With several years of experience serving clients worldwide, Absolute Revision provides high-quality editing, proofreading and formatting services to researchers, authors, students and businesses. 
+                                          <br> <br>
+                                          Our professional editors are native English speakers with advanced qualifications from top universities in the UK, US, Australia and Canada. <br><br>
+                                          <a href="tel:+1 937 249 0400" class="block md:mt-0 mt-4 text-purple-800 text-center border border-purple-800 rounded p-2 hover:bg-purple-800 border-purple-800 hover:text-white hover:font-semibold"><b>Call Us</b></a>
+                                        </h4>
+                                      </li>
+                                    </ul>
+                                  </div>
+                                  <div class="w-full lg:w-1/2 px-6">
+                                    <ul class="">
+                                      <li><h4>
+                                        <span class="uppercase text-purple-800 text-xl font-semibold">Site Navigation</span>
+                                      </h4>
+                                      <br>
+                                    </li>
+                                    <li><a class="hover:underline hover:font-semibold" href="">Back To Top</a></li>
+                                    <li class="mt-4"><a class="hover:underline hover:font-semibold" href="index.html#about">About Us</a></li>
+                                    <li class="mt-4"><a class="hover:underline hover:font-semibold" href="index.html#chose">Why Chose Us</a></li>
+                                    <li class="mt-4"><a class="hover:underline hover:font-semibold" href="index.html#services">Our Services</a></li>
+                                    <li class="mt-4"><a class="hover:underline hover:font-semibold" href="pricing.html">Pricing </a></li>
+                                  </ul>
+                              </div>
                           </div>
-                          <div class="w-full lg:w-1/2 px-6">
-                              <ul class="">
-                                <li><h4>
-                                  <span class="uppercase text-purple-800 text-xl font-semibold">Site Navigation</span>
-                                </h4>
-                                <br>
-                              </li>
-                                <li><a class="hover:underline hover:font-semibold" href="">Back To Top</a></li>
-                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="index.html#about">About Us</a></li>
-                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="index.html#chose">Why Chose Us</a></li>
-                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="index.html#services">Our Services</a></li>
-                                <li class="mt-4"><a class="hover:underline hover:font-semibold" href="pricing.html">Pricing</a></li>
-                              </ul>
-                          </div>
-                      </div>
-                      <div class="w-full lg:w-1/2 flex">
-                          <div class="w-full lg:w-1/2 px-6 hidden md:block">
-                            <ul class="">
-                              <li><h4>
-                                <span class="uppercase text-purple-800 text-xl font-semibold">Legal</span>
-                              </h4>
-                              <br>
-                            </li>
-                              <li><a class="hover:underline hover:font-semibold" target="_blank" href="assets/privacy.md">Privacy Policy</a></li>
-                              <li class="mt-4"><a class="hover:underline hover:font-semibold" target="_blank" href="assets/terms.md">Site Terms </a></li>
-                            </ul>
-                          </div>
-                          <div class="w-full lg:w-1/2 px-6 flex flex-col justify-between">
-                            <ul class="">
-                              <li><h4>
-                                <span class="uppercase text-purple-800 text-xl font-semibold">Social Links</span>
-                              </h4>
-                              <br>
-                            </li>
-                              <li><a class="hover:underline hover:font-semibold" href="">Twitter</a></li>
-                              <li class="mt-4"><a class="hover:underline hover:font-semibold" href="">Telegram</a></li>
-                              <li class="mt-4"><a class="hover:underline hover:font-semibold" href="https://Instagram.com/absoluterevision">Instagram</a></li>
-                            </ul>
+                          <div class="w-full lg:w-1/2 flex">
+                              <div class="w-full lg:w-1/2 px-6 hidden md:block">
+                                <ul class="">
+                                  <li><h4>
+                                    <span class="uppercase text-purple-800 text-xl font-semibold">Legal</span>
+                                  </h4>
+                                  <br>
+                                </li>
+                                  <li><a class="hover:underline hover:font-semibold" target="_blank" href="assets/privacy.md">Privacy Policy</a></li>
+                                  <li class="mt-4"><a class="hover:underline hover:font-semibold" target="_blank" href="assets/terms.md">Site Terms </a></li>
+                                </ul>
+                              </div>
+                              <div class="w-full lg:w-1/2 px-6 flex flex-col justify-between">
+                                <ul class="">
+                                  <li><h4>
+                                    <span class="uppercase text-purple-800 text-xl font-semibold">Social Links</span>
+                                  </h4>
+                                  <br>
+                                </li>
+                                  <li><a class="hover:underline hover:font-semibold" href="https://www.linkedin.com/company/absolute-revision/">LinkedIn</a></li>
+                                  <li class="mt-4"><a class="hover:underline hover:font-semibold" href=" https://t.me/AbsoluteRevision">Telegram</a></li>
+                                  <li class="mt-4"><a class="hover:underline hover:font-semibold" href="https://Instagram.com/absoluterevision">Instagram</a></li>
+                                </ul>
+                              </div>
                           </div>
                       </div>
                   </div>
               </div>
-          </div>
-          <div class="mt-5 mb-5 text-center">
-            <h4 class="text-sm text-purple-800 font-semibold pb-20"> &COPY; 2023 Absolute Revision. Built By <a target="_blank" href="https://github.com/coresystechng" class="underline">CORE TECH</a></h4>
-          </div>
-      </footer>
-    </div>
+              <div class="mt-5 mb-5 text-center">
+                <h4 class="text-sm text-purple-800 font-semibold pb-20"> &COPY; 2023 Absolute Revision. Built By <a target="_blank" href="https://github.com/coresystechng" class="underline">CORE-TECH</a></h4>
+              </div>
+          </footer>
+        </div>
   </div>
   <script>
     const accordionItems = document.querySelectorAll('.accordion-item');
@@ -579,6 +620,28 @@
     changeSlide();
   </script>
   <script>
+    // Get the sidebar and the hamburger icon
+    const sidebar = document.getElementById('sidebar');
+    const hamburger = document.getElementById('nav-toggle');
+
+    // Add an event listener to the hamburger icon
+    hamburger.addEventListener('click', function() {
+      // Toggle the 'open' class on the sidebar
+      sidebar.classList.toggle('open');
+    });
+    sidebar.addEventListener('click', function() {
+      // Toggle the 'open' class on the sidebar
+      sidebar.classList.toggle('open');
+    });
+
+    // Add an event listener to the document body
+    sidebar.addEventListener('click', function(event) {
+      // If the click target is not the sidebar or the hamburger icon, close the sidebar
+      if (!sidebar.contains(event.target) && !hamburger.contains(event.target)) {
+        sidebar.classList.remove('open');
+      }
+    });
+
     const round = document.querySelectorAll("#rounded-images .rounded");
     let currentRound = 0;
     
