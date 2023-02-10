@@ -66,6 +66,11 @@ align-items: center;
   justify-content: center;
   align-items: center;
 }
+.align-lefts {
+  display: flex;
+  justify-content: start;
+  align-items: center;
+}
 
 .bg-trans
 {
