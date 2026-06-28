@@ -29,17 +29,6 @@ import {
 import { getProgressBadgeStyle, titleCase } from "@/lib/utils"
 import type { Assignment, AssignmentInput, AssignmentStatus, AuthUser } from "@/types"
 
-function formatDueDateTime(assignment: Assignment) {
-  if (!assignment.dueDate) {
-    return "Not set"
-  }
-
-  return format(
-    parseISO(`${assignment.dueDate}T${assignment.dueTime ?? "00:00"}`),
-    "MMM d, yyyy h:mm a",
-  )
-}
-
 function dueDateTime(assignment: Assignment) {
   if (!assignment.dueDate) {
     return null
