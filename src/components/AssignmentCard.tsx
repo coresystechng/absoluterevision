@@ -1,4 +1,4 @@
-import { format, isAfter, isBefore, parseISO } from "date-fns"
+import { isAfter, isBefore, parseISO } from "date-fns"
 import { CalendarClock, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
@@ -16,7 +16,7 @@ import {
 import {
   getAssignmentStatusLabel,
 } from "@/lib/assignment-status"
-import { cn, titleCase } from "@/lib/utils"
+import { cn, getProgressBadgeStyle, titleCase } from "@/lib/utils"
 import type { Assignment, AssignmentInput } from "@/types"
 
 function priorityDot(priority: Assignment["priority"]) {
@@ -55,6 +55,66 @@ function dueTone(assignment: Assignment) {
     return "text-amber-600 dark:text-amber-400"
   }
   return "text-muted-foreground"
+}
+
+function getTimeLeftLabel(assignment: Assignment) {
+  const due = dueDateTime(assignment)
+  if (!due) {
+    return "No deadline"
+  }
+
+  const diffMs = due.getTime() - Date.now()
+  if (diffMs <= 0) {
+    return "Overdue"
+  }
+
+  const totalMinutes = Math.floor(diffMs / (1000 * 60))
+  const days = Math.floor(totalMinutes / (60 * 24))
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+  const minutes = totalMinutes % 60
+
+  if (days > 0) {
+    return `${days}d ${hours} hrs left`
+  }
+
+  if (hours > 0) {
+    return `${hours} hrs ${minutes} mins left`
+  }
+
+  if (minutes > 0) {
+    return `${minutes} mins left`
+  }
+
+  return "Due soon"
+}
+
+function getProgressBadgeStyle(progress: number) {
+  const clampedProgress = Math.max(0, Math.min(100, progress))
+  const start = [239, 68, 68] as const
+  const middle = [234, 179, 8] as const
+  const end = [34, 197, 94] as const
+
+  const [colorA, colorB] = clampedProgress < 65
+    ? [start, middle]
+    : [middle, end]
+
+  const ratio = clampedProgress < 65
+    ? clampedProgress / 65
+    : (clampedProgress - 65) / 35
+
+  const t = Math.max(0, Math.min(1, ratio))
+  const red = Math.round(colorA[0] + (colorB[0] - colorA[0]) * t)
+  const green = Math.round(colorA[1] + (colorB[1] - colorA[1]) * t)
+  const blue = Math.round(colorA[2] + (colorB[2] - colorA[2]) * t)
+  const accent = `rgb(${red}, ${green}, ${blue})`
+  const glow = `rgba(${red}, ${green}, ${blue}, 0.82)`
+  const textColor = clampedProgress >= 70 ? "#052e16" : "#ffffff"
+
+  return {
+    background: `linear-gradient(135deg, ${accent} 0%, ${glow} 100%)`,
+    borderColor: accent,
+    color: textColor,
+  }
 }
 
 export function AssignmentCard({
@@ -126,15 +186,13 @@ export function AssignmentCard({
 
           <div className={cn("flex items-center gap-2 text-sm", dueTone(assignment))}>
             <CalendarClock className="h-4 w-4" />
-            <span>
-              {assignment.dueDate
-                ? format(dueDateTime(assignment) ?? parseISO(assignment.dueDate), "MMM d, yyyy h:mm a")
-                : "No due date"}
-            </span>
+            <span>{getTimeLeftLabel(assignment)}</span>
           </div>
 
-          <div className="flex items-center justify-end text-sm">
-            <span className="font-medium">{assignment.progress}%</span>
+          <div className="flex items-center justify-end">
+            <Badge className="rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm" style={getProgressBadgeStyle(assignment.progress)}>
+              {assignment.progress}%
+            </Badge>
           </div>
         </CardContent>
       </Card>

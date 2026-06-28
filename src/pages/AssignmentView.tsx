@@ -1,5 +1,5 @@
 import { format, parseISO } from "date-fns"
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react"
+import { ArrowLeft, CalendarClock, Pencil, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -26,7 +26,7 @@ import {
   assignmentStatuses,
   getAssignmentStatusLabel,
 } from "@/lib/assignment-status"
-import { titleCase } from "@/lib/utils"
+import { getProgressBadgeStyle, titleCase } from "@/lib/utils"
 import type { Assignment, AssignmentInput, AssignmentStatus, AuthUser } from "@/types"
 
 function formatDueDateTime(assignment: Assignment) {
@@ -38,6 +38,65 @@ function formatDueDateTime(assignment: Assignment) {
     parseISO(`${assignment.dueDate}T${assignment.dueTime ?? "00:00"}`),
     "MMM d, yyyy h:mm a",
   )
+}
+
+function dueDateTime(assignment: Assignment) {
+  if (!assignment.dueDate) {
+    return null
+  }
+
+  return parseISO(`${assignment.dueDate}T${assignment.dueTime ?? "00:00"}`)
+}
+
+function dueTone(assignment: Assignment) {
+  const due = dueDateTime(assignment)
+  if (!due || assignment.status === "completed") {
+    return "text-muted-foreground"
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const soon = new Date(today)
+  soon.setDate(today.getDate() + 3)
+
+  if (due < today) {
+    return "text-destructive"
+  }
+  if (due > today && due < soon) {
+    return "text-amber-600 dark:text-amber-400"
+  }
+  return "text-muted-foreground"
+}
+
+function getTimeLeftLabel(assignment: Assignment) {
+  const due = dueDateTime(assignment)
+  if (!due) {
+    return "No deadline"
+  }
+
+  const diffMs = due.getTime() - Date.now()
+  if (diffMs <= 0) {
+    return "Overdue"
+  }
+
+  const totalMinutes = Math.floor(diffMs / (1000 * 60))
+  const days = Math.floor(totalMinutes / (60 * 24))
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+  const minutes = totalMinutes % 60
+
+  if (days > 0) {
+    return `${days}d ${hours} hrs left`
+  }
+
+  if (hours > 0) {
+    return `${hours} hrs ${minutes} mins left`
+  }
+
+  if (minutes > 0) {
+    return `${minutes} mins left`
+  }
+
+  return "Due soon"
 }
 
 export function AssignmentView({
@@ -158,8 +217,11 @@ export function AssignmentView({
                     <p className="mt-1 font-medium">{assignment.category || "Not set"}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Due date</p>
-                    <p className="mt-1 font-medium">{formatDueDateTime(assignment)}</p>
+                    <p className="text-sm text-muted-foreground">Deadline</p>
+                    <div className={`mt-1 flex items-center gap-2 text-sm ${dueTone(assignment)}`}>
+                      <CalendarClock className="h-4 w-4" />
+                      <span>{getTimeLeftLabel(assignment)}</span>
+                    </div>
                   </div>
                   <div>
                     <Label>Status</Label>
@@ -186,7 +248,12 @@ export function AssignmentView({
 
                 <div className="grid gap-3">
                   <p className="text-sm text-muted-foreground">Progress</p>
-                  <p className="text-2xl font-semibold">{assignment.progress}%</p>
+                  <Badge
+                    className="w-fit rounded-full border px-3 py-1 text-sm font-semibold shadow-sm"
+                    style={getProgressBadgeStyle(assignment.progress)}
+                  >
+                    {assignment.progress}%
+                  </Badge>
                 </div>
 
                 <Separator />
