@@ -11,20 +11,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAssignments, type AssignmentFilter } from "@/hooks/useAssignments"
-import {
-  assignmentStatuses,
-  getAssignmentStatusLabel,
-} from "@/lib/assignment-status"
+import { getAssignmentStatusLabel } from "@/lib/assignment-status"
 import type { Assignment, AssignmentInput, AuthUser } from "@/types"
 
 const filters: Array<{ value: AssignmentFilter; label: string }> = [
   { value: "all", label: "All" },
-  ...assignmentStatuses.map((status) => ({
-    value: status.value,
-    label: status.label,
-  })),
+  { value: "not-started", label: "Not Started" },
+  { value: "completed", label: "Completed" },
   { value: "high-priority", label: "High priority" },
-  { value: "overdue", label: "Overdue" },
 ]
 
 function isOverdue(assignment: Assignment) {
