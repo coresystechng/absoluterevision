@@ -133,14 +133,14 @@ export function Dashboard({
         ) : null}
 
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Skeleton className="h-36" />
             <Skeleton className="h-36" />
             <Skeleton className="h-36" />
             <Skeleton className="h-36" />
           </div>
         ) : filteredAssignments.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredAssignments.map((assignment) => (
               <AssignmentCard
                 key={assignment.id}

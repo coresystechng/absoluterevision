@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Combo&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:wght@300;400&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -60,7 +60,8 @@
 }
 
 @theme inline {
-  --font-sans: "Combo", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Fraunces", "Georgia", serif;
+  --font-serif: "Fraunces", "Georgia", serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -109,6 +110,26 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+}
+
+body,
+p,
+button,
+input,
+textarea,
+select {
+  font-family: var(--font-sans);
+  font-weight: 300;
 }
 
 button,

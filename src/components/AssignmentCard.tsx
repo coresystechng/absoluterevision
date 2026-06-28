@@ -1,13 +1,18 @@
 import { format, isAfter, isBefore, parseISO } from "date-fns"
-import { CalendarClock, Pencil, Trash2 } from "lucide-react"
+import { CalendarClock, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { AssignmentDialog } from "@/components/AssignmentDialog"
-import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   getAssignmentStatusLabel,
 } from "@/lib/assignment-status"
@@ -93,18 +98,29 @@ export function AssignmentCard({
               </div>
             </div>
             <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-              <Button type="button" variant="ghost" size="icon" aria-label="Edit assignment" onClick={() => setIsEditing(true)}>
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <ConfirmDialog
-                title="Delete assignment?"
-                description="This removes the assignment permanently."
-                onConfirm={onDelete}
-              >
-                <Button type="button" variant="ghost" size="icon" aria-label="Delete assignment">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </ConfirmDialog>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" aria-label="More actions">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                  <DropdownMenuItem onSelect={(event) => { event.preventDefault(); setIsEditing(true) }}>
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      void onDelete()
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
@@ -117,8 +133,7 @@ export function AssignmentCard({
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Progress</span>
+          <div className="flex items-center justify-end text-sm">
             <span className="font-medium">{assignment.progress}%</span>
           </div>
         </CardContent>
