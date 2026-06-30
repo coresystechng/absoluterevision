@@ -11,12 +11,13 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAssignments, type AssignmentFilter } from "@/hooks/useAssignments"
-import { getAssignmentStatusLabel } from "@/lib/assignment-status"
+import { getAssignmentProgressLabel, getAssignmentStatusLabel } from "@/lib/assignment-status"
 import type { Assignment, AssignmentInput, AuthUser } from "@/types"
 
 const filters: Array<{ value: AssignmentFilter; label: string }> = [
   { value: "all", label: "All" },
   { value: "not-started", label: "Not Started" },
+  { value: "ongoing", label: "Ongoing" },
   { value: "completed", label: "Completed" },
   { value: "high-priority", label: "High priority" },
 ]
@@ -44,6 +45,7 @@ function matchesSearch(assignment: Assignment, query: string) {
     assignment.category,
     assignment.priority,
     getAssignmentStatusLabel(assignment.status),
+    getAssignmentProgressLabel(assignment.progressStage),
     assignment.notes,
   ]
     .filter(Boolean)
@@ -100,7 +102,7 @@ export function Dashboard({
           <Input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search assignments, status, priority, category, or notes"
+            placeholder="Search assignments, status, progress, priority, category, or notes"
             className="h-11 pl-9"
             aria-label="Search assignments"
           />

@@ -24,11 +24,11 @@ async function seedAssignments(userId: string) {
   const today = new Date()
   await query(
     `INSERT INTO assignments
-      (user_id, title, category, priority, status, due_date, progress, notes)
+      (user_id, title, category, priority, status, progress_stage, due_date, progress, notes)
      VALUES
-      ($1, 'Outline research essay', 'Writing', 'high', 'ai-draft', $2, 26, 'Draft thesis and source list before the next study session.'),
-      ($1, 'Complete calculus problem set', 'Mathematics', 'medium', 'not-started', $3, 13, 'Focus on integration by parts and applications.'),
-      ($1, 'Review biology flashcards', 'Science', 'low', 'completed', $4, 100, 'Photosynthesis and cell respiration review complete.')`,
+      ($1, 'Outline research essay', 'Writing', 'high', 'ongoing', 'ai-draft', $2, 15, 'Draft thesis and source list before the next study session.'),
+      ($1, 'Complete calculus problem set', 'Mathematics', 'medium', 'not-started', 'ai-draft', $3, 0, 'Focus on integration by parts and applications.'),
+      ($1, 'Review biology flashcards', 'Science', 'low', 'completed', 'final-review', $4, 100, 'Photosynthesis and cell respiration review complete.')`,
     [
       userId,
       formatISO(addDays(today, 2), { representation: "date" }),

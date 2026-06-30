@@ -45,6 +45,7 @@ export function initDb() {
         category TEXT,
         priority TEXT NOT NULL DEFAULT 'medium',
         status TEXT NOT NULL DEFAULT 'not-started',
+        progress_stage TEXT NOT NULL DEFAULT 'ai-draft',
         due_date DATE,
         due_time TIME,
         progress INTEGER NOT NULL DEFAULT 0,
@@ -55,6 +56,44 @@ export function initDb() {
     `)
 
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS due_time TIME")
+    await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS progress_stage TEXT NOT NULL DEFAULT 'ai-draft'")
+    await query(`
+      UPDATE assignments
+      SET progress_stage = CASE status
+        WHEN 'ai-draft' THEN 'ai-draft'
+        WHEN 'humaned' THEN 'humaned'
+        WHEN 'grammar-check' THEN 'grammar-check'
+        WHEN 'ai-plagiarism-check' THEN 'plagiarism-check'
+        WHEN 'plagiarism-check' THEN 'plagiarism-check'
+        WHEN 'text-format' THEN 'text-format'
+        WHEN 'review' THEN 'final-review'
+        WHEN 'final-review' THEN 'final-review'
+        WHEN 'completed' THEN 'final-review'
+        WHEN 'done' THEN 'final-review'
+        ELSE progress_stage
+      END
+      WHERE status IN (
+        'ai-draft',
+        'humaned',
+        'grammar-check',
+        'ai-plagiarism-check',
+        'plagiarism-check',
+        'text-format',
+        'review',
+        'final-review',
+        'completed',
+        'done'
+      )
+    `)
+    await query(`
+      UPDATE assignments
+      SET status = CASE
+        WHEN status IN ('completed', 'done') THEN 'completed'
+        WHEN status = 'not-started' THEN 'not-started'
+        ELSE 'ongoing'
+      END
+      WHERE status NOT IN ('not-started', 'ongoing', 'completed')
+    `)
   })()
 
   return initPromise

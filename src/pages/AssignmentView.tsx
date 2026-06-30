@@ -23,11 +23,13 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  assignmentProgressStages,
   assignmentStatuses,
+  getAssignmentProgressLabel,
   getAssignmentStatusLabel,
 } from "@/lib/assignment-status"
 import { getProgressBadgeStyle, titleCase } from "@/lib/utils"
-import type { Assignment, AssignmentInput, AssignmentStatus, AuthUser } from "@/types"
+import type { Assignment, AssignmentInput, AssignmentProgressStage, AssignmentStatus, AuthUser } from "@/types"
 
 function dueDateTime(assignment: Assignment) {
   if (!assignment.dueDate) {
@@ -140,6 +142,18 @@ export function AssignmentView({
     }
   }
 
+  const updateProgressStage = async (progressStage: AssignmentProgressStage) => {
+    try {
+      const updated = await assignmentApi.updateProgressStage(user.id, id, progressStage)
+      if (updated) {
+        setAssignment(updated)
+        toast.success("Progress updated")
+      }
+    } catch {
+      toast.error("Something went wrong. Try again.")
+    }
+  }
+
   const deleteAssignment = async () => {
     try {
       await assignmentApi.remove(user.id, id)
@@ -173,6 +187,7 @@ export function AssignmentView({
                 <div className="mb-3 flex flex-wrap gap-2">
                   <Badge>{titleCase(assignment.priority)}</Badge>
                   <Badge variant="secondary">{getAssignmentStatusLabel(assignment.status)}</Badge>
+                  <Badge variant="outline">{getAssignmentProgressLabel(assignment.progressStage)}</Badge>
                   {assignment.category ? <Badge variant="outline">{assignment.category}</Badge> : null}
                 </div>
                 <h1 className="text-3xl font-semibold tracking-normal">{assignment.title}</h1>
@@ -228,6 +243,29 @@ export function AssignmentView({
                     </Select>
                   </div>
                   <div>
+                    <div className="flex items-center justify-between gap-3">
+                      <Label>Progress</Label>
+                      <Badge
+                        className="rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm"
+                        style={getProgressBadgeStyle(assignment.progress)}
+                      >
+                        {assignment.progress}%
+                      </Badge>
+                    </div>
+                    <Select value={assignment.progressStage} onValueChange={(value) => void updateProgressStage(value as AssignmentProgressStage)}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {assignmentProgressStages.map((progressStage) => (
+                          <SelectItem key={progressStage.value} value={progressStage.value}>
+                            {progressStage.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
                     <p className="text-sm text-muted-foreground">Priority</p>
                     <p className="mt-1 font-medium">{titleCase(assignment.priority)}</p>
                   </div>
@@ -236,12 +274,12 @@ export function AssignmentView({
                 <Separator />
 
                 <div className="grid gap-3">
-                  <p className="text-sm text-muted-foreground">Progress</p>
+                  <p className="text-sm text-muted-foreground">Progress summary</p>
                   <Badge
                     className="w-fit rounded-full border px-3 py-1 text-sm font-semibold shadow-sm"
                     style={getProgressBadgeStyle(assignment.progress)}
                   >
-                    {assignment.progress}%
+                    {getAssignmentProgressLabel(assignment.progressStage)} - {assignment.progress}%
                   </Badge>
                 </div>
 

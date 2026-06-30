@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  getAssignmentProgressLabel,
   getAssignmentStatusLabel,
 } from "@/lib/assignment-status"
 import { cn, getProgressBadgeStyle, titleCase } from "@/lib/utils"
@@ -125,6 +126,7 @@ export function AssignmentCard({
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{getAssignmentStatusLabel(assignment.status)}</Badge>
+                <Badge variant="outline">{getAssignmentProgressLabel(assignment.progressStage)}</Badge>
                 {assignment.category ? <Badge variant="outline">{assignment.category}</Badge> : null}
               </div>
             </div>

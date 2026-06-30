@@ -1,13 +1,16 @@
 export type AssignmentPriority = "high" | "medium" | "low"
 export type AssignmentStatus =
   | "not-started"
+  | "ongoing"
+  | "completed"
+
+export type AssignmentProgressStage =
   | "ai-draft"
   | "humaned"
   | "grammar-check"
-  | "ai-plagiarism-check"
+  | "plagiarism-check"
   | "text-format"
-  | "review"
-  | "completed"
+  | "final-review"
 
 export type Assignment = {
   id: number
@@ -16,6 +19,7 @@ export type Assignment = {
   category: string | null
   priority: AssignmentPriority
   status: AssignmentStatus
+  progressStage: AssignmentProgressStage
   dueDate: string | null
   dueTime: string | null
   progress: number
@@ -29,6 +33,7 @@ export type AssignmentInput = {
   category?: string | null
   priority?: AssignmentPriority
   status?: AssignmentStatus
+  progressStage?: AssignmentProgressStage
   dueDate?: string | null
   dueTime?: string | null
   progress?: number

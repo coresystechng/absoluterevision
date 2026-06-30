@@ -1,17 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 import * as assignmentApi from "@/api/assignments"
-import type { Assignment, AssignmentInput, AssignmentStatus } from "@/types"
+import type { Assignment, AssignmentInput, AssignmentProgressStage, AssignmentStatus } from "@/types"
 
 export type AssignmentFilter =
   | "all"
   | "not-started"
-  | "ai-draft"
-  | "humaned"
-  | "grammar-check"
-  | "ai-plagiarism-check"
-  | "text-format"
-  | "review"
+  | "ongoing"
   | "completed"
   | "high-priority"
   | "overdue"
@@ -75,6 +70,14 @@ export function useAssignments(userId: string | null) {
           throw new Error("Missing user")
         }
         const assignment = await assignmentApi.updateStatus(userId, id, status)
+        await reload()
+        return assignment
+      },
+      updateProgressStage: async (id: number, progressStage: AssignmentProgressStage) => {
+        if (!userId) {
+          throw new Error("Missing user")
+        }
+        const assignment = await assignmentApi.updateProgressStage(userId, id, progressStage)
         await reload()
         return assignment
       },

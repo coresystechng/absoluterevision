@@ -21,12 +21,14 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  assignmentProgressStages,
   assignmentStatuses,
   getAssignmentProgress,
 } from "@/lib/assignment-status"
 import type {
   Assignment,
   AssignmentInput,
+  AssignmentProgressStage,
   AssignmentPriority,
   AssignmentStatus,
 } from "@/types"
@@ -39,15 +41,17 @@ const priorityOptions: Array<{ value: AssignmentPriority; label: string }> = [
 
 function getInitialForm(assignment?: Assignment): Required<AssignmentInput> {
   const status = assignment?.status ?? "not-started"
+  const progressStage = assignment?.progressStage ?? "ai-draft"
 
   return {
     title: assignment?.title ?? "",
     category: assignment?.category ?? "",
     priority: assignment?.priority ?? "medium",
     status,
+    progressStage,
     dueDate: assignment?.dueDate ?? "",
     dueTime: assignment?.dueTime ?? "",
-    progress: getAssignmentProgress(status),
+    progress: getAssignmentProgress(status, progressStage),
     notes: assignment?.notes ?? "",
   }
 }
@@ -78,7 +82,29 @@ export function AssignmentDialog({
     setForm((current) => ({
       ...current,
       status,
-      progress: getAssignmentProgress(status),
+      progressStage:
+        status === "completed"
+          ? "final-review"
+          : status === "not-started"
+            ? "ai-draft"
+            : current.progressStage,
+      progress: getAssignmentProgress(
+        status,
+        status === "completed"
+          ? "final-review"
+          : status === "not-started"
+            ? "ai-draft"
+            : current.progressStage,
+      ),
+    }))
+  }
+
+  const updateProgressStage = (progressStage: AssignmentProgressStage) => {
+    setForm((current) => ({
+      ...current,
+      status: "ongoing",
+      progressStage,
+      progress: getAssignmentProgress("ongoing", progressStage),
     }))
   }
 
@@ -152,7 +178,7 @@ export function AssignmentDialog({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="grid gap-2">
               <Label>Priority</Label>
               <Select
@@ -186,16 +212,24 @@ export function AssignmentDialog({
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <Label>Progress</Label>
-              <span className="text-sm font-medium">{getAssignmentProgress(form.status)}%</span>
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <Label>Progress</Label>
+                <span className="text-sm font-medium">{form.progress}%</span>
+              </div>
+              <Select value={form.progressStage} onValueChange={(value) => updateProgressStage(value as AssignmentProgressStage)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select progress" />
+                </SelectTrigger>
+                <SelectContent>
+                  {assignmentProgressStages.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Progress is calculated from the current assignment status.
-            </p>
           </div>
 
           <div className="grid gap-2">

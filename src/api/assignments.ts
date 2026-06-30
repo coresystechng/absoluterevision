@@ -3,10 +3,12 @@ import { toDateInputValue, toIsoDateTime, toTimeInputValue } from "@/lib/date-va
 import {
   getAssignmentProgress,
   normalizeAssignmentStatus,
+  normalizeAssignmentProgressStage,
 } from "@/lib/assignment-status"
 import type {
   Assignment,
   AssignmentInput,
+  AssignmentProgressStage,
   AssignmentPriority,
   AssignmentStatus,
 } from "@/types"
@@ -18,6 +20,7 @@ type AssignmentRow = {
   category: string | null
   priority: AssignmentPriority
   status: string
+  progress_stage: string | null
   due_date: Date | string | null
   due_time: Date | string | null
   progress: number
@@ -28,6 +31,7 @@ type AssignmentRow = {
 
 function mapAssignment(row: AssignmentRow): Assignment {
   const status = normalizeAssignmentStatus(row.status)
+  const progressStage = normalizeAssignmentProgressStage(row.progress_stage ?? row.status)
 
   return {
     id: row.id,
@@ -36,9 +40,10 @@ function mapAssignment(row: AssignmentRow): Assignment {
     category: row.category,
     priority: row.priority,
     status,
+    progressStage,
     dueDate: toDateInputValue(row.due_date),
     dueTime: toTimeInputValue(row.due_time),
-    progress: getAssignmentProgress(status),
+    progress: getAssignmentProgress(status, progressStage),
     notes: row.notes,
     createdAt: toIsoDateTime(row.created_at),
     updatedAt: toIsoDateTime(row.updated_at),
@@ -46,19 +51,36 @@ function mapAssignment(row: AssignmentRow): Assignment {
 }
 
 function normalizeInput(input: AssignmentInput): Required<AssignmentInput> {
-  const status = input.status ?? "not-started"
-  const progress = getAssignmentProgress(status)
+  const status = normalizeAssignmentStatus(input.status ?? "not-started")
+  const progressStage = normalizeInputProgressStage(status, input.progressStage)
+  const progress = getAssignmentProgress(status, progressStage)
 
   return {
     title: input.title.trim(),
     category: input.category?.trim() || null,
     priority: input.priority ?? "medium",
     status,
+    progressStage,
     dueDate: input.dueDate || null,
     dueTime: input.dueTime || null,
     progress,
     notes: input.notes?.trim() || null,
   }
+}
+
+function normalizeInputProgressStage(
+  status: AssignmentStatus,
+  progressStage?: AssignmentProgressStage,
+) {
+  if (status === "not-started") {
+    return "ai-draft"
+  }
+
+  if (status === "completed") {
+    return "final-review"
+  }
+
+  return normalizeAssignmentProgressStage(progressStage)
 }
 
 export async function getAll(userId: string) {
@@ -101,8 +123,8 @@ export async function create(userId: string, input: AssignmentInput) {
     const data = normalizeInput(input)
     const rows = await query<AssignmentRow>(
       `INSERT INTO assignments
-        (user_id, title, category, priority, status, due_date, due_time, progress, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        (user_id, title, category, priority, status, progress_stage, due_date, due_time, progress, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
         userId,
@@ -110,6 +132,7 @@ export async function create(userId: string, input: AssignmentInput) {
         data.category,
         data.priority,
         data.status,
+        data.progressStage,
         data.dueDate,
         data.dueTime,
         data.progress,
@@ -133,10 +156,11 @@ export async function update(userId: string, id: number, input: AssignmentInput)
            category = $4,
            priority = $5,
            status = $6,
-           due_date = $7,
-           due_time = $8,
-           progress = $9,
-           notes = $10,
+           progress_stage = $7,
+           due_date = $8,
+           due_time = $9,
+           progress = $10,
+           notes = $11,
            updated_at = NOW()
        WHERE user_id = $1 AND id = $2
        RETURNING *`,
@@ -147,6 +171,7 @@ export async function update(userId: string, id: number, input: AssignmentInput)
         data.category,
         data.priority,
         data.status,
+        data.progressStage,
         data.dueDate,
         data.dueTime,
         data.progress,
@@ -168,15 +193,30 @@ export async function updateStatus(
 ) {
   try {
     await initDb()
-    const progress = getAssignmentProgress(status)
+    const currentRows = await query<AssignmentRow>(
+      "SELECT * FROM assignments WHERE user_id = $1 AND id = $2 LIMIT 1",
+      [userId, id],
+    )
+    const [current] = currentRows
+    if (!current) {
+      return null
+    }
+
+    const nextStatus = normalizeAssignmentStatus(status)
+    const progressStage = normalizeInputProgressStage(
+      nextStatus,
+      normalizeAssignmentProgressStage(current.progress_stage ?? current.status),
+    )
+    const progress = getAssignmentProgress(nextStatus, progressStage)
     const rows = await query<AssignmentRow>(
       `UPDATE assignments
        SET status = $3,
-           progress = $4,
+           progress_stage = $4,
+           progress = $5,
            updated_at = NOW()
        WHERE user_id = $1 AND id = $2
        RETURNING *`,
-      [userId, id, status, progress],
+      [userId, id, nextStatus, progressStage, progress],
     )
     const row = rows[0]
     return row ? mapAssignment(row) : null
@@ -186,21 +226,30 @@ export async function updateStatus(
   }
 }
 
-export async function updateProgress(userId: string, id: number, progress: number) {
+export async function updateProgressStage(
+  userId: string,
+  id: number,
+  progressStage: AssignmentProgressStage,
+) {
   try {
     await initDb()
+    const nextProgressStage = normalizeAssignmentProgressStage(progressStage)
+    const status: AssignmentStatus = "ongoing"
+    const progress = getAssignmentProgress(status, nextProgressStage)
     const rows = await query<AssignmentRow>(
       `UPDATE assignments
-       SET progress = $3,
+       SET status = $3,
+           progress_stage = $4,
+           progress = $5,
            updated_at = NOW()
        WHERE user_id = $1 AND id = $2
        RETURNING *`,
-      [userId, id, Math.min(100, Math.max(0, Math.round(progress)))],
+      [userId, id, status, nextProgressStage, progress],
     )
     const row = rows[0]
     return row ? mapAssignment(row) : null
   } catch (error) {
-    console.error("Failed to update assignment progress", error)
+    console.error("Failed to update assignment progress stage", error)
     throw error
   }
 }
