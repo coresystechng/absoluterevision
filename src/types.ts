@@ -88,6 +88,11 @@ export type AssignmentFile = {
   updatedAt: string
 }
 
+export type AssignmentFileUpload = {
+  file: File
+  category: AssignmentFileCategory
+}
+
 export type UserProfile = {
   id: string
   email: string

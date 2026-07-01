@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
 import { cn } from "@/lib/utils"
-import type { Assignment, AssignmentInput, AssignmentType } from "@/types"
+import type { Assignment, AssignmentFileUpload, AssignmentInput, AssignmentType } from "@/types"
 
 const assignmentTypeIcons: Record<AssignmentType, LucideIcon> = {
   Design: Palette,
@@ -143,7 +143,10 @@ export function AssignmentCard({
   onDelete,
 }: {
   assignment: Assignment
-  onUpdate: (input: AssignmentInput) => Promise<void>
+  onUpdate: (
+    input: AssignmentInput,
+    files: AssignmentFileUpload[],
+  ) => Promise<{ fileUploadFailed?: boolean } | void>
   onDelete: () => Promise<void>
 }) {
   const navigate = useNavigate()

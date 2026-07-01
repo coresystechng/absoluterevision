@@ -18,9 +18,18 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAssignments } from "@/hooks/useAssignments"
+import { uploadAssignmentFileSelection } from "@/lib/assignment-file-uploads"
 import { assignmentStatuses, getAssignmentStatusLabel } from "@/lib/assignment-status"
 import { assignmentTypes, normalizeAssignmentType } from "@/lib/assignment-types"
-import type { Assignment, AssignmentInput, AssignmentPriority, AssignmentStatus, AssignmentType, AuthUser } from "@/types"
+import type {
+  Assignment,
+  AssignmentFileUpload,
+  AssignmentInput,
+  AssignmentPriority,
+  AssignmentStatus,
+  AssignmentType,
+  AuthUser,
+} from "@/types"
 
 type FilterValue<T extends string> = T | "all"
 type SortField = "deadline" | "name"
@@ -153,8 +162,26 @@ export function Dashboard({
     [assignments, filters, searchQuery, sortDirection, sortField],
   )
 
-  const createAssignment = async (input: AssignmentInput) => {
-    await create(input)
+  const uploadFiles = async (
+    assignmentId: number,
+    files: AssignmentFileUpload[],
+  ) => {
+    if (files.length === 0) {
+      return false
+    }
+
+    const result = await uploadAssignmentFileSelection({
+      userId: user.id,
+      actorName,
+      assignmentId,
+      files,
+    })
+    return result.failed > 0
+  }
+
+  const createAssignment = async (input: AssignmentInput, files: AssignmentFileUpload[]) => {
+    const assignment = await create(input)
+    return { fileUploadFailed: await uploadFiles(assignment.id, files) }
   }
 
   return (
@@ -302,7 +329,10 @@ export function Dashboard({
               <AssignmentCard
                 key={assignment.id}
                 assignment={assignment}
-                onUpdate={(input) => update(assignment.id, input).then(() => undefined)}
+                onUpdate={async (input, files) => {
+                  await update(assignment.id, input)
+                  return { fileUploadFailed: await uploadFiles(assignment.id, files) }
+                }}
                 onDelete={async () => {
                   await remove(assignment.id)
                   toast.error("Assignment deleted")

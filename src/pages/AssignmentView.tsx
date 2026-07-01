@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { uploadAssignmentFileSelection } from "@/lib/assignment-file-uploads"
 import {
   assignmentProgressStages,
   assignmentStatuses,
@@ -35,6 +36,7 @@ import type {
   Assignment,
   AssignmentActivity,
   AssignmentActivityAction,
+  AssignmentFileUpload,
   AssignmentInput,
   AssignmentProgressStage,
   AssignmentStatus,
@@ -151,6 +153,7 @@ export function AssignmentView({
   const [activities, setActivities] = useState<AssignmentActivity[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
+  const [filesVersion, setFilesVersion] = useState(0)
   const actorName = getActorName(user)
 
   const refreshActivities = useCallback(async () => {
@@ -187,11 +190,30 @@ export function AssignmentView({
     return <Navigate to="/dashboard" replace />
   }
 
-  const updateAssignment = async (input: AssignmentInput) => {
+  const uploadFiles = async (files: AssignmentFileUpload[]) => {
+    if (files.length === 0) {
+      return false
+    }
+
+    const result = await uploadAssignmentFileSelection({
+      userId: user.id,
+      actorName,
+      assignmentId: id,
+      files,
+    })
+    if (result.uploaded > 0) {
+      setFilesVersion((current) => current + 1)
+    }
+    return result.failed > 0
+  }
+
+  const updateAssignment = async (input: AssignmentInput, files: AssignmentFileUpload[]) => {
     const updated = await assignmentApi.update(user.id, id, input, actorName)
     if (updated) {
       setAssignment(updated)
+      const fileUploadFailed = await uploadFiles(files)
       await refreshActivities()
+      return { fileUploadFailed }
     }
   }
 
@@ -374,6 +396,7 @@ export function AssignmentView({
             </Card>
 
             <AssignmentFiles
+              key={`${assignment.id}-${filesVersion}`}
               assignmentId={assignment.id}
               user={user}
               actorName={actorName}

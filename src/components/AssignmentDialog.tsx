@@ -1,6 +1,8 @@
+import { FileUp, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -26,12 +28,18 @@ import {
   getAssignmentProgress,
 } from "@/lib/assignment-status"
 import {
+  assignmentFileCategories,
+  getAssignmentFileCategoryLabel,
+} from "@/lib/assignment-files"
+import {
   assignmentTypes,
   defaultAssignmentType,
   normalizeAssignmentType,
 } from "@/lib/assignment-types"
 import type {
   Assignment,
+  AssignmentFileCategory,
+  AssignmentFileUpload,
   AssignmentInput,
   AssignmentProgressStage,
   AssignmentPriority,
@@ -66,7 +74,10 @@ type AssignmentDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   assignment?: Assignment
-  onSave: (input: AssignmentInput) => Promise<void>
+  onSave: (
+    input: AssignmentInput,
+    files: AssignmentFileUpload[],
+  ) => Promise<{ fileUploadFailed?: boolean } | void>
 }
 
 export function AssignmentDialog({
@@ -76,11 +87,15 @@ export function AssignmentDialog({
   onSave,
 }: AssignmentDialogProps) {
   const [form, setForm] = useState(getInitialForm(assignment))
+  const [fileCategory, setFileCategory] = useState<AssignmentFileCategory>("brief")
+  const [selectedFiles, setSelectedFiles] = useState<AssignmentFileUpload[]>([])
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     if (open) {
       setForm(getInitialForm(assignment))
+      setFileCategory("brief")
+      setSelectedFiles([])
     }
   }, [assignment, open])
 
@@ -114,6 +129,25 @@ export function AssignmentDialog({
     }))
   }
 
+  const addSelectedFiles = (fileList: FileList | null) => {
+    const files = Array.from(fileList ?? [])
+    if (files.length === 0) {
+      return
+    }
+
+    setSelectedFiles((current) => [
+      ...current,
+      ...files.map((file) => ({
+        file,
+        category: fileCategory,
+      })),
+    ])
+  }
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles((current) => current.filter((_, currentIndex) => currentIndex !== index))
+  }
+
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!form.title.trim()) {
@@ -123,9 +157,13 @@ export function AssignmentDialog({
 
     setIsSaving(true)
     try {
-      await onSave(form)
+      const result = await onSave(form, selectedFiles)
       onOpenChange(false)
-      toast.success(assignment ? "Assignment updated" : "Assignment created")
+      if (result?.fileUploadFailed) {
+        toast.warning("Assignment saved, but some files could not be uploaded.")
+      } else {
+        toast.success(assignment ? "Assignment updated" : "Assignment created")
+      }
     } catch {
       toast.error("Something went wrong. Try again.")
     } finally {
@@ -135,7 +173,7 @@ export function AssignmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{assignment ? "Edit assignment" : "New assignment"}</DialogTitle>
           <DialogDescription>
@@ -254,6 +292,78 @@ export function AssignmentDialog({
               value={form.notes ?? ""}
               onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
             />
+          </div>
+
+          <div className="grid gap-3 rounded-md border p-3">
+            <div className="grid gap-1">
+              <Label>Assignment files</Label>
+              <p className="text-sm text-muted-foreground">
+                Attach briefs, notes, slides, guides, and drafts to this assignment.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div className="grid gap-2">
+                <Label htmlFor="file-category">File category</Label>
+                <Select
+                  value={fileCategory}
+                  onValueChange={(value) => setFileCategory(value as AssignmentFileCategory)}
+                >
+                  <SelectTrigger id="file-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {assignmentFileCategories.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="button" variant="outline" asChild>
+                <Label htmlFor="assignment-files" className="cursor-pointer">
+                  <FileUp className="h-4 w-4" />
+                  Choose files
+                </Label>
+              </Button>
+              <Input
+                id="assignment-files"
+                type="file"
+                multiple
+                className="sr-only"
+                onChange={(event) => {
+                  addSelectedFiles(event.currentTarget.files)
+                  event.currentTarget.value = ""
+                }}
+              />
+            </div>
+
+            {selectedFiles.length > 0 ? (
+              <div className="grid gap-2">
+                {selectedFiles.map((item, index) => (
+                  <div
+                    key={`${item.file.name}-${item.file.size}-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{item.file.name}</p>
+                      <Badge variant="outline" className="mt-1">
+                        {getAssignmentFileCategoryLabel(item.category)}
+                      </Badge>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Remove ${item.file.name}`}
+                      onClick={() => removeSelectedFile(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <DialogFooter>
