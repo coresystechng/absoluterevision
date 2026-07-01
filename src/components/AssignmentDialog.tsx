@@ -25,12 +25,18 @@ import {
   assignmentStatuses,
   getAssignmentProgress,
 } from "@/lib/assignment-status"
+import {
+  assignmentTypes,
+  defaultAssignmentType,
+  normalizeAssignmentType,
+} from "@/lib/assignment-types"
 import type {
   Assignment,
   AssignmentInput,
   AssignmentProgressStage,
   AssignmentPriority,
   AssignmentStatus,
+  AssignmentType,
 } from "@/types"
 
 const priorityOptions: Array<{ value: AssignmentPriority; label: string }> = [
@@ -45,7 +51,7 @@ function getInitialForm(assignment?: Assignment): Required<AssignmentInput> {
 
   return {
     title: assignment?.title ?? "",
-    category: assignment?.category ?? "",
+    category: normalizeAssignmentType(assignment?.category),
     priority: assignment?.priority ?? "medium",
     status,
     progressStage,
@@ -150,13 +156,22 @@ export function AssignmentDialog({
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="grid gap-2">
-              <Label htmlFor="category">Category</Label>
-              <Input
-                id="category"
-                value={form.category ?? ""}
-                onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-                placeholder="Writing, Maths, Science"
-              />
+              <Label htmlFor="assignment-type">Type</Label>
+              <Select
+                value={form.category ?? defaultAssignmentType}
+                onValueChange={(value) => setForm((current) => ({ ...current, category: value as AssignmentType }))}
+              >
+                <SelectTrigger id="assignment-type">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {assignmentTypes.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="dueDate">Due date</Label>

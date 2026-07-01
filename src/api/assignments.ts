@@ -5,6 +5,7 @@ import {
   normalizeAssignmentStatus,
   normalizeAssignmentProgressStage,
 } from "@/lib/assignment-status"
+import { normalizeAssignmentType } from "@/lib/assignment-types"
 import type {
   Assignment,
   AssignmentInput,
@@ -37,7 +38,7 @@ function mapAssignment(row: AssignmentRow): Assignment {
     id: row.id,
     userId: row.user_id,
     title: row.title,
-    category: row.category,
+    category: normalizeAssignmentType(row.category),
     priority: row.priority,
     status,
     progressStage,
@@ -57,7 +58,7 @@ function normalizeInput(input: AssignmentInput): Required<AssignmentInput> {
 
   return {
     title: input.title.trim(),
-    category: input.category?.trim() || null,
+    category: normalizeAssignmentType(input.category),
     priority: input.priority ?? "medium",
     status,
     progressStage,

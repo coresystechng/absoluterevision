@@ -59,6 +59,21 @@ export function initDb() {
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS progress_stage TEXT NOT NULL DEFAULT 'ai-draft'")
     await query(`
       UPDATE assignments
+      SET category = CASE LOWER(TRIM(category))
+        WHEN 'design' THEN 'Design'
+        WHEN 'copywriting' THEN 'Copywriting'
+        WHEN 'writing' THEN 'Copywriting'
+        WHEN 'copy writing' THEN 'Copywriting'
+        WHEN 'copy-writing' THEN 'Copywriting'
+        WHEN 'dissertation' THEN 'Dissertation'
+        WHEN 'presentation' THEN 'Presentation'
+        ELSE 'Assignment'
+      END
+      WHERE category IS NULL
+        OR category NOT IN ('Design', 'Copywriting', 'Dissertation', 'Assignment', 'Presentation')
+    `)
+    await query(`
+      UPDATE assignments
       SET progress_stage = CASE status
         WHEN 'ai-draft' THEN 'ai-draft'
         WHEN 'humaned' THEN 'humaned'

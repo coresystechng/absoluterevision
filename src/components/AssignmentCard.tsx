@@ -1,5 +1,17 @@
 import { isAfter, isBefore, parseISO } from "date-fns"
-import { CalendarClock, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import {
+  CalendarClock,
+  CheckCircle2,
+  ClipboardList,
+  GraduationCap,
+  MoreHorizontal,
+  Palette,
+  Pencil,
+  PenLine,
+  Presentation,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
@@ -13,21 +25,36 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  getAssignmentProgressLabel,
-  getAssignmentStatusLabel,
-} from "@/lib/assignment-status"
-import { cn, getProgressBadgeStyle, titleCase } from "@/lib/utils"
-import type { Assignment, AssignmentInput } from "@/types"
+import { normalizeAssignmentType } from "@/lib/assignment-types"
+import { cn } from "@/lib/utils"
+import type { Assignment, AssignmentInput, AssignmentType } from "@/types"
 
-function priorityDot(priority: Assignment["priority"]) {
+const assignmentTypeIcons: Record<AssignmentType, LucideIcon> = {
+  Design: Palette,
+  Copywriting: PenLine,
+  Dissertation: GraduationCap,
+  Assignment: ClipboardList,
+  Presentation,
+}
+
+function statusTone(status: Assignment["status"]) {
+  if (status === "completed") {
+    return "text-emerald-600 dark:text-emerald-400"
+  }
+  if (status === "ongoing") {
+    return "text-amber-600 dark:text-amber-400"
+  }
+  return "text-muted-foreground"
+}
+
+function priorityBadgeTone(priority: Assignment["priority"]) {
   if (priority === "high") {
-    return "bg-red-500"
+    return "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
   }
   if (priority === "medium") {
-    return "bg-yellow-400"
+    return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-300"
   }
-  return "bg-white ring-1 ring-border"
+  return "border-border bg-transparent text-muted-foreground"
 }
 
 function dueDateTime(assignment: Assignment) {
@@ -40,7 +67,10 @@ function dueDateTime(assignment: Assignment) {
 
 function dueTone(assignment: Assignment) {
   const due = dueDateTime(assignment)
-  if (!due || assignment.status === "completed") {
+  if (assignment.status === "completed") {
+    return "text-foreground"
+  }
+  if (!due) {
     return "text-muted-foreground"
   }
 
@@ -59,6 +89,10 @@ function dueTone(assignment: Assignment) {
 }
 
 function getTimeLeftLabel(assignment: Assignment) {
+  if (assignment.status === "completed") {
+    return "Submitted"
+  }
+
   const due = dueDateTime(assignment)
   if (!due) {
     return "No deadline"
@@ -100,6 +134,8 @@ export function AssignmentCard({
 }) {
   const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
+  const assignmentType = normalizeAssignmentType(assignment.category)
+  const AssignmentTypeIcon = assignmentTypeIcons[assignmentType]
 
   return (
     <>
@@ -114,20 +150,25 @@ export function AssignmentCard({
           }
         }}
       >
-        <CardContent className="grid gap-4 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
+        <CardContent className="flex h-full flex-col gap-4 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span
-                  className={cn("h-2.5 w-2.5 shrink-0 rounded-full", priorityDot(assignment.priority))}
-                  aria-label={`${titleCase(assignment.priority)} priority`}
+                <AssignmentTypeIcon
+                  className={cn("h-5 w-5 shrink-0", statusTone(assignment.status))}
+                  aria-label={`${assignmentType} assignment type`}
                 />
-                <h3 className="truncate text-base font-semibold">{assignment.title}</h3>
+                <h3 className={cn("truncate text-base font-semibold", statusTone(assignment.status))}>
+                  {assignment.title}
+                </h3>
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{getAssignmentStatusLabel(assignment.status)}</Badge>
-                <Badge variant="outline">{getAssignmentProgressLabel(assignment.progressStage)}</Badge>
-                {assignment.category ? <Badge variant="outline">{assignment.category}</Badge> : null}
+              <div className={cn("mt-2 flex items-center gap-2 text-sm", dueTone(assignment))}>
+                {assignment.status === "completed" ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <CalendarClock className="h-4 w-4" />
+                )}
+                <span>{getTimeLeftLabel(assignment)}</span>
               </div>
             </div>
             <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
@@ -157,14 +198,18 @@ export function AssignmentCard({
             </div>
           </div>
 
-          <div className={cn("flex items-center gap-2 text-sm", dueTone(assignment))}>
-            <CalendarClock className="h-4 w-4" />
-            <span>{getTimeLeftLabel(assignment)}</span>
-          </div>
+          {assignment.notes ? (
+            <p className="line-clamp-2 min-h-10 text-sm leading-5 text-muted-foreground">
+              {assignment.notes}
+            </p>
+          ) : null}
 
-          <div className="flex items-center justify-end">
-            <Badge className="rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm" style={getProgressBadgeStyle(assignment.progress)}>
-              {assignment.progress}%
+          <div className="mt-auto flex items-center justify-end">
+            <Badge
+              variant="outline"
+              className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", priorityBadgeTone(assignment.priority))}
+            >
+              {assignment.priority.toUpperCase()}
             </Badge>
           </div>
         </CardContent>

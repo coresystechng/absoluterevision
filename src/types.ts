@@ -1,4 +1,11 @@
 export type AssignmentPriority = "high" | "medium" | "low"
+export type AssignmentType =
+  | "Design"
+  | "Copywriting"
+  | "Dissertation"
+  | "Assignment"
+  | "Presentation"
+
 export type AssignmentStatus =
   | "not-started"
   | "ongoing"
@@ -16,7 +23,7 @@ export type Assignment = {
   id: number
   userId: string
   title: string
-  category: string | null
+  category: AssignmentType | null
   priority: AssignmentPriority
   status: AssignmentStatus
   progressStage: AssignmentProgressStage
@@ -30,7 +37,7 @@ export type Assignment = {
 
 export type AssignmentInput = {
   title: string
-  category?: string | null
+  category?: AssignmentType | null
   priority?: AssignmentPriority
   status?: AssignmentStatus
   progressStage?: AssignmentProgressStage

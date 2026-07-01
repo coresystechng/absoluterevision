@@ -1,5 +1,5 @@
 import { format, parseISO } from "date-fns"
-import { ArrowLeft, CalendarClock, Pencil, Trash2 } from "lucide-react"
+import { ArrowLeft, CalendarClock, CheckCircle2, Pencil, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -28,6 +28,7 @@ import {
   getAssignmentProgressLabel,
   getAssignmentStatusLabel,
 } from "@/lib/assignment-status"
+import { normalizeAssignmentType } from "@/lib/assignment-types"
 import { getProgressBadgeStyle, titleCase } from "@/lib/utils"
 import type { Assignment, AssignmentInput, AssignmentProgressStage, AssignmentStatus, AuthUser } from "@/types"
 
@@ -42,7 +43,7 @@ function dueDateTime(assignment: Assignment) {
 function dueTone(assignment: Assignment) {
   const due = dueDateTime(assignment)
   if (!due || assignment.status === "completed") {
-    return "text-muted-foreground"
+    return assignment.status === "completed" ? "text-foreground" : "text-muted-foreground"
   }
 
   const today = new Date()
@@ -60,6 +61,10 @@ function dueTone(assignment: Assignment) {
 }
 
 function getTimeLeftLabel(assignment: Assignment) {
+  if (assignment.status === "completed") {
+    return "Submitted"
+  }
+
   const due = dueDateTime(assignment)
   if (!due) {
     return "No deadline"
@@ -164,6 +169,8 @@ export function AssignmentView({
     }
   }
 
+  const assignmentType = assignment ? normalizeAssignmentType(assignment.category) : null
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar user={user} onSignOut={onSignOut} />
@@ -188,7 +195,7 @@ export function AssignmentView({
                   <Badge>{titleCase(assignment.priority)}</Badge>
                   <Badge variant="secondary">{getAssignmentStatusLabel(assignment.status)}</Badge>
                   <Badge variant="outline">{getAssignmentProgressLabel(assignment.progressStage)}</Badge>
-                  {assignment.category ? <Badge variant="outline">{assignment.category}</Badge> : null}
+                  <Badge variant="outline">{assignmentType}</Badge>
                 </div>
                 <h1 className="text-3xl font-semibold tracking-normal">{assignment.title}</h1>
               </div>
@@ -217,13 +224,17 @@ export function AssignmentView({
               <CardContent className="grid gap-6">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-sm text-muted-foreground">Category</p>
-                    <p className="mt-1 font-medium">{assignment.category || "Not set"}</p>
+                    <p className="text-sm text-muted-foreground">Type</p>
+                    <p className="mt-1 font-medium">{assignmentType}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Deadline</p>
                     <div className={`mt-1 flex items-center gap-2 text-sm ${dueTone(assignment)}`}>
-                      <CalendarClock className="h-4 w-4" />
+                      {assignment.status === "completed" ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <CalendarClock className="h-4 w-4" />
+                      )}
                       <span>{getTimeLeftLabel(assignment)}</span>
                     </div>
                   </div>

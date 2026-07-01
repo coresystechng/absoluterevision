@@ -102,7 +102,7 @@ export function Dashboard({
           <Input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search assignments, status, progress, priority, category, or notes"
+            placeholder="Search assignments, status, progress, priority, type, or notes"
             className="h-11 pl-9"
             aria-label="Search assignments"
           />
