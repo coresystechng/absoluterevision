@@ -77,6 +77,10 @@ export function Settings({
               <Label htmlFor="email">Email</Label>
               <Input id="email" value={user.email} readOnly />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="accountId">Account ID</Label>
+              <Input id="accountId" value={user.id} readOnly />
+            </div>
             <Button className="w-fit" onClick={() => void saveProfile()} disabled={isSaving}>
               {isSaving ? "Saving..." : "Save profile"}
             </Button>

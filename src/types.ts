@@ -19,6 +19,19 @@ export type AssignmentProgressStage =
   | "text-format"
   | "final-review"
 
+export type AssignmentActivityAction = "created" | "updated"
+
+export type AssignmentFileCategory =
+  | "brief"
+  | "lecture-notes"
+  | "slides"
+  | "guide"
+  | "draft"
+  | "final"
+  | "other"
+
+export type AssignmentFileStatus = "uploading" | "ready" | "failed" | "deleted"
+
 export type Assignment = {
   id: number
   userId: string
@@ -45,6 +58,34 @@ export type AssignmentInput = {
   dueTime?: string | null
   progress?: number
   notes?: string | null
+}
+
+export type AssignmentActivity = {
+  id: number
+  assignmentId: number
+  userId: string
+  actorName: string
+  action: AssignmentActivityAction
+  message: string
+  createdAt: string
+}
+
+export type AssignmentFile = {
+  id: number
+  assignmentId: number
+  userId: string
+  provider: "dropbox"
+  providerFileId: string
+  providerFolderId: string | null
+  name: string
+  mimeType: string
+  sizeBytes: number
+  category: AssignmentFileCategory
+  webViewLink: string | null
+  webContentLink: string | null
+  status: AssignmentFileStatus
+  createdAt: string
+  updatedAt: string
 }
 
 export type UserProfile = {

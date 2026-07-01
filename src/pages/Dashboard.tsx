@@ -9,31 +9,67 @@ import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAssignments, type AssignmentFilter } from "@/hooks/useAssignments"
-import { getAssignmentProgressLabel, getAssignmentStatusLabel } from "@/lib/assignment-status"
-import type { Assignment, AssignmentInput, AuthUser } from "@/types"
+import { useAssignments } from "@/hooks/useAssignments"
+import { assignmentStatuses, getAssignmentStatusLabel } from "@/lib/assignment-status"
+import { assignmentTypes, normalizeAssignmentType } from "@/lib/assignment-types"
+import type { Assignment, AssignmentInput, AssignmentPriority, AssignmentStatus, AssignmentType, AuthUser } from "@/types"
 
-const filters: Array<{ value: AssignmentFilter; label: string }> = [
-  { value: "all", label: "All" },
-  { value: "not-started", label: "Not Started" },
-  { value: "ongoing", label: "Ongoing" },
-  { value: "completed", label: "Completed" },
-  { value: "high-priority", label: "High priority" },
-]
+type FilterValue<T extends string> = T | "all"
+type SortField = "deadline" | "name"
+type SortDirection = "asc" | "desc"
 
-function isOverdue(assignment: Assignment) {
-  if (!assignment.dueDate || assignment.status === "completed") return false
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return new Date(`${assignment.dueDate}T${assignment.dueTime ?? "00:00"}`) < today
+type DashboardFilters = {
+  type: FilterValue<AssignmentType>
+  priority: FilterValue<AssignmentPriority>
+  status: FilterValue<AssignmentStatus>
 }
 
-function matchesFilter(filter: AssignmentFilter, assignment: Assignment) {
-  if (filter === "all") return true
-  if (filter === "high-priority") return assignment.priority === "high" && assignment.status !== "completed"
-  if (filter === "overdue") return isOverdue(assignment)
-  return assignment.status === filter
+const priorityOptions: Array<{ value: AssignmentPriority; label: string }> = [
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+]
+
+const sortFieldOptions: Array<{ value: SortField; label: string }> = [
+  { value: "deadline", label: "Deadline" },
+  { value: "name", label: "Assignment Name" },
+]
+
+const sortDirectionOptions: Array<{ value: SortDirection; label: string }> = [
+  { value: "asc", label: "Ascending" },
+  { value: "desc", label: "Descending" },
+]
+
+const defaultFilters: DashboardFilters = {
+  type: "all",
+  priority: "all",
+  status: "ongoing",
+}
+
+function getDeadlineTime(assignment: Assignment) {
+  if (!assignment.dueDate) {
+    return null
+  }
+
+  return new Date(`${assignment.dueDate}T${assignment.dueTime ?? "00:00"}`).getTime()
+}
+
+function matchesFilters(filters: DashboardFilters, assignment: Assignment) {
+  const assignmentType = normalizeAssignmentType(assignment.category)
+
+  return (
+    (filters.type === "all" || assignmentType === filters.type) &&
+    (filters.priority === "all" || assignment.priority === filters.priority) &&
+    (filters.status === "all" || assignment.status === filters.status)
+  )
 }
 
 function matchesSearch(assignment: Assignment, query: string) {
@@ -42,14 +78,50 @@ function matchesSearch(assignment: Assignment, query: string) {
 
   return [
     assignment.title,
-    assignment.category,
+    normalizeAssignmentType(assignment.category),
     assignment.priority,
     getAssignmentStatusLabel(assignment.status),
-    getAssignmentProgressLabel(assignment.progressStage),
     assignment.notes,
   ]
     .filter(Boolean)
     .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+}
+
+function compareAssignments(
+  a: Assignment,
+  b: Assignment,
+  sortField: SortField,
+  sortDirection: SortDirection,
+) {
+  const direction = sortDirection === "asc" ? 1 : -1
+
+  if (sortField === "name") {
+    return a.title.localeCompare(b.title, undefined, { sensitivity: "base" }) * direction
+  }
+
+  const deadlineA = getDeadlineTime(a)
+  const deadlineB = getDeadlineTime(b)
+
+  if (deadlineA === null && deadlineB === null) {
+    return a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
+  }
+  if (deadlineA === null) {
+    return 1
+  }
+  if (deadlineB === null) {
+    return -1
+  }
+
+  const deadlineComparison = deadlineA - deadlineB
+  if (deadlineComparison !== 0) {
+    return deadlineComparison * direction
+  }
+
+  return a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
+}
+
+function getActorName(user: AuthUser) {
+  return user.displayName?.trim() || user.email.split("@")[0] || "User"
 }
 
 export function Dashboard({
@@ -59,10 +131,13 @@ export function Dashboard({
   user: AuthUser
   onSignOut: () => void | Promise<void>
 }) {
-  const [filter, setFilter] = useState<AssignmentFilter>("all")
+  const [filters, setFilters] = useState<DashboardFilters>(defaultFilters)
+  const [sortField, setSortField] = useState<SortField>("deadline")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [searchQuery, setSearchQuery] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
-  const { assignments, isLoading, error, reload, create, update, remove } = useAssignments(user.id)
+  const actorName = getActorName(user)
+  const { assignments, isLoading, error, reload, create, update, remove } = useAssignments(user.id, actorName)
 
   useEffect(() => {
     void getOrCreateUser(user)
@@ -72,10 +147,10 @@ export function Dashboard({
 
   const filteredAssignments = useMemo(
     () =>
-      assignments.filter(
-        (assignment) => matchesFilter(filter, assignment) && matchesSearch(assignment, searchQuery),
-      ),
-    [assignments, filter, searchQuery],
+      [...assignments]
+        .filter((assignment) => matchesFilters(filters, assignment) && matchesSearch(assignment, searchQuery))
+        .sort((a, b) => compareAssignments(a, b, sortField, sortDirection)),
+    [assignments, filters, searchQuery, sortDirection, sortField],
   )
 
   const createAssignment = async (input: AssignmentInput) => {
@@ -89,7 +164,7 @@ export function Dashboard({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-normal">Dashboard</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Assignments sorted by priority and due date.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Filter and sort assignments by the work that matters now.</p>
           </div>
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -102,24 +177,110 @@ export function Dashboard({
           <Input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search assignments, status, progress, priority, type, or notes"
+            placeholder="Search assignments, type, priority, status, or notes"
             className="h-11 pl-9"
             aria-label="Search assignments"
           />
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {filters.map((item) => (
-            <Button
-              key={item.value}
-              type="button"
-              size="sm"
-              variant={filter === item.value ? "default" : "outline"}
-              onClick={() => setFilter(item.value)}
+        <div className="grid gap-3 rounded-md border bg-card p-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-2">
+            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Assignment Type</span>
+            <Select
+              value={filters.type}
+              onValueChange={(value) =>
+                setFilters((current) => ({ ...current, type: value as DashboardFilters["type"] }))
+              }
             >
-              {item.label}
-            </Button>
-          ))}
+              <SelectTrigger aria-label="Filter by assignment type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {assignmentTypes.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Priority</span>
+            <Select
+              value={filters.priority}
+              onValueChange={(value) =>
+                setFilters((current) => ({ ...current, priority: value as DashboardFilters["priority"] }))
+              }
+            >
+              <SelectTrigger aria-label="Filter by priority">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priorities</SelectItem>
+                {priorityOptions.map((priority) => (
+                  <SelectItem key={priority.value} value={priority.value}>
+                    {priority.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Status</span>
+            <Select
+              value={filters.status}
+              onValueChange={(value) =>
+                setFilters((current) => ({ ...current, status: value as DashboardFilters["status"] }))
+              }
+            >
+              <SelectTrigger aria-label="Filter by status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                {assignmentStatuses.map((status) => (
+                  <SelectItem key={status.value} value={status.value}>
+                    {status.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Sort By</span>
+            <Select value={sortField} onValueChange={(value) => setSortField(value as SortField)}>
+              <SelectTrigger aria-label="Sort assignments by">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sortFieldOptions.map((field) => (
+                  <SelectItem key={field.value} value={field.value}>
+                    {field.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Order</span>
+            <Select value={sortDirection} onValueChange={(value) => setSortDirection(value as SortDirection)}>
+              <SelectTrigger aria-label="Sort direction">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sortDirectionOptions.map((direction) => (
+                  <SelectItem key={direction.value} value={direction.value}>
+                    {direction.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {error ? (

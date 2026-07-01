@@ -55,8 +55,55 @@ export function initDb() {
       )
     `)
 
+    await query(`
+      CREATE TABLE IF NOT EXISTS assignment_activities (
+        id SERIAL PRIMARY KEY,
+        assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        actor_name TEXT NOT NULL,
+        action TEXT NOT NULL DEFAULT 'updated',
+        message TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS assignment_storage_folders (
+        id SERIAL PRIMARY KEY,
+        assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL DEFAULT 'dropbox',
+        provider_folder_id TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (assignment_id, user_id, provider)
+      )
+    `)
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS assignment_files (
+        id SERIAL PRIMARY KEY,
+        assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL DEFAULT 'dropbox',
+        provider_file_id TEXT NOT NULL,
+        provider_folder_id TEXT,
+        name TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        size_bytes BIGINT NOT NULL DEFAULT 0,
+        category TEXT NOT NULL DEFAULT 'other',
+        web_view_link TEXT,
+        web_content_link TEXT,
+        status TEXT NOT NULL DEFAULT 'ready',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (provider, provider_file_id)
+      )
+    `)
+
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS due_time TIME")
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS progress_stage TEXT NOT NULL DEFAULT 'ai-draft'")
+    await query("ALTER TABLE assignment_activities ADD COLUMN IF NOT EXISTS action TEXT NOT NULL DEFAULT 'updated'")
     await query(`
       UPDATE assignments
       SET category = CASE LOWER(TRIM(category))

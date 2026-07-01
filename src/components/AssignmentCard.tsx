@@ -52,9 +52,23 @@ function priorityBadgeTone(priority: Assignment["priority"]) {
     return "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
   }
   if (priority === "medium") {
-    return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-300"
+    return "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-900 dark:bg-yellow-950 dark:text-yellow-300"
   }
   return "border-border bg-transparent text-muted-foreground"
+}
+
+function priorityLabel(priority: Assignment["priority"]) {
+  if (priority === "high") {
+    return "High"
+  }
+  if (priority === "medium") {
+    return "Medium"
+  }
+  return "Low"
+}
+
+function priorityInitial(priority: Assignment["priority"]) {
+  return priority.charAt(0).toUpperCase()
 }
 
 function dueDateTime(assignment: Assignment) {
@@ -204,12 +218,20 @@ export function AssignmentCard({
             </p>
           ) : null}
 
-          <div className="mt-auto flex items-center justify-end">
+          <div className="mt-auto flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-muted-foreground">
+              {assignment.progress}%
+            </span>
             <Badge
               variant="outline"
-              className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", priorityBadgeTone(assignment.priority))}
+              className={cn(
+                "h-7 w-7 justify-center rounded-full px-0 text-xs font-semibold",
+                priorityBadgeTone(assignment.priority),
+              )}
+              aria-label={`${priorityLabel(assignment.priority)} priority`}
+              title={priorityLabel(assignment.priority)}
             >
-              {assignment.priority.toUpperCase()}
+              {priorityInitial(assignment.priority)}
             </Badge>
           </div>
         </CardContent>

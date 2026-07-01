@@ -1,10 +1,11 @@
 import { format, parseISO } from "date-fns"
 import { ArrowLeft, CalendarClock, CheckCircle2, Pencil, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import * as assignmentApi from "@/api/assignments"
+import { AssignmentFiles } from "@/components/AssignmentFiles"
 import { getOrCreateUser } from "@/api/users"
 import { AssignmentDialog } from "@/components/AssignmentDialog"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
@@ -30,7 +31,22 @@ import {
 } from "@/lib/assignment-status"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
 import { getProgressBadgeStyle, titleCase } from "@/lib/utils"
-import type { Assignment, AssignmentInput, AssignmentProgressStage, AssignmentStatus, AuthUser } from "@/types"
+import type {
+  Assignment,
+  AssignmentActivity,
+  AssignmentActivityAction,
+  AssignmentInput,
+  AssignmentProgressStage,
+  AssignmentStatus,
+  AuthUser,
+} from "@/types"
+
+type ActivityTimelineItem = {
+  id: number | string
+  action: AssignmentActivityAction
+  message: string
+  createdAt: string
+}
 
 function dueDateTime(assignment: Assignment) {
   if (!assignment.dueDate) {
@@ -95,6 +111,32 @@ function getTimeLeftLabel(assignment: Assignment) {
   return "Due soon"
 }
 
+function getActorName(user: AuthUser) {
+  return user.displayName?.trim() || user.email.split("@")[0] || "User"
+}
+
+function getActivityItems(
+  assignment: Assignment,
+  activities: AssignmentActivity[],
+  actorName: string,
+): ActivityTimelineItem[] {
+  const hasCreatedActivity = activities.some((activity) => activity.action === "created")
+  const syntheticCreatedActivity: ActivityTimelineItem = {
+    id: "created",
+    action: "created",
+    message: `${actorName} created the assignment`,
+    createdAt: assignment.createdAt,
+  }
+
+  return [
+    ...(hasCreatedActivity ? [] : [syntheticCreatedActivity]),
+    ...activities,
+  ].sort(
+    (a, b) =>
+      parseISO(a.createdAt).getTime() - parseISO(b.createdAt).getTime(),
+  )
+}
+
 export function AssignmentView({
   user,
   onSignOut,
@@ -106,8 +148,18 @@ export function AssignmentView({
   const navigate = useNavigate()
   const id = Number(params.id)
   const [assignment, setAssignment] = useState<Assignment | null>(null)
+  const [activities, setActivities] = useState<AssignmentActivity[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
+  const actorName = getActorName(user)
+
+  const refreshActivities = useCallback(async () => {
+    if (!Number.isFinite(id)) {
+      return
+    }
+
+    setActivities(await assignmentApi.getActivities(user.id, id))
+  }, [id, user.id])
 
   useEffect(() => {
     if (!Number.isFinite(id)) {
@@ -115,10 +167,17 @@ export function AssignmentView({
     }
 
     setIsLoading(true)
+    setActivities([])
     void getOrCreateUser(user)
-      .then(() => assignmentApi.getById(user.id, id))
-      .then((result) => {
+      .then(() =>
+        Promise.all([
+          assignmentApi.getById(user.id, id),
+          assignmentApi.getActivities(user.id, id),
+        ]),
+      )
+      .then(([result, activityResult]) => {
         setAssignment(result)
+        setActivities(activityResult)
       })
       .catch(() => toast.error("Something went wrong. Try again."))
       .finally(() => setIsLoading(false))
@@ -129,17 +188,19 @@ export function AssignmentView({
   }
 
   const updateAssignment = async (input: AssignmentInput) => {
-    const updated = await assignmentApi.update(user.id, id, input)
+    const updated = await assignmentApi.update(user.id, id, input, actorName)
     if (updated) {
       setAssignment(updated)
+      await refreshActivities()
     }
   }
 
   const updateStatus = async (status: AssignmentStatus) => {
     try {
-      const updated = await assignmentApi.updateStatus(user.id, id, status)
+      const updated = await assignmentApi.updateStatus(user.id, id, status, actorName)
       if (updated) {
         setAssignment(updated)
+        await refreshActivities()
         toast.success(status === "completed" ? "Marked as complete" : "Assignment updated")
       }
     } catch {
@@ -149,9 +210,10 @@ export function AssignmentView({
 
   const updateProgressStage = async (progressStage: AssignmentProgressStage) => {
     try {
-      const updated = await assignmentApi.updateProgressStage(user.id, id, progressStage)
+      const updated = await assignmentApi.updateProgressStage(user.id, id, progressStage, actorName)
       if (updated) {
         setAssignment(updated)
+        await refreshActivities()
         toast.success("Progress updated")
       }
     } catch {
@@ -170,6 +232,9 @@ export function AssignmentView({
   }
 
   const assignmentType = assignment ? normalizeAssignmentType(assignment.category) : null
+  const activityItems = assignment
+    ? getActivityItems(assignment, activities, actorName)
+    : []
 
   return (
     <div className="min-h-screen bg-background">
@@ -304,6 +369,38 @@ export function AssignmentView({
                 <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
                   <p>Created at {format(parseISO(assignment.createdAt), "MMM d, yyyy h:mm a")}</p>
                   <p>Last updated {format(parseISO(assignment.updatedAt), "MMM d, yyyy h:mm a")}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <AssignmentFiles
+              assignmentId={assignment.id}
+              user={user}
+              actorName={actorName}
+              onActivityChange={refreshActivities}
+            />
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Activity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-1">
+                  {activityItems.map((activity) => (
+                    <div
+                      key={`${activity.id}-${activity.createdAt}`}
+                      className="relative border-l pb-5 pl-5 last:pb-0"
+                    >
+                      <span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full border bg-background" />
+                      <p className="text-sm leading-6">{activity.message}</p>
+                      <time
+                        className="mt-1 block text-xs text-muted-foreground"
+                        dateTime={activity.createdAt}
+                      >
+                        {format(parseISO(activity.createdAt), "MMM d, yyyy h:mm a")}
+                      </time>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>

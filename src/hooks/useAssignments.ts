@@ -20,7 +20,7 @@ function isOverdue(assignment: Assignment) {
   return new Date(`${assignment.dueDate}T00:00:00`) < today
 }
 
-export function useAssignments(userId: string | null) {
+export function useAssignments(userId: string | null, actorName?: string | null) {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -53,7 +53,7 @@ export function useAssignments(userId: string | null) {
         if (!userId) {
           throw new Error("Missing user")
         }
-        const assignment = await assignmentApi.create(userId, input)
+        const assignment = await assignmentApi.create(userId, input, actorName)
         await reload()
         return assignment
       },
@@ -61,7 +61,7 @@ export function useAssignments(userId: string | null) {
         if (!userId) {
           throw new Error("Missing user")
         }
-        const assignment = await assignmentApi.update(userId, id, input)
+        const assignment = await assignmentApi.update(userId, id, input, actorName)
         await reload()
         return assignment
       },
@@ -69,7 +69,7 @@ export function useAssignments(userId: string | null) {
         if (!userId) {
           throw new Error("Missing user")
         }
-        const assignment = await assignmentApi.updateStatus(userId, id, status)
+        const assignment = await assignmentApi.updateStatus(userId, id, status, actorName)
         await reload()
         return assignment
       },
@@ -77,7 +77,7 @@ export function useAssignments(userId: string | null) {
         if (!userId) {
           throw new Error("Missing user")
         }
-        const assignment = await assignmentApi.updateProgressStage(userId, id, progressStage)
+        const assignment = await assignmentApi.updateProgressStage(userId, id, progressStage, actorName)
         await reload()
         return assignment
       },
@@ -89,7 +89,7 @@ export function useAssignments(userId: string | null) {
         await reload()
       },
     }),
-    [reload, userId],
+    [actorName, reload, userId],
   )
 
   return { assignments, isLoading, error, reload, isOverdue, ...actions }
