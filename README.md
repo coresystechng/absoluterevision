@@ -68,11 +68,18 @@ files.content.read
 https://your-domain.com/api/dropbox/callback
 ```
 
+For local testing with `npm run dev`, also add:
+
+```bash
+http://localhost:5173/api/dropbox/callback
+```
+
 5. Copy the app key and app secret into `DROPBOX_CLIENT_ID` and `DROPBOX_CLIENT_SECRET`.
 
 Environment notes:
 
 - `DROPBOX_OWNER_USER_ID` must match `VITE_DROPBOX_OWNER_USER_ID`.
+- These owner ID values must be your Absolute Revision app account ID from **Settings > Account ID**, not your Dropbox `dbid`.
 - `DROPBOX_TOKEN_ENCRYPTION_KEY` should be a strong random value, preferably 32 bytes of base64.
 - `DROPBOX_REDIRECT_URI` must match the Dropbox OAuth callback URL.
 - `DROPBOX_ROOT_PATH` is optional and defaults to `/Absolute Revision`.
