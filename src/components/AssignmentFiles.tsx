@@ -55,6 +55,7 @@ type AssignmentFilesProps = {
 type DropboxStatus = {
   isConfigured: boolean
   isConnected: boolean
+  missingKeys?: string[]
 }
 
 type FileVisual = {
@@ -192,6 +193,7 @@ export function AssignmentFiles({
 }: AssignmentFilesProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState<DropboxStatus | null>(null)
+  const [statusError, setStatusError] = useState<string | null>(null)
   const [files, setFiles] = useState<AssignmentFile[]>([])
   const [category, setCategory] = useState<AssignmentFileCategory>("brief")
   const [isLoading, setIsLoading] = useState(true)
@@ -203,12 +205,14 @@ export function AssignmentFiles({
   const loadFiles = useCallback(async () => {
     if (!isOwner) {
       setStatus({ isConfigured: Boolean(ownerUserId), isConnected: false })
+      setStatusError(null)
       setFiles([])
       setIsLoading(false)
       return
     }
 
     setIsLoading(true)
+    setStatusError(null)
     try {
       const dropboxStatus = await getDropboxStatus(user.id)
       setStatus(dropboxStatus)
@@ -218,8 +222,11 @@ export function AssignmentFiles({
         setFiles([])
       }
     } catch (error) {
+      setStatus(null)
       setFiles([])
-      toast.error(error instanceof Error ? error.message : "Could not load assignment files.")
+      const message = error instanceof Error ? error.message : "Could not load assignment files."
+      setStatusError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -344,9 +351,22 @@ export function AssignmentFiles({
               and <span className="font-medium text-foreground">DROPBOX_OWNER_USER_ID</span>, then restart the dev server.
             </p>
           </div>
+        ) : statusError ? (
+          <div className="grid gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">Could not check Dropbox connection.</p>
+            <p>{statusError}</p>
+          </div>
         ) : !status?.isConfigured ? (
-          <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
-            Dropbox credentials are not configured on the server.
+          <div className="grid gap-2 rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
+            <p>Dropbox credentials are not configured on the server.</p>
+            {status?.missingKeys?.length ? (
+              <p>
+                Missing:{" "}
+                <span className="font-mono text-foreground">
+                  {status.missingKeys.join(", ")}
+                </span>
+              </p>
+            ) : null}
           </div>
         ) : !status.isConnected ? (
           <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">

@@ -17,6 +17,12 @@ const DROPBOX_API_BASE = "https://api.dropboxapi.com/2"
 const DROPBOX_CONTENT_BASE = "https://content.dropboxapi.com/2"
 const DROPBOX_SCOPES = "files.content.write files.content.read"
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
+const REQUIRED_DROPBOX_ENV_VARS = [
+  "DROPBOX_OWNER_USER_ID",
+  "DROPBOX_CLIENT_ID",
+  "DROPBOX_CLIENT_SECRET",
+  "DROPBOX_TOKEN_ENCRYPTION_KEY",
+] as const
 
 type OAuthState = {
   userId: string
@@ -171,12 +177,16 @@ export function parseOAuthState(state: string) {
 }
 
 export function isDropboxConfigured() {
-  return Boolean(
-    process.env.DROPBOX_OWNER_USER_ID &&
-      process.env.DROPBOX_CLIENT_ID &&
-      process.env.DROPBOX_CLIENT_SECRET &&
-      process.env.DROPBOX_TOKEN_ENCRYPTION_KEY,
-  )
+  return getDropboxConfigStatus().isConfigured
+}
+
+export function getDropboxConfigStatus() {
+  const missingKeys = REQUIRED_DROPBOX_ENV_VARS.filter((name) => !process.env[name])
+
+  return {
+    isConfigured: missingKeys.length === 0,
+    missingKeys,
+  }
 }
 
 export function createDropboxAuthUrl(req: ApiRequest, input: { userId: string; returnTo: string }) {

@@ -3,6 +3,7 @@ import type { AssignmentFile, AssignmentFileCategory } from "@/types"
 type DropboxStatus = {
   isConfigured: boolean
   isConnected: boolean
+  missingKeys?: string[]
 }
 
 const uploadChunkBytes = 3 * 1024 * 1024

@@ -140,3 +140,24 @@ Neon Auth allows localhost automatically for development, but production domains
 ## Production Routing
 
 The app uses React Router in SPA mode. `vercel.json` rewrites authenticated app routes such as `/login`, `/dashboard`, `/settings`, and `/assignments/:id` to `index.html` while leaving `/api/*` available for serverless functions.
+
+## Dropbox Troubleshooting
+
+If the Files panel shows that Dropbox is not configured or the browser console reports `/api/dropbox/status` failing, check these items in order:
+
+1. Confirm all required variables exist in Vercel Production:
+
+```bash
+NEON_DATABASE_URL
+DROPBOX_OWNER_USER_ID
+DROPBOX_CLIENT_ID
+DROPBOX_CLIENT_SECRET
+DROPBOX_TOKEN_ENCRYPTION_KEY
+VITE_DROPBOX_OWNER_USER_ID
+```
+
+2. Confirm `DROPBOX_OWNER_USER_ID` and `VITE_DROPBOX_OWNER_USER_ID` are the same Absolute Revision account ID shown in **Settings > Account ID**.
+3. Redeploy the Vercel production deployment after changing environment variables.
+4. Open the assignment page as the configured owner account.
+5. If the Files panel shows **Connect Dropbox**, complete the Dropbox OAuth flow once.
+6. If `/api/dropbox/status` still returns a server error, check Vercel function logs for the exact database or Dropbox API error.

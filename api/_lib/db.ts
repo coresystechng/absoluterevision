@@ -10,6 +10,10 @@ if (!databaseUrl) {
 
 const sqlClient = databaseUrl ? neon(databaseUrl) : null
 
+export function isFilesDatabaseConfigured() {
+  return Boolean(databaseUrl)
+}
+
 function getSqlClient() {
   if (!sqlClient) {
     throw new Error("Missing NEON_DATABASE_URL")
@@ -27,6 +31,45 @@ let initPromise: Promise<void> | null = null
 
 export function initFilesDb() {
   initPromise ??= (async () => {
+    await query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        display_name TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS assignments (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        category TEXT,
+        priority TEXT NOT NULL DEFAULT 'medium',
+        status TEXT NOT NULL DEFAULT 'not-started',
+        progress_stage TEXT NOT NULL DEFAULT 'ai-draft',
+        due_date DATE,
+        due_time TIME,
+        progress INTEGER NOT NULL DEFAULT 0,
+        notes TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS assignment_activities (
+        id SERIAL PRIMARY KEY,
+        assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        actor_name TEXT NOT NULL,
+        action TEXT NOT NULL DEFAULT 'updated',
+        message TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+
     await query(`
       CREATE TABLE IF NOT EXISTS dropbox_owner_connections (
         id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -73,6 +116,10 @@ export function initFilesDb() {
         UNIQUE (provider, provider_file_id)
       )
     `)
+
+    await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS due_time TIME")
+    await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS progress_stage TEXT NOT NULL DEFAULT 'ai-draft'")
+    await query("ALTER TABLE assignment_activities ADD COLUMN IF NOT EXISTS action TEXT NOT NULL DEFAULT 'updated'")
   })()
 
   return initPromise
