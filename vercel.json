@@ -1,0 +1,28 @@
+{
+  "rewrites": [
+    {
+      "source": "/login",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sign-in",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sign-up",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/assignments/:id",
+      "destination": "/index.html"
+    }
+  ]
+}

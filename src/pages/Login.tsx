@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getNeonAuthClient, isNeonAuthConfigured } from "@/lib/auth"
 
+import logoImage from "../../img/logo.png"
+
 export function Login() {
   if (!isNeonAuthConfigured) {
     return <LoginConfigurationMissing />
@@ -22,7 +24,7 @@ function LoginConfigurationMissing() {
       <div className="w-full max-w-md">
         <Button variant="ghost" asChild className="mx-auto mb-5 flex h-auto w-fit px-0">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/img/logo.png" alt="" className="h-7 w-7 object-contain" />
+            <img src={logoImage} alt="" className="h-7 w-7 object-contain" />
             <span>Absolute Revision</span>
           </Link>
         </Button>
@@ -89,7 +91,7 @@ function LoginForm() {
       <div className="w-full max-w-md">
         <Button variant="ghost" asChild className="mx-auto mb-5 flex h-auto w-fit px-0">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/img/logo.png" alt="" className="h-7 w-7 object-contain" />
+            <img src={logoImage} alt="" className="h-7 w-7 object-contain" />
             <span>Absolute Revision</span>
           </Link>
         </Button>

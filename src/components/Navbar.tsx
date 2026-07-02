@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { AuthUser } from "@/types"
 
+import logoImage from "../../img/logo.png"
+
 function initials(user: AuthUser) {
   const source = user.displayName || user.email
   return source
@@ -35,7 +37,7 @@ export function Navbar({
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link to="/dashboard" className="flex items-center gap-2 font-semibold">
-          <img src="/img/logo.png" alt="" className="h-8 w-8 object-contain" />
+          <img src={logoImage} alt="" className="h-8 w-8 object-contain" />
           <span>Absolute Revision</span>
         </Link>
 

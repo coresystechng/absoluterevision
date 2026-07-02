@@ -39,6 +39,20 @@ npm run lint
 npm run build
 ```
 
+## Vercel Production Setup
+
+Add the same environment variables from `.env.example` to the Vercel project for Production, Preview, and Development as needed. Vite only embeds `VITE_*` values at build time, so redeploy after changing `VITE_NEON_AUTH_URL`, `VITE_NEON_DATABASE_URL`, or `VITE_DROPBOX_OWNER_USER_ID`.
+
+For Neon Auth, add each deployed application origin in **Neon Console > Auth > Configuration > Domains** using the full protocol and no trailing slash, for example:
+
+```bash
+https://absoluterevision.com
+https://www.absoluterevision.com
+https://your-project.vercel.app
+```
+
+Neon Auth allows localhost automatically for development, but production domains must be added explicitly.
+
 ## Notes
 
 The app initializes the `users` and `assignments` tables on first database access and seeds starter assignments for newly created user rows.
