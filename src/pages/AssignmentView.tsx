@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useTeams } from "@/hooks/useTeams"
 import { uploadAssignmentFileSelection } from "@/lib/assignment-file-uploads"
 import {
   assignmentProgressStages,
@@ -155,6 +156,7 @@ export function AssignmentView({
   const [isEditing, setIsEditing] = useState(false)
   const [filesVersion, setFilesVersion] = useState(0)
   const actorName = getActorName(user)
+  const { members } = useTeams(user.id, assignment?.teamId ?? null)
 
   const refreshActivities = useCallback(async () => {
     if (!Number.isFinite(id)) {
@@ -257,6 +259,11 @@ export function AssignmentView({
   const activityItems = assignment
     ? getActivityItems(assignment, activities, actorName)
     : []
+  const canManageAssignment = assignment?.currentUserRole === "admin"
+  const canUpdateProgress = Boolean(
+    assignment &&
+      (assignment.currentUserRole === "admin" || assignment.assigneeUserId === user.id),
+  )
 
   return (
     <div className="min-h-screen bg-background">
@@ -286,22 +293,24 @@ export function AssignmentView({
                 </div>
                 <h1 className="text-3xl font-semibold tracking-normal">{assignment.title}</h1>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsEditing(true)}>
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </Button>
-                <ConfirmDialog
-                  title="Delete assignment?"
-                  description="This removes the assignment permanently."
-                  onConfirm={deleteAssignment}
-                >
-                  <Button variant="destructive">
-                    <Trash2 className="h-4 w-4" />
-                    Delete
+              {canManageAssignment ? (
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setIsEditing(true)}>
+                    <Pencil className="h-4 w-4" />
+                    Edit
                   </Button>
-                </ConfirmDialog>
-              </div>
+                  <ConfirmDialog
+                    title="Delete assignment?"
+                    description="This removes the assignment permanently."
+                    onConfirm={deleteAssignment}
+                  >
+                    <Button variant="destructive">
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  </ConfirmDialog>
+                </div>
+              ) : null}
             </div>
 
             <Card>
@@ -310,6 +319,16 @@ export function AssignmentView({
               </CardHeader>
               <CardContent className="grid gap-6">
                 <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Team</p>
+                    <p className="mt-1 font-medium">{assignment.teamName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Assigned to</p>
+                    <p className="mt-1 font-medium">
+                      {assignment.assigneeName || assignment.assigneeEmail || "Unassigned"}
+                    </p>
+                  </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Type</p>
                     <p className="mt-1 font-medium">{assignmentType}</p>
@@ -327,7 +346,11 @@ export function AssignmentView({
                   </div>
                   <div>
                     <Label>Status</Label>
-                    <Select value={assignment.status} onValueChange={(value) => void updateStatus(value as AssignmentStatus)}>
+                    <Select
+                      value={assignment.status}
+                      onValueChange={(value) => void updateStatus(value as AssignmentStatus)}
+                      disabled={!canUpdateProgress}
+                    >
                       <SelectTrigger className="mt-2">
                         <SelectValue />
                       </SelectTrigger>
@@ -350,7 +373,11 @@ export function AssignmentView({
                         {assignment.progress}%
                       </Badge>
                     </div>
-                    <Select value={assignment.progressStage} onValueChange={(value) => void updateProgressStage(value as AssignmentProgressStage)}>
+                    <Select
+                      value={assignment.progressStage}
+                      onValueChange={(value) => void updateProgressStage(value as AssignmentProgressStage)}
+                      disabled={!canUpdateProgress}
+                    >
                       <SelectTrigger className="mt-2">
                         <SelectValue />
                       </SelectTrigger>
@@ -401,6 +428,9 @@ export function AssignmentView({
               user={user}
               actorName={actorName}
               onActivityChange={refreshActivities}
+              canUpload={canUpdateProgress}
+              allowedCategories={canManageAssignment ? undefined : ["final"]}
+              canDelete={canManageAssignment}
             />
 
             <Card>
@@ -432,6 +462,9 @@ export function AssignmentView({
               open={isEditing}
               onOpenChange={setIsEditing}
               assignment={assignment}
+              teamId={assignment.teamId}
+              teamMembers={members}
+              canAssign={canManageAssignment}
               onSave={updateAssignment}
             />
           </>

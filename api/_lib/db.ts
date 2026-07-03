@@ -41,9 +41,32 @@ export function initFilesDb() {
     `)
 
     await query(`
+      CREATE TABLE IF NOT EXISTS teams (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        admin_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS team_memberships (
+        id SERIAL PRIMARY KEY,
+        team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role TEXT NOT NULL DEFAULT 'member',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (team_id, user_id)
+      )
+    `)
+
+    await query(`
       CREATE TABLE IF NOT EXISTS assignments (
         id SERIAL PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+        assignee_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
         title TEXT NOT NULL,
         category TEXT,
         priority TEXT NOT NULL DEFAULT 'medium',
@@ -119,7 +142,49 @@ export function initFilesDb() {
 
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS due_time TIME")
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS progress_stage TEXT NOT NULL DEFAULT 'ai-draft'")
+    await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE")
+    await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS assignee_user_id TEXT REFERENCES users(id) ON DELETE SET NULL")
     await query("ALTER TABLE assignment_activities ADD COLUMN IF NOT EXISTS action TEXT NOT NULL DEFAULT 'updated'")
+    await query(`
+      INSERT INTO teams (name, admin_user_id)
+      SELECT
+        COALESCE(NULLIF(TRIM(display_name), ''), SPLIT_PART(email, '@', 1), 'My') || '''s Team',
+        id
+      FROM users
+      WHERE NOT EXISTS (
+        SELECT 1 FROM teams WHERE teams.admin_user_id = users.id
+      )
+    `)
+    await query(`
+      INSERT INTO team_memberships (team_id, user_id, role)
+      SELECT id, admin_user_id, 'admin'
+      FROM teams
+      ON CONFLICT (team_id, user_id) DO NOTHING
+    `)
+    await query(`
+      UPDATE assignments
+      SET team_id = teams.id
+      FROM teams
+      WHERE assignments.team_id IS NULL
+        AND assignments.user_id = teams.admin_user_id
+    `)
+    await query(`
+      UPDATE assignments
+      SET assignee_user_id = user_id
+      WHERE assignee_user_id IS NULL
+    `)
+    await query(`
+      INSERT INTO team_memberships (team_id, user_id, role)
+      SELECT DISTINCT team_id, assignee_user_id, 'member'
+      FROM assignments
+      WHERE team_id IS NOT NULL
+        AND assignee_user_id IS NOT NULL
+      ON CONFLICT (team_id, user_id) DO NOTHING
+    `)
+    await query("CREATE INDEX IF NOT EXISTS team_memberships_user_id_idx ON team_memberships(user_id)")
+    await query("CREATE INDEX IF NOT EXISTS team_memberships_team_id_idx ON team_memberships(team_id)")
+    await query("CREATE INDEX IF NOT EXISTS assignments_team_id_idx ON assignments(team_id)")
+    await query("CREATE INDEX IF NOT EXISTS assignments_assignee_user_id_idx ON assignments(assignee_user_id)")
   })()
 
   return initPromise
@@ -136,6 +201,9 @@ export type OwnerConnectionRow = {
 export type AssignmentRow = {
   id: number
   user_id: string
+  team_id: number
+  assignee_user_id: string
+  current_user_role: "admin" | "member"
   title: string
 }
 
@@ -155,6 +223,7 @@ export type AssignmentFileRow = {
   status: string
   created_at: Date | string
   updated_at: Date | string
+  current_user_role?: "admin" | "member"
 }
 
 export async function getOwnerConnection() {
@@ -194,10 +263,23 @@ export async function saveOwnerConnection(input: {
   )
 }
 
-export async function getOwnerAssignment(userId: string, assignmentId: number) {
+export async function getAccessibleAssignment(userId: string, assignmentId: number) {
   await initFilesDb()
   const rows = await query<AssignmentRow>(
-    "SELECT id, user_id, title FROM assignments WHERE user_id = $1 AND id = $2 LIMIT 1",
+    `SELECT
+       a.id,
+       a.user_id,
+       a.team_id,
+       a.assignee_user_id,
+       tm.role AS current_user_role,
+       a.title
+     FROM assignments a
+     JOIN team_memberships tm
+       ON tm.team_id = a.team_id
+      AND tm.user_id = $1
+     WHERE a.id = $2
+       AND (tm.role = 'admin' OR a.assignee_user_id = $1)
+     LIMIT 1`,
     [userId, assignmentId],
   )
   return rows[0] ?? null
@@ -236,24 +318,37 @@ export async function saveAssignmentFolder(
 
 export async function listAssignmentFiles(userId: string, assignmentId: number) {
   await initFilesDb()
+  const assignment = await getAccessibleAssignment(userId, assignmentId)
+  if (!assignment) {
+    return []
+  }
+
   return query<AssignmentFileRow>(
     `SELECT *
      FROM assignment_files
-     WHERE user_id = $1
-       AND assignment_id = $2
+     WHERE assignment_id = $1
        AND provider = 'dropbox'
        AND status <> 'deleted'
      ORDER BY created_at DESC, id DESC`,
-    [userId, assignmentId],
+    [assignmentId],
   )
 }
 
 export async function getAssignmentFile(userId: string, fileId: number) {
   await initFilesDb()
   const rows = await query<AssignmentFileRow>(
-    `SELECT *
-     FROM assignment_files
-     WHERE user_id = $1 AND id = $2 AND provider = 'dropbox'
+    `SELECT
+       f.*,
+       tm.role AS current_user_role
+     FROM assignment_files f
+     JOIN assignments a
+       ON a.id = f.assignment_id
+     JOIN team_memberships tm
+       ON tm.team_id = a.team_id
+      AND tm.user_id = $1
+     WHERE f.id = $2
+       AND f.provider = 'dropbox'
+       AND (tm.role = 'admin' OR a.assignee_user_id = $1)
      LIMIT 1`,
     [userId, fileId],
   )
@@ -322,10 +417,17 @@ export async function saveAssignmentFile(input: {
 export async function markAssignmentFileDeleted(userId: string, fileId: number) {
   await initFilesDb()
   await query(
-    `UPDATE assignment_files
+    `UPDATE assignment_files f
      SET status = 'deleted',
          updated_at = NOW()
-     WHERE user_id = $1 AND id = $2 AND provider = 'dropbox'`,
+     FROM assignments a
+     JOIN team_memberships tm
+       ON tm.team_id = a.team_id
+      AND tm.user_id = $1
+     WHERE f.assignment_id = a.id
+       AND f.id = $2
+       AND f.provider = 'dropbox'
+       AND (tm.role = 'admin' OR f.user_id = $1)`,
     [userId, fileId],
   )
 }

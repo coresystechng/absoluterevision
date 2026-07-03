@@ -50,6 +50,9 @@ type AssignmentFilesProps = {
   user: AuthUser
   actorName: string
   onActivityChange: () => void | Promise<void>
+  canUpload?: boolean
+  allowedCategories?: AssignmentFileCategory[]
+  canDelete?: boolean
 }
 
 type DropboxStatus = {
@@ -190,6 +193,9 @@ export function AssignmentFiles({
   user,
   actorName,
   onActivityChange,
+  canUpload = true,
+  allowedCategories,
+  canDelete = true,
 }: AssignmentFilesProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState<DropboxStatus | null>(null)
@@ -201,6 +207,19 @@ export function AssignmentFiles({
   const [isUploading, setIsUploading] = useState(false)
   const [uploadLabel, setUploadLabel] = useState<string | null>(null)
   const isOwner = ownerUserId ? user.id === ownerUserId : false
+  const categoryOptions = useMemo(
+    () =>
+      allowedCategories?.length
+        ? assignmentFileCategories.filter((item) => allowedCategories.includes(item.value))
+        : assignmentFileCategories,
+    [allowedCategories],
+  )
+
+  useEffect(() => {
+    if (!categoryOptions.some((item) => item.value === category)) {
+      setCategory(categoryOptions[0]?.value ?? "final")
+    }
+  }, [category, categoryOptions])
 
   const loadFiles = useCallback(async () => {
     if (!ownerUserId) {
@@ -263,7 +282,7 @@ export function AssignmentFiles({
 
   const handleUpload = async (selectedFiles: FileList | null) => {
     const queue = Array.from(selectedFiles ?? [])
-    if (queue.length === 0 || !status?.isConnected) {
+    if (queue.length === 0 || !status?.isConnected || !canUpload) {
       return
     }
 
@@ -318,7 +337,9 @@ export function AssignmentFiles({
         <div>
           <CardTitle>Files</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Store assignment materials in your Dropbox.
+            {allowedCategories?.length === 1 && allowedCategories[0] === "final"
+              ? "Upload completed work to the linked Dropbox account."
+              : "Store assignment materials in your Dropbox."}
           </p>
         </div>
         {status?.isConnected ? (
@@ -383,48 +404,56 @@ export function AssignmentFiles({
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-end">
-              <div className="grid flex-1 gap-2">
-                <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
-                  File Category
-                </span>
-                <Select
-                  value={category}
-                  onValueChange={(value) => setCategory(value as AssignmentFileCategory)}
+            {canUpload ? (
+              <div className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-end">
+                <div className="grid flex-1 gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+                    File Category
+                  </span>
+                  {categoryOptions.length > 1 ? (
+                    <Select
+                      value={category}
+                      onValueChange={(value) => setCategory(value as AssignmentFileCategory)}
+                    >
+                      <SelectTrigger aria-label="Choose file category">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categoryOptions.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="flex min-h-10 items-center rounded-md border bg-muted/30 px-3 text-sm">
+                      {getAssignmentFileCategoryLabel(categoryOptions[0]?.value ?? "final")}
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  multiple
+                  className="sr-only"
+                  onChange={(event) => void handleUpload(event.currentTarget.files)}
+                />
+                <Button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  disabled={isUploading}
+                  className="sm:w-auto"
                 >
-                  <SelectTrigger aria-label="Choose file category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {assignmentFileCategories.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {isUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  Upload
+                </Button>
               </div>
-              <input
-                ref={inputRef}
-                type="file"
-                multiple
-                className="sr-only"
-                onChange={(event) => void handleUpload(event.currentTarget.files)}
-              />
-              <Button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                disabled={isUploading}
-                className="sm:w-auto"
-              >
-                {isUploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                Upload
-              </Button>
-            </div>
+            ) : null}
 
             {uploadLabel ? (
               <p className="text-sm text-muted-foreground">{uploadLabel}</p>
@@ -486,17 +515,19 @@ export function AssignmentFiles({
                                   <ExternalLink className="h-4 w-4" />
                                   Download
                                 </Button>
-                                <ConfirmDialog
-                                  title="Remove file?"
-                                  description="This removes the file from Dropbox and the assignment."
-                                  confirmLabel="Remove"
-                                  onConfirm={() => deleteFile(file)}
-                                >
-                                  <Button variant="outline" size="sm">
-                                    <Trash2 className="h-4 w-4" />
-                                    Remove
-                                  </Button>
-                                </ConfirmDialog>
+                                {canDelete ? (
+                                  <ConfirmDialog
+                                    title="Remove file?"
+                                    description="This removes the file from Dropbox and the assignment."
+                                    confirmLabel="Remove"
+                                    onConfirm={() => deleteFile(file)}
+                                  >
+                                    <Button variant="outline" size="sm">
+                                      <Trash2 className="h-4 w-4" />
+                                      Remove
+                                    </Button>
+                                  </ConfirmDialog>
+                                ) : null}
                               </div>
                             </div>
                           )

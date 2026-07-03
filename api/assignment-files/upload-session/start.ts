@@ -1,4 +1,4 @@
-import { getOwnerAssignment } from "../../_lib/db.js"
+import { getAccessibleAssignment } from "../../_lib/db.js"
 import {
   getOrCreateAssignmentCategoryFolder,
   getOwnerAccessToken,
@@ -20,6 +20,15 @@ import {
 
 const MAX_UPLOAD_BYTES = 250 * 1024 * 1024
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024
+
+function canUploadCategory(input: {
+  userId: string
+  assigneeUserId: string
+  role: "admin" | "member"
+  category: string
+}) {
+  return input.role === "admin" || (input.assigneeUserId === input.userId && input.category === "final")
+}
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
@@ -45,9 +54,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       throw new HttpError(400, "Upload chunks must be between 1 byte and 3 MB.")
     }
 
-    const assignment = await getOwnerAssignment(userId, assignmentId)
+    const assignment = await getAccessibleAssignment(userId, assignmentId)
     if (!assignment) {
       throw new HttpError(404, "Assignment not found.")
+    }
+    if (
+      !canUploadCategory({
+        userId,
+        assigneeUserId: assignment.assignee_user_id,
+        role: assignment.current_user_role,
+        category,
+      })
+    ) {
+      throw new HttpError(403, "Team members can only upload final files for assignments assigned to them.")
     }
 
     const accessToken = await getOwnerAccessToken()

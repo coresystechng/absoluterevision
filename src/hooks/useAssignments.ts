@@ -20,7 +20,11 @@ function isOverdue(assignment: Assignment) {
   return new Date(`${assignment.dueDate}T00:00:00`) < today
 }
 
-export function useAssignments(userId: string | null, actorName?: string | null) {
+export function useAssignments(
+  userId: string | null,
+  actorName?: string | null,
+  teamId?: number | null,
+) {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -35,13 +39,13 @@ export function useAssignments(userId: string | null, actorName?: string | null)
     setIsLoading(true)
     setError(null)
     try {
-      setAssignments(await assignmentApi.getAll(userId))
+      setAssignments(await assignmentApi.getAll(userId, teamId))
     } catch (caught) {
       setError(caught instanceof Error ? caught : new Error("Unknown error"))
     } finally {
       setIsLoading(false)
     }
-  }, [userId])
+  }, [teamId, userId])
 
   useEffect(() => {
     void reload()

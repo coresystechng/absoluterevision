@@ -10,6 +10,7 @@ import {
   PenLine,
   Presentation,
   Trash2,
+  UserRound,
   type LucideIcon,
 } from "lucide-react"
 import { useState } from "react"
@@ -27,7 +28,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
 import { cn } from "@/lib/utils"
-import type { Assignment, AssignmentFileUpload, AssignmentInput, AssignmentType } from "@/types"
+import type {
+  Assignment,
+  AssignmentFileUpload,
+  AssignmentInput,
+  AssignmentType,
+  TeamMember,
+} from "@/types"
 
 const assignmentTypeIcons: Record<AssignmentType, LucideIcon> = {
   Design: Palette,
@@ -141,6 +148,8 @@ export function AssignmentCard({
   assignment,
   onUpdate,
   onDelete,
+  canManage = assignment.currentUserRole === "admin",
+  teamMembers = [],
 }: {
   assignment: Assignment
   onUpdate: (
@@ -148,6 +157,8 @@ export function AssignmentCard({
     files: AssignmentFileUpload[],
   ) => Promise<{ fileUploadFailed?: boolean } | void>
   onDelete: () => Promise<void>
+  canManage?: boolean
+  teamMembers?: TeamMember[]
 }) {
   const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
@@ -188,31 +199,33 @@ export function AssignmentCard({
                 <span>{getTimeLeftLabel(assignment)}</span>
               </div>
             </div>
-            <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="ghost" size="icon" aria-label="More actions">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-                  <DropdownMenuItem onSelect={(event) => { event.preventDefault(); setIsEditing(true) }}>
-                    <Pencil className="h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onSelect={(event) => {
-                      event.preventDefault()
-                      void onDelete()
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            {canManage ? (
+              <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" variant="ghost" size="icon" aria-label="More actions">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                    <DropdownMenuItem onSelect={(event) => { event.preventDefault(); setIsEditing(true) }}>
+                      <Pencil className="h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onSelect={(event) => {
+                        event.preventDefault()
+                        void onDelete()
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ) : null}
           </div>
 
           {assignment.notes ? (
@@ -222,9 +235,17 @@ export function AssignmentCard({
           ) : null}
 
           <div className="mt-auto flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-muted-foreground">
-              {assignment.progress}%
-            </span>
+            <div className="min-w-0">
+              <span className="text-sm font-semibold text-muted-foreground">
+                {assignment.progress}%
+              </span>
+              <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                <UserRound className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">
+                  {assignment.assigneeName || assignment.assigneeEmail || "Unassigned"}
+                </span>
+              </div>
+            </div>
             <Badge
               variant="outline"
               className={cn(
@@ -244,6 +265,9 @@ export function AssignmentCard({
         open={isEditing}
         onOpenChange={setIsEditing}
         assignment={assignment}
+        teamId={assignment.teamId}
+        teamMembers={teamMembers}
+        canAssign={canManage}
         onSave={onUpdate}
       />
     </>

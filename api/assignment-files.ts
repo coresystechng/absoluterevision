@@ -1,7 +1,7 @@
 import {
   addAssignmentActivity,
   getAssignmentFile,
-  getOwnerAssignment,
+  getAccessibleAssignment,
   listAssignmentFiles,
   markAssignmentFileDeleted,
 } from "./_lib/db.js"
@@ -24,7 +24,7 @@ async function handleGet(req: ApiRequest, res: ApiResponse, userId: string) {
     throw new HttpError(400, "A valid assignment ID is required.")
   }
 
-  const assignment = await getOwnerAssignment(userId, assignmentId)
+  const assignment = await getAccessibleAssignment(userId, assignmentId)
   if (!assignment) {
     throw new HttpError(404, "Assignment not found.")
   }
@@ -42,6 +42,9 @@ async function handleDelete(req: ApiRequest, res: ApiResponse, userId: string) {
   const file = await getAssignmentFile(userId, fileId)
   if (!file) {
     throw new HttpError(404, "File not found.")
+  }
+  if (file.current_user_role !== "admin" && file.user_id !== userId) {
+    throw new HttpError(403, "Only team admins or the uploader can remove this file.")
   }
 
   const accessToken = await getOwnerAccessToken()

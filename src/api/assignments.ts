@@ -6,8 +6,8 @@ import {
   getAssignmentProgress,
   getAssignmentProgressLabel,
   getAssignmentStatusLabel,
-  normalizeAssignmentStatus,
   normalizeAssignmentProgressStage,
+  normalizeAssignmentStatus,
 } from "@/lib/assignment-status"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
 import type {
@@ -18,11 +18,18 @@ import type {
   AssignmentProgressStage,
   AssignmentPriority,
   AssignmentStatus,
+  TeamRole,
 } from "@/types"
 
 type AssignmentRow = {
   id: number
   user_id: string
+  team_id: number
+  team_name: string
+  current_user_role: string
+  assignee_user_id: string
+  assignee_email: string | null
+  assignee_display_name: string | null
   title: string
   category: string | null
   priority: AssignmentPriority
@@ -46,6 +53,28 @@ type AssignmentActivityRow = {
   created_at: Date | string
 }
 
+type NormalizedAssignmentInput = {
+  teamId: number | null
+  assigneeUserId: string | null
+  title: string
+  category: Assignment["category"]
+  priority: AssignmentPriority
+  status: AssignmentStatus
+  progressStage: AssignmentProgressStage
+  dueDate: string | null
+  dueTime: string | null
+  progress: number
+  notes: string | null
+}
+
+function normalizeTeamRole(role: string): TeamRole {
+  return role === "admin" ? "admin" : "member"
+}
+
+function getDisplayName(displayName: string | null, email: string | null) {
+  return displayName?.trim() || email || null
+}
+
 function mapAssignment(row: AssignmentRow): Assignment {
   const status = normalizeAssignmentStatus(row.status)
   const progressStage = normalizeAssignmentProgressStage(row.progress_stage ?? row.status)
@@ -53,6 +82,12 @@ function mapAssignment(row: AssignmentRow): Assignment {
   return {
     id: row.id,
     userId: row.user_id,
+    teamId: row.team_id,
+    teamName: row.team_name,
+    currentUserRole: normalizeTeamRole(row.current_user_role),
+    assigneeUserId: row.assignee_user_id,
+    assigneeName: getDisplayName(row.assignee_display_name, row.assignee_email),
+    assigneeEmail: row.assignee_email,
     title: row.title,
     category: normalizeAssignmentType(row.category),
     priority: row.priority,
@@ -83,12 +118,14 @@ function mapActivity(row: AssignmentActivityRow): AssignmentActivity {
   }
 }
 
-function normalizeInput(input: AssignmentInput): Required<AssignmentInput> {
+function normalizeInput(input: AssignmentInput): NormalizedAssignmentInput {
   const status = normalizeAssignmentStatus(input.status ?? "not-started")
   const progressStage = normalizeInputProgressStage(status, input.progressStage)
   const progress = getAssignmentProgress(status, progressStage)
 
   return {
+    teamId: Number.isInteger(input.teamId) ? input.teamId ?? null : null,
+    assigneeUserId: input.assigneeUserId?.trim() || null,
     title: input.title.trim(),
     category: normalizeAssignmentType(input.category),
     priority: input.priority ?? "medium",
@@ -145,6 +182,10 @@ function formatDeadline(assignment: Pick<Assignment, "dueDate" | "dueTime">) {
     : format(due, "MMM d, yyyy")
 }
 
+function formatAssignee(assignment: Pick<Assignment, "assigneeName" | "assigneeEmail">) {
+  return assignment.assigneeName || assignment.assigneeEmail || "Unassigned"
+}
+
 function buildActivityMessages(
   actorName: string | null | undefined,
   previous: Assignment,
@@ -156,6 +197,18 @@ function buildActivityMessages(
   if (previous.title !== next.title) {
     messages.push(
       `${actor} updated the title of the assignment from ${quoted(previous.title)} to ${quoted(next.title)}`,
+    )
+  }
+
+  if (previous.teamId !== next.teamId) {
+    messages.push(
+      `${actor} moved the assignment from ${previous.teamName} to ${next.teamName}`,
+    )
+  }
+
+  if (previous.assigneeUserId !== next.assigneeUserId) {
+    messages.push(
+      `${actor} reassigned the assignment from ${formatAssignee(previous)} to ${formatAssignee(next)}`,
     )
   }
 
@@ -196,6 +249,24 @@ function buildActivityMessages(
   return messages
 }
 
+function assignmentSelect(whereClause: string) {
+  return `
+    SELECT
+      a.*,
+      t.name AS team_name,
+      tm.role AS current_user_role,
+      assignee.email AS assignee_email,
+      assignee.display_name AS assignee_display_name
+    FROM assignments a
+    JOIN teams t ON t.id = a.team_id
+    JOIN team_memberships tm
+      ON tm.team_id = a.team_id
+    LEFT JOIN users assignee
+      ON assignee.id = a.assignee_user_id
+    WHERE ${whereClause}
+  `
+}
+
 async function addActivities(
   userId: string,
   assignmentId: number,
@@ -213,17 +284,93 @@ async function addActivities(
   }
 }
 
-export async function getAll(userId: string) {
+async function getFirstAdminTeamId(userId: string) {
+  const rows = await query<{ team_id: number }>(
+    `SELECT team_id
+     FROM team_memberships
+     WHERE user_id = $1
+       AND role = 'admin'
+     ORDER BY created_at ASC
+     LIMIT 1`,
+    [userId],
+  )
+
+  return rows[0]?.team_id ?? null
+}
+
+async function requireAdminTeam(userId: string, teamId: number) {
+  const rows = await query<{ id: number }>(
+    `SELECT id
+     FROM team_memberships
+     WHERE team_id = $1
+       AND user_id = $2
+       AND role = 'admin'
+     LIMIT 1`,
+    [teamId, userId],
+  )
+
+  if (!rows[0]) {
+    throw new Error("Only team admins can manage assignments for this team.")
+  }
+}
+
+async function requireTeamMember(teamId: number, memberUserId: string) {
+  const rows = await query<{ id: number }>(
+    `SELECT id
+     FROM team_memberships
+     WHERE team_id = $1
+       AND user_id = $2
+     LIMIT 1`,
+    [teamId, memberUserId],
+  )
+
+  if (!rows[0]) {
+    throw new Error("Assignments can only be assigned to members of the selected team.")
+  }
+}
+
+async function getAccessibleAssignmentRow(userId: string, id: number) {
+  const rows = await query<AssignmentRow>(
+    `${assignmentSelect(`
+      tm.user_id = $1
+      AND a.id = $2
+      AND (tm.role = 'admin' OR a.assignee_user_id = $1)
+    `)}
+     LIMIT 1`,
+    [userId, id],
+  )
+
+  return rows[0] ?? null
+}
+
+async function getAdminAssignmentRow(userId: string, id: number) {
+  const rows = await query<AssignmentRow>(
+    `${assignmentSelect(`
+      tm.user_id = $1
+      AND tm.role = 'admin'
+      AND a.id = $2
+    `)}
+     LIMIT 1`,
+    [userId, id],
+  )
+
+  return rows[0] ?? null
+}
+
+export async function getAll(userId: string, teamId?: number | null) {
   try {
     await initDb()
     const rows = await query<AssignmentRow>(
-      `SELECT * FROM assignments
-       WHERE user_id = $1
+      `${assignmentSelect(`
+        tm.user_id = $1
+        AND ($2::integer IS NULL OR a.team_id = $2::integer)
+        AND (tm.role = 'admin' OR a.assignee_user_id = $1)
+      `)}
        ORDER BY
-         CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
-         due_date ASC NULLS LAST,
-         created_at DESC`,
-      [userId],
+         CASE a.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+         a.due_date ASC NULLS LAST,
+         a.created_at DESC`,
+      [userId, teamId ?? null],
     )
     return rows.map(mapAssignment)
   } catch (error) {
@@ -235,12 +382,8 @@ export async function getAll(userId: string) {
 export async function getById(userId: string, id: number) {
   try {
     await initDb()
-    const rows = await query<AssignmentRow>(
-      "SELECT * FROM assignments WHERE user_id = $1 AND id = $2 LIMIT 1",
-      [userId, id],
-    )
-    const [assignment] = rows.map(mapAssignment)
-    return assignment ?? null
+    const row = await getAccessibleAssignmentRow(userId, id)
+    return row ? mapAssignment(row) : null
   } catch (error) {
     console.error("Failed to fetch assignment", error)
     throw error
@@ -250,12 +393,17 @@ export async function getById(userId: string, id: number) {
 export async function getActivities(userId: string, assignmentId: number) {
   try {
     await initDb()
+    const assignment = await getAccessibleAssignmentRow(userId, assignmentId)
+    if (!assignment) {
+      return []
+    }
+
     const rows = await query<AssignmentActivityRow>(
       `SELECT *
        FROM assignment_activities
-       WHERE user_id = $1 AND assignment_id = $2
+       WHERE assignment_id = $1
        ORDER BY created_at ASC, id ASC`,
-      [userId, assignmentId],
+      [assignmentId],
     )
     return rows.map(mapActivity)
   } catch (error) {
@@ -268,13 +416,37 @@ export async function create(userId: string, input: AssignmentInput, actorName?:
   try {
     await initDb()
     const data = normalizeInput(input)
-    const rows = await query<AssignmentRow>(
+    const teamId = data.teamId ?? (await getFirstAdminTeamId(userId))
+    if (!teamId) {
+      throw new Error("Create a team before adding assignments.")
+    }
+
+    await requireAdminTeam(userId, teamId)
+    const assigneeUserId = data.assigneeUserId ?? userId
+    await requireTeamMember(teamId, assigneeUserId)
+
+    const rows = await query<{ id: number }>(
       `INSERT INTO assignments
-        (user_id, title, category, priority, status, progress_stage, due_date, due_time, progress, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING *`,
+        (
+          user_id,
+          team_id,
+          assignee_user_id,
+          title,
+          category,
+          priority,
+          status,
+          progress_stage,
+          due_date,
+          due_time,
+          progress,
+          notes
+        )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING id`,
       [
         userId,
+        teamId,
+        assigneeUserId,
         data.title,
         data.category,
         data.priority,
@@ -286,12 +458,15 @@ export async function create(userId: string, input: AssignmentInput, actorName?:
         data.notes,
       ],
     )
-    const assignment = mapAssignment(rows[0])
+    const assignment = await getById(userId, rows[0].id)
+    if (!assignment) {
+      throw new Error("Assignment could not be loaded.")
+    }
     await addActivities(
       userId,
       assignment.id,
       actorName,
-      [`${normalizeActorName(actorName)} created the assignment`],
+      [`${normalizeActorName(actorName)} created the assignment for ${formatAssignee(assignment)}`],
       "created",
     )
     return assignment
@@ -304,34 +479,39 @@ export async function create(userId: string, input: AssignmentInput, actorName?:
 export async function update(userId: string, id: number, input: AssignmentInput, actorName?: string | null) {
   try {
     await initDb()
-    const currentRows = await query<AssignmentRow>(
-      "SELECT * FROM assignments WHERE user_id = $1 AND id = $2 LIMIT 1",
-      [userId, id],
-    )
-    const [current] = currentRows
+    const current = await getAdminAssignmentRow(userId, id)
     if (!current) {
       return null
     }
 
     const previous = mapAssignment(current)
     const data = normalizeInput(input)
-    const rows = await query<AssignmentRow>(
+    const teamId = data.teamId ?? current.team_id
+    await requireAdminTeam(userId, teamId)
+    const assigneeUserId = data.assigneeUserId ?? current.assignee_user_id
+    await requireTeamMember(teamId, assigneeUserId)
+
+    const rows = await query<{ id: number }>(
       `UPDATE assignments
-       SET title = $3,
-           category = $4,
-           priority = $5,
-           status = $6,
-           progress_stage = $7,
-           due_date = $8,
-           due_time = $9,
-           progress = $10,
-           notes = $11,
+       SET team_id = $3,
+           assignee_user_id = $4,
+           title = $5,
+           category = $6,
+           priority = $7,
+           status = $8,
+           progress_stage = $9,
+           due_date = $10,
+           due_time = $11,
+           progress = $12,
+           notes = $13,
            updated_at = NOW()
-       WHERE user_id = $1 AND id = $2
-       RETURNING *`,
+       WHERE id = $2
+       RETURNING id`,
       [
         userId,
         id,
+        teamId,
+        assigneeUserId,
         data.title,
         data.category,
         data.priority,
@@ -343,12 +523,14 @@ export async function update(userId: string, id: number, input: AssignmentInput,
         data.notes,
       ],
     )
-    const row = rows[0]
-    if (!row) {
+    if (!rows[0]) {
       return null
     }
 
-    const updated = mapAssignment(row)
+    const updated = await getById(userId, id)
+    if (!updated) {
+      return null
+    }
     await addActivities(userId, id, actorName, buildActivityMessages(actorName, previous, updated))
     return updated
   } catch (error) {
@@ -365,11 +547,7 @@ export async function updateStatus(
 ) {
   try {
     await initDb()
-    const currentRows = await query<AssignmentRow>(
-      "SELECT * FROM assignments WHERE user_id = $1 AND id = $2 LIMIT 1",
-      [userId, id],
-    )
-    const [current] = currentRows
+    const current = await getAccessibleAssignmentRow(userId, id)
     if (!current) {
       return null
     }
@@ -381,22 +559,24 @@ export async function updateStatus(
       normalizeAssignmentProgressStage(current.progress_stage ?? current.status),
     )
     const progress = getAssignmentProgress(nextStatus, progressStage)
-    const rows = await query<AssignmentRow>(
+    const rows = await query<{ id: number }>(
       `UPDATE assignments
        SET status = $3,
            progress_stage = $4,
            progress = $5,
            updated_at = NOW()
-       WHERE user_id = $1 AND id = $2
-       RETURNING *`,
+       WHERE id = $2
+       RETURNING id`,
       [userId, id, nextStatus, progressStage, progress],
     )
-    const row = rows[0]
-    if (!row) {
+    if (!rows[0]) {
       return null
     }
 
-    const updated = mapAssignment(row)
+    const updated = await getById(userId, id)
+    if (!updated) {
+      return null
+    }
     await addActivities(userId, id, actorName, buildActivityMessages(actorName, previous, updated))
     return updated
   } catch (error) {
@@ -413,11 +593,7 @@ export async function updateProgressStage(
 ) {
   try {
     await initDb()
-    const currentRows = await query<AssignmentRow>(
-      "SELECT * FROM assignments WHERE user_id = $1 AND id = $2 LIMIT 1",
-      [userId, id],
-    )
-    const [current] = currentRows
+    const current = await getAccessibleAssignmentRow(userId, id)
     if (!current) {
       return null
     }
@@ -426,22 +602,24 @@ export async function updateProgressStage(
     const nextProgressStage = normalizeAssignmentProgressStage(progressStage)
     const status: AssignmentStatus = "ongoing"
     const progress = getAssignmentProgress(status, nextProgressStage)
-    const rows = await query<AssignmentRow>(
+    const rows = await query<{ id: number }>(
       `UPDATE assignments
        SET status = $3,
            progress_stage = $4,
            progress = $5,
            updated_at = NOW()
-       WHERE user_id = $1 AND id = $2
-       RETURNING *`,
+       WHERE id = $2
+       RETURNING id`,
       [userId, id, status, nextProgressStage, progress],
     )
-    const row = rows[0]
-    if (!row) {
+    if (!rows[0]) {
       return null
     }
 
-    const updated = mapAssignment(row)
+    const updated = await getById(userId, id)
+    if (!updated) {
+      return null
+    }
     await addActivities(userId, id, actorName, buildActivityMessages(actorName, previous, updated))
     return updated
   } catch (error) {
@@ -453,20 +631,37 @@ export async function updateProgressStage(
 export async function remove(userId: string, id: number) {
   try {
     await initDb()
-    await query("DELETE FROM assignments WHERE user_id = $1 AND id = $2", [
-      userId,
-      id,
-    ])
+    const current = await getAdminAssignmentRow(userId, id)
+    if (!current) {
+      return
+    }
+
+    await query("DELETE FROM assignments WHERE id = $1", [id])
   } catch (error) {
     console.error("Failed to delete assignment", error)
     throw error
   }
 }
 
-export async function removeAll(userId: string) {
+export async function removeAll(userId: string, teamId?: number | null) {
   try {
     await initDb()
-    await query("DELETE FROM assignments WHERE user_id = $1", [userId])
+    if (teamId) {
+      await requireAdminTeam(userId, teamId)
+      await query("DELETE FROM assignments WHERE team_id = $1", [teamId])
+      return
+    }
+
+    await query(
+      `DELETE FROM assignments
+       WHERE team_id IN (
+         SELECT team_id
+         FROM team_memberships
+         WHERE user_id = $1
+           AND role = 'admin'
+       )`,
+      [userId],
+    )
   } catch (error) {
     console.error("Failed to delete assignments", error)
     throw error

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { BookOpenCheck, Plus, Search } from "lucide-react"
+import { BookOpenCheck, Plus, Search, UsersRound } from "lucide-react"
 
 import { getOrCreateUser } from "@/api/users"
 import { AssignmentCard } from "@/components/AssignmentCard"
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAssignments } from "@/hooks/useAssignments"
+import { useTeams } from "@/hooks/useTeams"
 import { uploadAssignmentFileSelection } from "@/lib/assignment-file-uploads"
 import { assignmentStatuses, getAssignmentStatusLabel } from "@/lib/assignment-status"
 import { assignmentTypes, normalizeAssignmentType } from "@/lib/assignment-types"
@@ -90,6 +91,9 @@ function matchesSearch(assignment: Assignment, query: string) {
     normalizeAssignmentType(assignment.category),
     assignment.priority,
     getAssignmentStatusLabel(assignment.status),
+    assignment.teamName,
+    assignment.assigneeName,
+    assignment.assigneeEmail,
     assignment.notes,
   ]
     .filter(Boolean)
@@ -145,14 +149,42 @@ export function Dashboard({
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [searchQuery, setSearchQuery] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [activeTeamId, setActiveTeamId] = useState<number | null>(null)
   const actorName = getActorName(user)
-  const { assignments, isLoading, error, reload, create, update, remove } = useAssignments(user.id, actorName)
+  const {
+    teams,
+    members,
+    isLoading: teamsLoading,
+    error: teamsError,
+    reloadTeams,
+  } = useTeams(user.id, activeTeamId)
+  const activeTeam = useMemo(
+    () => teams.find((team) => team.id === activeTeamId) ?? teams[0] ?? null,
+    [activeTeamId, teams],
+  )
+  const canManageActiveTeam = activeTeam?.role === "admin"
+  const { assignments, isLoading, error, create, update, remove } = useAssignments(
+    user.id,
+    actorName,
+    activeTeam?.id ?? null,
+  )
 
   useEffect(() => {
     void getOrCreateUser(user)
-      .then(() => reload())
+      .then(() => reloadTeams())
       .catch(() => toast.error("Something went wrong. Try again."))
-  }, [reload, user])
+  }, [reloadTeams, user])
+
+  useEffect(() => {
+    if (teams.length === 0) {
+      setActiveTeamId(null)
+      return
+    }
+
+    if (!activeTeamId || !teams.some((team) => team.id === activeTeamId)) {
+      setActiveTeamId(teams[0].id)
+    }
+  }, [activeTeamId, teams])
 
   const filteredAssignments = useMemo(
     () =>
@@ -180,7 +212,15 @@ export function Dashboard({
   }
 
   const createAssignment = async (input: AssignmentInput, files: AssignmentFileUpload[]) => {
-    const assignment = await create(input)
+    if (!activeTeam) {
+      throw new Error("Create a team before adding assignments.")
+    }
+
+    const assignment = await create({
+      ...input,
+      teamId: activeTeam.id,
+      assigneeUserId: input.assigneeUserId ?? user.id,
+    })
     return { fileUploadFailed: await uploadFiles(assignment.id, files) }
   }
 
@@ -191,12 +231,44 @@ export function Dashboard({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-normal">Dashboard</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Filter and sort assignments by the work that matters now.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Filter and sort team assignments by the work that matters now.
+            </p>
           </div>
-          <Button onClick={() => setDialogOpen(true)}>
+          <Button onClick={() => setDialogOpen(true)} disabled={!canManageActiveTeam}>
             <Plus className="h-4 w-4" />
             New assignment
           </Button>
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-md border bg-card p-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="grid flex-1 gap-2">
+            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Team</span>
+            <Select
+              value={activeTeam ? String(activeTeam.id) : ""}
+              onValueChange={(value) => setActiveTeamId(Number(value))}
+              disabled={teamsLoading || teams.length === 0}
+            >
+              <SelectTrigger aria-label="Select team">
+                <SelectValue placeholder={teamsLoading ? "Loading teams" : "Select team"} />
+              </SelectTrigger>
+              <SelectContent>
+                {teams.map((team) => (
+                  <SelectItem key={team.id} value={String(team.id)}>
+                    {team.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <UsersRound className="h-4 w-4" />
+            <span>
+              {activeTeam
+                ? `${activeTeam.memberCount} member${activeTeam.memberCount === 1 ? "" : "s"} - ${activeTeam.role === "admin" ? "Admin" : "Member"}`
+                : "No team selected"}
+            </span>
+          </div>
         </div>
 
         <div className="relative">
@@ -310,6 +382,12 @@ export function Dashboard({
           </div>
         </div>
 
+        {teamsError ? (
+          <Card>
+            <CardContent className="p-6 text-sm text-destructive">Could not load teams. Try again.</CardContent>
+          </Card>
+        ) : null}
+
         {error ? (
           <Card>
             <CardContent className="p-6 text-sm text-destructive">Something went wrong. Try again.</CardContent>
@@ -330,13 +408,19 @@ export function Dashboard({
                 key={assignment.id}
                 assignment={assignment}
                 onUpdate={async (input, files) => {
-                  await update(assignment.id, input)
+                  await update(assignment.id, {
+                    ...input,
+                    teamId: assignment.teamId,
+                    assigneeUserId: input.assigneeUserId ?? assignment.assigneeUserId,
+                  })
                   return { fileUploadFailed: await uploadFiles(assignment.id, files) }
                 }}
                 onDelete={async () => {
                   await remove(assignment.id)
                   toast.error("Assignment deleted")
                 }}
+                canManage={assignment.currentUserRole === "admin"}
+                teamMembers={members}
               />
             ))}
           </div>
@@ -350,15 +434,24 @@ export function Dashboard({
               <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                 Create your first assignment or switch filters to review existing work.
               </p>
-              <Button className="mt-6" onClick={() => setDialogOpen(true)}>
-                Create your first assignment
-              </Button>
+              {canManageActiveTeam ? (
+                <Button className="mt-6" onClick={() => setDialogOpen(true)}>
+                  Create your first assignment
+                </Button>
+              ) : null}
             </CardContent>
           </Card>
         )}
       </main>
 
-      <AssignmentDialog open={dialogOpen} onOpenChange={setDialogOpen} onSave={createAssignment} />
+      <AssignmentDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        teamId={activeTeam?.id}
+        teamMembers={members}
+        canAssign={canManageActiveTeam}
+        onSave={createAssignment}
+      />
     </div>
   )
 }

@@ -21,6 +21,8 @@ export type AssignmentProgressStage =
 
 export type AssignmentActivityAction = "created" | "updated"
 
+export type TeamRole = "admin" | "member"
+
 export type AssignmentFileCategory =
   | "brief"
   | "lecture-notes"
@@ -35,6 +37,12 @@ export type AssignmentFileStatus = "uploading" | "ready" | "failed" | "deleted"
 export type Assignment = {
   id: number
   userId: string
+  teamId: number
+  teamName: string
+  currentUserRole: TeamRole
+  assigneeUserId: string
+  assigneeName: string | null
+  assigneeEmail: string | null
   title: string
   category: AssignmentType | null
   priority: AssignmentPriority
@@ -49,6 +57,8 @@ export type Assignment = {
 }
 
 export type AssignmentInput = {
+  teamId?: number
+  assigneeUserId?: string
   title: string
   category?: AssignmentType | null
   priority?: AssignmentPriority
@@ -97,6 +107,26 @@ export type UserProfile = {
   id: string
   email: string
   displayName: string | null
+  createdAt: string
+}
+
+export type Team = {
+  id: number
+  name: string
+  adminUserId: string
+  role: TeamRole
+  memberCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type TeamMember = {
+  id: number
+  teamId: number
+  userId: string
+  email: string
+  displayName: string | null
+  role: TeamRole
   createdAt: string
 }
 

@@ -45,6 +45,7 @@ import type {
   AssignmentPriority,
   AssignmentStatus,
   AssignmentType,
+  TeamMember,
 } from "@/types"
 
 const priorityOptions: Array<{ value: AssignmentPriority; label: string }> = [
@@ -53,11 +54,22 @@ const priorityOptions: Array<{ value: AssignmentPriority; label: string }> = [
   { value: "low", label: "Low" },
 ]
 
-function getInitialForm(assignment?: Assignment): Required<AssignmentInput> {
+type AssignmentForm = Required<Omit<AssignmentInput, "teamId" | "assigneeUserId">> & {
+  teamId?: number
+  assigneeUserId?: string
+}
+
+function getInitialForm(
+  assignment?: Assignment,
+  teamId?: number | null,
+  teamMembers: TeamMember[] = [],
+): AssignmentForm {
   const status = assignment?.status ?? "not-started"
   const progressStage = assignment?.progressStage ?? "ai-draft"
 
   return {
+    teamId: assignment?.teamId ?? teamId ?? undefined,
+    assigneeUserId: assignment?.assigneeUserId ?? teamMembers[0]?.userId,
     title: assignment?.title ?? "",
     category: normalizeAssignmentType(assignment?.category),
     priority: assignment?.priority ?? "medium",
@@ -74,6 +86,9 @@ type AssignmentDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   assignment?: Assignment
+  teamId?: number | null
+  teamMembers?: TeamMember[]
+  canAssign?: boolean
   onSave: (
     input: AssignmentInput,
     files: AssignmentFileUpload[],
@@ -84,20 +99,23 @@ export function AssignmentDialog({
   open,
   onOpenChange,
   assignment,
+  teamId,
+  teamMembers = [],
+  canAssign = false,
   onSave,
 }: AssignmentDialogProps) {
-  const [form, setForm] = useState(getInitialForm(assignment))
+  const [form, setForm] = useState(getInitialForm(assignment, teamId, teamMembers))
   const [fileCategory, setFileCategory] = useState<AssignmentFileCategory>("brief")
   const [selectedFiles, setSelectedFiles] = useState<AssignmentFileUpload[]>([])
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     if (open) {
-      setForm(getInitialForm(assignment))
+      setForm(getInitialForm(assignment, teamId, teamMembers))
       setFileCategory("brief")
       setSelectedFiles([])
     }
-  }, [assignment, open])
+  }, [assignment, open, teamId, teamMembers])
 
   const updateStatus = (status: AssignmentStatus) => {
     setForm((current) => ({
@@ -157,7 +175,14 @@ export function AssignmentDialog({
 
     setIsSaving(true)
     try {
-      const result = await onSave(form, selectedFiles)
+      const result = await onSave(
+        {
+          ...form,
+          teamId: form.teamId,
+          assigneeUserId: form.assigneeUserId,
+        },
+        selectedFiles,
+      )
       onOpenChange(false)
       if (result?.fileUploadFailed) {
         toast.warning("Assignment saved, but some files could not be uploaded.")
@@ -232,6 +257,30 @@ export function AssignmentDialog({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
+            {canAssign ? (
+              <div className="grid gap-2 sm:col-span-3">
+                <Label>Assignee</Label>
+                <Select
+                  value={form.assigneeUserId ?? ""}
+                  onValueChange={(value) =>
+                    setForm((current) => ({ ...current, assigneeUserId: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a team member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.userId} value={member.userId}>
+                        {member.displayName || member.email}
+                        {member.role === "admin" ? " (Admin)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
             <div className="grid gap-2">
               <Label>Priority</Label>
               <Select
