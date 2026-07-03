@@ -72,7 +72,7 @@ The current SPA architecture uses `VITE_NEON_DATABASE_URL`, which exposes the da
 
 ## Dropbox Assignment Files
 
-Assignment file uploads use a single owner Dropbox account. Uploads are sent through serverless API routes so Dropbox refresh tokens and access tokens never reach the browser. File metadata is stored in Neon and scoped to an assignment.
+Assignment file uploads use a single owner Dropbox account. Uploads are sent through serverless API routes so Dropbox refresh tokens and access tokens never reach the browser. File metadata is stored in Neon and scoped to an assignment. The configured owner connects Dropbox once; signed-in team members can then manage files for their own app assignments through that shared Dropbox connection.
 
 ### Dropbox App Setup
 
@@ -108,6 +108,7 @@ DROPBOX_CLIENT_SECRET=
 
 - `DROPBOX_OWNER_USER_ID` must match `VITE_DROPBOX_OWNER_USER_ID`.
 - Owner ID values must be the Absolute Revision app account ID from **Settings > Account ID**, not a Dropbox `dbid`.
+- Keep the owner ID set to the account that should administer the Dropbox connection. Do not replace it with each team member's account ID after they sign up.
 - `DROPBOX_TOKEN_ENCRYPTION_KEY` should be a strong random value, preferably 32 bytes of base64.
 - `DROPBOX_REDIRECT_URI` must match the Dropbox OAuth callback URL.
 - `DROPBOX_ROOT_PATH` is optional and defaults to `/Absolute Revision`.
@@ -160,4 +161,5 @@ VITE_DROPBOX_OWNER_USER_ID
 3. Redeploy the Vercel production deployment after changing environment variables.
 4. Open the assignment page as the configured owner account.
 5. If the Files panel shows **Connect Dropbox**, complete the Dropbox OAuth flow once.
-6. If `/api/dropbox/status` still returns a server error, check Vercel function logs for the exact database or Dropbox API error.
+6. After Dropbox is connected, signed-in team members should see the upload controls on their assignment pages.
+7. If `/api/dropbox/status` still returns a server error, check Vercel function logs for the exact database or Dropbox API error.

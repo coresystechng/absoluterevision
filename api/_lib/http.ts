@@ -111,15 +111,24 @@ export async function readRawBody(req: ApiRequest) {
   return Buffer.concat(chunks)
 }
 
+export function requireUser(req: ApiRequest) {
+  const userId = getHeader(req.headers, "x-absolute-revision-user-id")?.trim()
+  if (!userId) {
+    throw new HttpError(401, "Sign in to manage assignment files.")
+  }
+
+  return userId
+}
+
 export function requireOwner(req: ApiRequest) {
   const ownerUserId = process.env.DROPBOX_OWNER_USER_ID
   if (!ownerUserId) {
     throw new HttpError(503, "Dropbox owner is not configured.")
   }
 
-  const userId = getHeader(req.headers, "x-absolute-revision-user-id")
-  if (!userId || userId !== ownerUserId) {
-    throw new HttpError(403, "Only the configured owner can manage Dropbox files.")
+  const userId = requireUser(req)
+  if (userId !== ownerUserId) {
+    throw new HttpError(403, "Only the configured owner can connect Dropbox.")
   }
 
   return userId

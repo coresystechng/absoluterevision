@@ -203,8 +203,12 @@ export function AssignmentFiles({
   const isOwner = ownerUserId ? user.id === ownerUserId : false
 
   const loadFiles = useCallback(async () => {
-    if (!isOwner) {
-      setStatus({ isConfigured: Boolean(ownerUserId), isConnected: false })
+    if (!ownerUserId) {
+      setStatus({
+        isConfigured: false,
+        isConnected: false,
+        missingKeys: ["VITE_DROPBOX_OWNER_USER_ID"],
+      })
       setStatusError(null)
       setFiles([])
       setIsLoading(false)
@@ -230,7 +234,7 @@ export function AssignmentFiles({
     } finally {
       setIsLoading(false)
     }
-  }, [assignmentId, isOwner, user.id])
+  }, [assignmentId, user.id])
 
   useEffect(() => {
     void loadFiles()
@@ -335,22 +339,6 @@ export function AssignmentFiles({
             Set <span className="font-medium text-foreground">VITE_DROPBOX_OWNER_USER_ID</span>{" "}
             and matching server Dropbox credentials to enable uploads.
           </div>
-        ) : !isOwner ? (
-          <div className="grid gap-2 rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
-            <p>The signed-in account is not configured as the Dropbox owner.</p>
-            <p>
-              Current account ID:{" "}
-              <span className="break-all font-mono text-foreground">{user.id}</span>
-            </p>
-            <p>
-              Configured owner ID:{" "}
-              <span className="break-all font-mono text-foreground">{ownerUserId}</span>
-            </p>
-            <p>
-              Copy the current account ID into <span className="font-medium text-foreground">VITE_DROPBOX_OWNER_USER_ID</span>{" "}
-              and <span className="font-medium text-foreground">DROPBOX_OWNER_USER_ID</span>, then restart the dev server.
-            </p>
-          </div>
         ) : statusError ? (
           <div className="grid gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-muted-foreground">
             <p className="font-medium text-foreground">Could not check Dropbox connection.</p>
@@ -368,7 +356,7 @@ export function AssignmentFiles({
               </p>
             ) : null}
           </div>
-        ) : !status.isConnected ? (
+        ) : !status.isConnected && isOwner ? (
           <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-medium">Connect your Dropbox</p>
@@ -384,6 +372,14 @@ export function AssignmentFiles({
               )}
               Connect Dropbox
             </Button>
+          </div>
+        ) : !status.isConnected ? (
+          <div className="grid gap-2 rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">Dropbox is not connected yet.</p>
+            <p>
+              Ask the configured owner to connect Dropbox before team members upload
+              assignment files.
+            </p>
           </div>
         ) : (
           <>

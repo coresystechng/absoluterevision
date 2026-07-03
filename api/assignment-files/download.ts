@@ -5,7 +5,7 @@ import {
   getQueryParam,
   handleApiError,
   requireMethod,
-  requireOwner,
+  requireUser,
   sendJson,
   type ApiRequest,
   type ApiResponse,
@@ -14,7 +14,7 @@ import {
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     requireMethod(req, "GET")
-    const userId = requireOwner(req)
+    const userId = requireUser(req)
     const fileId = Number(getQueryParam(req, "fileId"))
 
     if (!Number.isInteger(fileId)) {

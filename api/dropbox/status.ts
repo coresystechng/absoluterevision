@@ -1,10 +1,11 @@
 import { getOwnerConnection, isFilesDatabaseConfigured } from "../_lib/db.js"
 import { getDropboxConfigStatus } from "../_lib/dropbox.js"
-import { handleApiError, requireMethod, requireOwner, sendJson, type ApiRequest, type ApiResponse } from "../_lib/http.js"
+import { handleApiError, requireMethod, requireUser, sendJson, type ApiRequest, type ApiResponse } from "../_lib/http.js"
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     requireMethod(req, "GET")
+    requireUser(req)
 
     const dropboxConfig = getDropboxConfigStatus()
     const missingKeys: string[] = [...dropboxConfig.missingKeys]
@@ -21,8 +22,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       })
       return
     }
-
-    requireOwner(req)
 
     if (missingKeys.length > 0) {
       sendJson(res, 200, {

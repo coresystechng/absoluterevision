@@ -11,7 +11,7 @@ import {
   getActorName,
   getQueryParam,
   handleApiError,
-  requireOwner,
+  requireUser,
   sendJson,
   type ApiRequest,
   type ApiResponse,
@@ -60,7 +60,7 @@ async function handleDelete(req: ApiRequest, res: ApiResponse, userId: string) {
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
-    const userId = requireOwner(req)
+    const userId = requireUser(req)
 
     if (req.method === "GET") {
       await handleGet(req, res, userId)

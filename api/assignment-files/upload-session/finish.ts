@@ -13,7 +13,7 @@ import {
   handleApiError,
   readRawBody,
   requireMethod,
-  requireOwner,
+  requireUser,
   sendJson,
   type ApiRequest,
   type ApiResponse,
@@ -26,7 +26,7 @@ const MAX_CHUNK_BYTES = 3 * 1024 * 1024
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     requireMethod(req, "POST")
-    const userId = requireOwner(req)
+    const userId = requireUser(req)
     const assignmentId = Number(getQueryParam(req, "assignmentId"))
     const category = normalizeAssignmentFileCategory(getQueryParam(req, "category"))
     const sessionId = getQueryParam(req, "sessionId")?.trim()
