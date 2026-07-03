@@ -493,22 +493,21 @@ export async function update(userId: string, id: number, input: AssignmentInput,
 
     const rows = await query<{ id: number }>(
       `UPDATE assignments
-       SET team_id = $3,
-           assignee_user_id = $4,
-           title = $5,
-           category = $6,
-           priority = $7,
-           status = $8,
-           progress_stage = $9,
-           due_date = $10,
-           due_time = $11,
-           progress = $12,
-           notes = $13,
+       SET team_id = $2,
+           assignee_user_id = $3,
+           title = $4,
+           category = $5,
+           priority = $6,
+           status = $7,
+           progress_stage = $8,
+           due_date = $9,
+           due_time = $10,
+           progress = $11,
+           notes = $12,
            updated_at = NOW()
-       WHERE id = $2
+       WHERE id = $1
        RETURNING id`,
       [
-        userId,
         id,
         teamId,
         assigneeUserId,
@@ -561,13 +560,13 @@ export async function updateStatus(
     const progress = getAssignmentProgress(nextStatus, progressStage)
     const rows = await query<{ id: number }>(
       `UPDATE assignments
-       SET status = $3,
-           progress_stage = $4,
-           progress = $5,
+       SET status = $2,
+           progress_stage = $3,
+           progress = $4,
            updated_at = NOW()
-       WHERE id = $2
+       WHERE id = $1
        RETURNING id`,
-      [userId, id, nextStatus, progressStage, progress],
+      [id, nextStatus, progressStage, progress],
     )
     if (!rows[0]) {
       return null
@@ -604,13 +603,13 @@ export async function updateProgressStage(
     const progress = getAssignmentProgress(status, nextProgressStage)
     const rows = await query<{ id: number }>(
       `UPDATE assignments
-       SET status = $3,
-           progress_stage = $4,
-           progress = $5,
+       SET status = $2,
+           progress_stage = $3,
+           progress = $4,
            updated_at = NOW()
-       WHERE id = $2
+       WHERE id = $1
        RETURNING id`,
-      [userId, id, status, nextProgressStage, progress],
+      [id, status, nextProgressStage, progress],
     )
     if (!rows[0]) {
       return null
