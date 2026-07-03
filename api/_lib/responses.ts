@@ -1,5 +1,5 @@
-import type { AssignmentFileRow } from "./db"
-import { normalizeAssignmentFileCategory } from "./files"
+import type { AssignmentFileRow } from "./db.js"
+import { normalizeAssignmentFileCategory } from "./files.js"
 
 function toIsoDateTime(value: Date | string) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString()

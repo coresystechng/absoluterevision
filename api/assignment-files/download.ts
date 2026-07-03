@@ -1,5 +1,5 @@
-import { getAssignmentFile } from "../_lib/db"
-import { getDropboxTemporaryLink, getOwnerAccessToken } from "../_lib/dropbox"
+import { getAssignmentFile } from "../_lib/db.js"
+import { getDropboxTemporaryLink, getOwnerAccessToken } from "../_lib/dropbox.js"
 import {
   HttpError,
   getQueryParam,
@@ -9,7 +9,7 @@ import {
   sendJson,
   type ApiRequest,
   type ApiResponse,
-} from "../_lib/http"
+} from "../_lib/http.js"
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {

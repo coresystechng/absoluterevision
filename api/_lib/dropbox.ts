@@ -7,9 +7,9 @@ import {
   saveOwnerConnection,
   type AssignmentRow,
   type OwnerConnectionRow,
-} from "./db"
-import { assignmentFileCategoryFolders, type AssignmentFileCategory, slugifyFolderSegment } from "./files"
-import { HttpError, getRequestOrigin, type ApiRequest } from "./http"
+} from "./db.js"
+import { assignmentFileCategoryFolders, type AssignmentFileCategory, slugifyFolderSegment } from "./files.js"
+import { HttpError, getRequestOrigin, type ApiRequest } from "./http.js"
 
 const DROPBOX_AUTH_ENDPOINT = "https://www.dropbox.com/oauth2/authorize"
 const DROPBOX_TOKEN_ENDPOINT = "https://api.dropboxapi.com/oauth2/token"

@@ -1,4 +1,4 @@
-import { createDropboxAuthUrl } from "../_lib/dropbox"
+import { createDropboxAuthUrl } from "../_lib/dropbox.js"
 import {
   handleApiError,
   readJsonBody,
@@ -7,7 +7,7 @@ import {
   sendJson,
   type ApiRequest,
   type ApiResponse,
-} from "../_lib/http"
+} from "../_lib/http.js"
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {

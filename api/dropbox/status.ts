@@ -1,6 +1,6 @@
-import { getOwnerConnection, isFilesDatabaseConfigured } from "../_lib/db"
-import { getDropboxConfigStatus } from "../_lib/dropbox"
-import { handleApiError, requireMethod, requireOwner, sendJson, type ApiRequest, type ApiResponse } from "../_lib/http"
+import { getOwnerConnection, isFilesDatabaseConfigured } from "../_lib/db.js"
+import { getDropboxConfigStatus } from "../_lib/dropbox.js"
+import { handleApiError, requireMethod, requireOwner, sendJson, type ApiRequest, type ApiResponse } from "../_lib/http.js"
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {

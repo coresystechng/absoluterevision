@@ -1,6 +1,6 @@
 import { neon } from "@neondatabase/serverless"
 
-import type { AssignmentFileCategory } from "./files"
+import type { AssignmentFileCategory } from "./files.js"
 
 const databaseUrl = process.env.NEON_DATABASE_URL ?? process.env.VITE_NEON_DATABASE_URL
 

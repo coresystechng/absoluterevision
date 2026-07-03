@@ -1,4 +1,4 @@
-import { exchangeDropboxCode, parseOAuthState } from "../_lib/dropbox"
+import { exchangeDropboxCode, parseOAuthState } from "../_lib/dropbox.js"
 import {
   HttpError,
   getQueryParam,
@@ -7,7 +7,7 @@ import {
   requireMethod,
   type ApiRequest,
   type ApiResponse,
-} from "../_lib/http"
+} from "../_lib/http.js"
 
 function redirect(res: ApiResponse, url: string) {
   res.statusCode = 302

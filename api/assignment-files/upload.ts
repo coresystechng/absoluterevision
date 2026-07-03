@@ -1,10 +1,10 @@
-import { addAssignmentActivity, getOwnerAssignment, saveAssignmentFile } from "../_lib/db"
+import { addAssignmentActivity, getOwnerAssignment, saveAssignmentFile } from "../_lib/db.js"
 import {
   getOrCreateAssignmentCategoryFolder,
   getOwnerAccessToken,
   uploadDropboxFile,
-} from "../_lib/dropbox"
-import { normalizeAssignmentFileCategory, normalizeEncodedFileName } from "../_lib/files"
+} from "../_lib/dropbox.js"
+import { normalizeAssignmentFileCategory, normalizeEncodedFileName } from "../_lib/files.js"
 import {
   HttpError,
   getActorName,
@@ -17,8 +17,8 @@ import {
   sendJson,
   type ApiRequest,
   type ApiResponse,
-} from "../_lib/http"
-import { mapAssignmentFile } from "../_lib/responses"
+} from "../_lib/http.js"
+import { mapAssignmentFile } from "../_lib/responses.js"
 
 const MAX_UPLOAD_BYTES = 3 * 1024 * 1024
 

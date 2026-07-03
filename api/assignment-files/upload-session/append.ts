@@ -1,4 +1,4 @@
-import { appendDropboxUploadSession, getOwnerAccessToken } from "../../_lib/dropbox"
+import { appendDropboxUploadSession, getOwnerAccessToken } from "../../_lib/dropbox.js"
 import {
   HttpError,
   getQueryParam,
@@ -9,7 +9,7 @@ import {
   sendJson,
   type ApiRequest,
   type ApiResponse,
-} from "../../_lib/http"
+} from "../../_lib/http.js"
 
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024
 

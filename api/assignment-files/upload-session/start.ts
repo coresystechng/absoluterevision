@@ -1,10 +1,10 @@
-import { getOwnerAssignment } from "../../_lib/db"
+import { getOwnerAssignment } from "../../_lib/db.js"
 import {
   getOrCreateAssignmentCategoryFolder,
   getOwnerAccessToken,
   startDropboxUploadSession,
-} from "../../_lib/dropbox"
-import { normalizeAssignmentFileCategory, normalizeEncodedFileName } from "../../_lib/files"
+} from "../../_lib/dropbox.js"
+import { normalizeAssignmentFileCategory, normalizeEncodedFileName } from "../../_lib/files.js"
 import {
   HttpError,
   getHeader,
@@ -16,7 +16,7 @@ import {
   sendJson,
   type ApiRequest,
   type ApiResponse,
-} from "../../_lib/http"
+} from "../../_lib/http.js"
 
 const MAX_UPLOAD_BYTES = 250 * 1024 * 1024
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024
