@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/hooks/useTheme"
 import { getNeonAuthClient, isNeonAuthConfigured } from "@/lib/auth"
 import { AssignmentView } from "@/pages/AssignmentView"
 import { Dashboard } from "@/pages/Dashboard"
+import { DocumentUpload } from "@/pages/DocumentUpload"
 import { Landing } from "@/pages/Landing"
 import { Login } from "@/pages/Login"
 import { Settings } from "@/pages/Settings"
@@ -66,6 +67,7 @@ export default function App() {
     <ThemeProvider>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/document-upload" element={<DocumentUpload />} />
         <Route path="/login" element={<Login />} />
         <Route path="/sign-in" element={<Login />} />
         <Route path="/sign-up" element={<Login />} />

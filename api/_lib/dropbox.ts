@@ -356,6 +356,32 @@ export async function getOrCreateAssignmentCategoryFolder(input: {
   return categoryFolderPath
 }
 
+export async function getOrCreateDocumentUploadFolder(input: {
+  accessToken: string
+  uploadId: string
+  fullName: string
+  email: string
+  submittedAt: string
+}) {
+  const submittedDate = input.submittedAt.slice(0, 10)
+  const emailName = input.email.split("@")[0] ?? ""
+  const submitterSegment =
+    slugifyFolderSegment(`${input.fullName}-${emailName}`) || "client"
+  const uploadsRootPath = combineDropboxPath(getRootPath(), "Document Uploads")
+  const dateFolderPath = combineDropboxPath(uploadsRootPath, submittedDate)
+  const uploadFolderPath = combineDropboxPath(
+    dateFolderPath,
+    `${input.uploadId}-${submitterSegment}`,
+  )
+
+  await ensureFolder(input.accessToken, getRootPath())
+  await ensureFolder(input.accessToken, uploadsRootPath)
+  await ensureFolder(input.accessToken, dateFolderPath)
+  await ensureFolder(input.accessToken, uploadFolderPath)
+
+  return uploadFolderPath
+}
+
 export async function uploadDropboxFile(input: {
   accessToken: string
   folderPath: string

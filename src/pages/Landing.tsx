@@ -38,7 +38,7 @@ import partnerLogoFour from "../../img/prt-4.png"
 import serviceImage from "../../img/slide (1).jpg"
 import aboutImage from "../../img/stx-1.jpg"
 
-const documentUploadUrl = "https://absoluterevision.com/document-upload/"
+const documentUploadUrl = "/document-upload"
 const supportEmail = "support@absoluterevision.com"
 const phoneDisplay = "+1 937 249 0400"
 const phoneHref = "tel:+19372490400"
@@ -219,9 +219,9 @@ export function Landing() {
               <Link to="/login">Sign in</Link>
             </Button>
             <Button asChild>
-              <a href={documentUploadUrl} target="_blank" rel="noreferrer">
+              <Link to={documentUploadUrl}>
                 Get started
-              </a>
+              </Link>
             </Button>
           </div>
         </div>
@@ -251,9 +251,9 @@ export function Landing() {
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button size="lg" asChild className="bg-white text-black hover:bg-white/90">
-              <a href={documentUploadUrl} target="_blank" rel="noreferrer">
+              <Link to={documentUploadUrl}>
                 Get started
-              </a>
+              </Link>
             </Button>
             <Button
               size="lg"
@@ -320,9 +320,9 @@ export function Landing() {
               </p>
             </div>
             <Button asChild className="mt-8 w-fit">
-              <a href={documentUploadUrl} target="_blank" rel="noreferrer">
+              <Link to={documentUploadUrl}>
                 Submit a manuscript
-              </a>
+              </Link>
             </Button>
           </div>
         </div>
@@ -434,9 +434,9 @@ export function Landing() {
                       <p className="mt-3 text-sm leading-6 text-muted-foreground">{service.description}</p>
                     </div>
                     <Button variant="outline" asChild className="w-fit">
-                      <a href={documentUploadUrl} target="_blank" rel="noreferrer">
+                      <Link to={documentUploadUrl}>
                         Get started
-                      </a>
+                      </Link>
                     </Button>
                   </CardContent>
                 </Card>
@@ -533,9 +533,9 @@ export function Landing() {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button size="lg" asChild>
-              <a href={documentUploadUrl} target="_blank" rel="noreferrer">
+              <Link to={documentUploadUrl}>
                 Submit manuscript
-              </a>
+              </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
               <a href={phoneHref}>Call us</a>
