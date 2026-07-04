@@ -1,10 +1,10 @@
-import { addAssignmentActivity, getAccessibleAssignment, saveAssignmentFile } from "../../_lib/db.js"
+import { addAssignmentActivity, getAccessibleAssignment, saveAssignmentFile } from "../../../server/api/db.js"
 import {
   finishDropboxUploadSession,
   getOrCreateAssignmentCategoryFolder,
   getOwnerAccessToken,
-} from "../../_lib/dropbox.js"
-import { normalizeAssignmentFileCategory, normalizeEncodedFileName } from "../../_lib/files.js"
+} from "../../../server/api/dropbox.js"
+import { normalizeAssignmentFileCategory, normalizeEncodedFileName } from "../../../server/api/files.js"
 import {
   HttpError,
   getActorName,
@@ -17,8 +17,8 @@ import {
   sendJson,
   type ApiRequest,
   type ApiResponse,
-} from "../../_lib/http.js"
-import { mapAssignmentFile } from "../../_lib/responses.js"
+} from "../../../server/api/http.js"
+import { mapAssignmentFile } from "../../../server/api/responses.js"
 
 const MAX_UPLOAD_BYTES = 250 * 1024 * 1024
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024

@@ -4,8 +4,8 @@ import {
   getAccessibleAssignment,
   listAssignmentFiles,
   markAssignmentFileDeleted,
-} from "./_lib/db.js"
-import { deleteDropboxFile, getOwnerAccessToken } from "./_lib/dropbox.js"
+} from "../server/api/db.js"
+import { deleteDropboxFile, getOwnerAccessToken } from "../server/api/dropbox.js"
 import {
   HttpError,
   getActorName,
@@ -15,8 +15,8 @@ import {
   sendJson,
   type ApiRequest,
   type ApiResponse,
-} from "./_lib/http.js"
-import { mapAssignmentFile } from "./_lib/responses.js"
+} from "../server/api/http.js"
+import { mapAssignmentFile } from "../server/api/responses.js"
 
 async function handleGet(req: ApiRequest, res: ApiResponse, userId: string) {
   const assignmentId = Number(getQueryParam(req, "assignmentId"))

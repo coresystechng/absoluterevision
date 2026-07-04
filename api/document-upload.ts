@@ -3,12 +3,12 @@ import {
   createDocumentUploadMetadataFile,
   handleDocumentUploadApiError,
   readDocumentUploadHeaders,
-} from "./_lib/document-upload.js"
+} from "../server/api/document-upload.js"
 import {
   getOrCreateDocumentUploadFolder,
   getOwnerAccessToken,
   uploadDropboxFile,
-} from "./_lib/dropbox.js"
+} from "../server/api/dropbox.js"
 import {
   HttpError,
   readRawBody,
@@ -16,7 +16,7 @@ import {
   sendJson,
   type ApiRequest,
   type ApiResponse,
-} from "./_lib/http.js"
+} from "../server/api/http.js"
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {

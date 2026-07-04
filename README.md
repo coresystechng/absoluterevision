@@ -33,6 +33,7 @@ The app is built with React, TypeScript, Vite, Tailwind CSS, Neon Auth, Neon Pos
 api/                 Vercel serverless API routes
 assets/              Static markdown policy content
 img/                 Source image assets
+server/api/          Shared server-side helpers for API routes
 src/api/             Browser API clients
 src/components/      Shared React components
 src/hooks/           App hooks and context
