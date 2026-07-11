@@ -278,7 +278,6 @@ export async function getAccessibleAssignment(userId: string, assignmentId: numb
        ON tm.team_id = a.team_id
       AND tm.user_id = $1
      WHERE a.id = $2
-       AND (tm.role = 'admin' OR a.assignee_user_id = $1)
      LIMIT 1`,
     [userId, assignmentId],
   )
@@ -348,7 +347,6 @@ export async function getAssignmentFile(userId: string, fileId: number) {
       AND tm.user_id = $1
      WHERE f.id = $2
        AND f.provider = 'dropbox'
-       AND (tm.role = 'admin' OR a.assignee_user_id = $1)
      LIMIT 1`,
     [userId, fileId],
   )

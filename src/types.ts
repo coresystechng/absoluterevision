@@ -107,7 +107,14 @@ export type UserProfile = {
   id: string
   email: string
   displayName: string | null
+  dashboardFilters: DashboardFilterPreferences
   createdAt: string
+}
+
+export type DashboardFilterPreferences = {
+  type: AssignmentType | "all"
+  priority: AssignmentPriority | "all"
+  status: AssignmentStatus | "all"
 }
 
 export type Team = {

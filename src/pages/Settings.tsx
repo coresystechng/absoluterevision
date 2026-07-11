@@ -3,7 +3,7 @@ import { toast } from "sonner"
 import { Plus, Trash2, UserMinus, UsersRound } from "lucide-react"
 
 import { removeAll } from "@/api/assignments"
-import { getOrCreateUser, updateProfile } from "@/api/users"
+import { getOrCreateUser, updateDashboardFilters, updateProfile } from "@/api/users"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { Navbar } from "@/components/Navbar"
 import { ThemeToggle } from "@/components/ThemeToggle"
@@ -19,7 +19,20 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useTeams } from "@/hooks/useTeams"
-import type { AuthUser } from "@/types"
+import { assignmentStatuses } from "@/lib/assignment-status"
+import { assignmentTypes } from "@/lib/assignment-types"
+import { defaultDashboardFilters } from "@/lib/dashboard-preferences"
+import type {
+  AssignmentPriority,
+  AuthUser,
+  DashboardFilterPreferences,
+} from "@/types"
+
+const priorityOptions: Array<{ value: AssignmentPriority; label: string }> = [
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+]
 
 export function Settings({
   user,
@@ -30,6 +43,10 @@ export function Settings({
 }) {
   const [displayName, setDisplayName] = useState(user.displayName ?? "")
   const [isSaving, setIsSaving] = useState(false)
+  const [dashboardFilters, setDashboardFilters] = useState<DashboardFilterPreferences>(
+    defaultDashboardFilters,
+  )
+  const [isSavingFilters, setIsSavingFilters] = useState(false)
   const [activeTeamId, setActiveTeamId] = useState<number | null>(null)
   const [newTeamName, setNewTeamName] = useState("")
   const [teamName, setTeamName] = useState("")
@@ -50,7 +67,10 @@ export function Settings({
 
   useEffect(() => {
     void getOrCreateUser(user)
-      .then((profile) => setDisplayName(profile.displayName ?? ""))
+      .then((profile) => {
+        setDisplayName(profile.displayName ?? "")
+        setDashboardFilters(profile.dashboardFilters)
+      })
       .then(() => reloadTeams())
       .catch(() => toast.error("Something went wrong. Try again."))
   }, [reloadTeams, user])
@@ -88,6 +108,19 @@ export function Settings({
       toast.error("Assignments deleted")
     } catch {
       toast.error("Something went wrong. Try again.")
+    }
+  }
+
+  const saveDashboardFilters = async () => {
+    setIsSavingFilters(true)
+    try {
+      const profile = await updateDashboardFilters(user.id, dashboardFilters)
+      setDashboardFilters(profile.dashboardFilters)
+      toast.success("Dashboard preferences saved")
+    } catch {
+      toast.error("Something went wrong. Try again.")
+    } finally {
+      setIsSavingFilters(false)
     }
   }
 
@@ -184,10 +217,103 @@ export function Settings({
         <Card>
           <CardHeader>
             <CardTitle>Preferences</CardTitle>
-            <CardDescription>Choose how the app appears on this device.</CardDescription>
+            <CardDescription>Choose how the app appears and which assignments are shown when you open the dashboard.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ThemeToggle />
+          <CardContent className="grid gap-6">
+            <div className="grid gap-2">
+              <Label>Appearance</Label>
+              <ThemeToggle />
+            </div>
+
+            <div className="grid gap-4 rounded-md border p-4">
+              <div>
+                <p className="font-medium">Default dashboard filters</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  These filters are applied whenever you open the dashboard. Select all options to see every assignment.
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-2">
+                  <Label>Assignment type</Label>
+                  <Select
+                    value={dashboardFilters.type}
+                    onValueChange={(value) =>
+                      setDashboardFilters((current) => ({
+                        ...current,
+                        type: value as DashboardFilterPreferences["type"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger aria-label="Default assignment type filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      {assignmentTypes.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Priority</Label>
+                  <Select
+                    value={dashboardFilters.priority}
+                    onValueChange={(value) =>
+                      setDashboardFilters((current) => ({
+                        ...current,
+                        priority: value as DashboardFilterPreferences["priority"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger aria-label="Default priority filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Priorities</SelectItem>
+                      {priorityOptions.map((priority) => (
+                        <SelectItem key={priority.value} value={priority.value}>
+                          {priority.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Status</Label>
+                  <Select
+                    value={dashboardFilters.status}
+                    onValueChange={(value) =>
+                      setDashboardFilters((current) => ({
+                        ...current,
+                        status: value as DashboardFilterPreferences["status"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger aria-label="Default status filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      {assignmentStatuses.map((status) => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button
+                className="w-fit"
+                onClick={() => void saveDashboardFilters()}
+                disabled={isSavingFilters}
+              >
+                {isSavingFilters ? "Saving..." : "Save dashboard filters"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

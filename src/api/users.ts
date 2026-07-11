@@ -1,13 +1,17 @@
 import { addDays, formatISO } from "date-fns"
 
 import { initDb, query } from "@/lib/db"
+import { normalizeDashboardFilters } from "@/lib/dashboard-preferences"
 import { toIsoDateTime } from "@/lib/date-values"
-import type { AuthUser, UserProfile } from "@/types"
+import type { AuthUser, DashboardFilterPreferences, UserProfile } from "@/types"
 
 type UserRow = {
   id: string
   email: string
   display_name: string | null
+  dashboard_filter_type: string
+  dashboard_filter_priority: string
+  dashboard_filter_status: string
   created_at: Date | string
 }
 
@@ -20,6 +24,11 @@ function mapUser(row: UserRow): UserProfile {
     id: row.id,
     email: row.email,
     displayName: row.display_name,
+    dashboardFilters: normalizeDashboardFilters({
+      type: row.dashboard_filter_type,
+      priority: row.dashboard_filter_priority,
+      status: row.dashboard_filter_status,
+    }),
     createdAt: toIsoDateTime(row.created_at),
   }
 }
@@ -120,6 +129,29 @@ export async function updateProfile(userId: string, displayName: string | null) 
     return mapUser(rows[0])
   } catch (error) {
     console.error("Failed to update profile", error)
+    throw error
+  }
+}
+
+export async function updateDashboardFilters(
+  userId: string,
+  filters: DashboardFilterPreferences,
+) {
+  try {
+    await initDb()
+    const normalized = normalizeDashboardFilters(filters)
+    const rows = await query<UserRow>(
+      `UPDATE users
+       SET dashboard_filter_type = $2,
+           dashboard_filter_priority = $3,
+           dashboard_filter_status = $4
+       WHERE id = $1
+       RETURNING *`,
+      [userId, normalized.type, normalized.priority, normalized.status],
+    )
+    return mapUser(rows[0])
+  } catch (error) {
+    console.error("Failed to update dashboard filters", error)
     throw error
   }
 }

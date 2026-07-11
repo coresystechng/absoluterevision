@@ -22,25 +22,18 @@ import { useTeams } from "@/hooks/useTeams"
 import { uploadAssignmentFileSelection } from "@/lib/assignment-file-uploads"
 import { assignmentStatuses, getAssignmentStatusLabel } from "@/lib/assignment-status"
 import { assignmentTypes, normalizeAssignmentType } from "@/lib/assignment-types"
+import { defaultDashboardFilters } from "@/lib/dashboard-preferences"
 import type {
   Assignment,
   AssignmentFileUpload,
   AssignmentInput,
   AssignmentPriority,
-  AssignmentStatus,
-  AssignmentType,
   AuthUser,
+  DashboardFilterPreferences,
 } from "@/types"
 
-type FilterValue<T extends string> = T | "all"
 type SortField = "deadline" | "name"
 type SortDirection = "asc" | "desc"
-
-type DashboardFilters = {
-  type: FilterValue<AssignmentType>
-  priority: FilterValue<AssignmentPriority>
-  status: FilterValue<AssignmentStatus>
-}
 
 const priorityOptions: Array<{ value: AssignmentPriority; label: string }> = [
   { value: "high", label: "High" },
@@ -58,12 +51,6 @@ const sortDirectionOptions: Array<{ value: SortDirection; label: string }> = [
   { value: "desc", label: "Descending" },
 ]
 
-const defaultFilters: DashboardFilters = {
-  type: "all",
-  priority: "all",
-  status: "ongoing",
-}
-
 function getDeadlineTime(assignment: Assignment) {
   if (!assignment.dueDate) {
     return null
@@ -72,7 +59,7 @@ function getDeadlineTime(assignment: Assignment) {
   return new Date(`${assignment.dueDate}T${assignment.dueTime ?? "00:00"}`).getTime()
 }
 
-function matchesFilters(filters: DashboardFilters, assignment: Assignment) {
+function matchesFilters(filters: DashboardFilterPreferences, assignment: Assignment) {
   const assignmentType = normalizeAssignmentType(assignment.category)
 
   return (
@@ -144,7 +131,7 @@ export function Dashboard({
   user: AuthUser
   onSignOut: () => void | Promise<void>
 }) {
-  const [filters, setFilters] = useState<DashboardFilters>(defaultFilters)
+  const [filters, setFilters] = useState<DashboardFilterPreferences>(defaultDashboardFilters)
   const [sortField, setSortField] = useState<SortField>("deadline")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [searchQuery, setSearchQuery] = useState("")
@@ -171,7 +158,10 @@ export function Dashboard({
 
   useEffect(() => {
     void getOrCreateUser(user)
-      .then(() => reloadTeams())
+      .then((profile) => {
+        setFilters(profile.dashboardFilters)
+        return reloadTeams()
+      })
       .catch(() => toast.error("Something went wrong. Try again."))
   }, [reloadTeams, user])
 
@@ -288,7 +278,7 @@ export function Dashboard({
             <Select
               value={filters.type}
               onValueChange={(value) =>
-                setFilters((current) => ({ ...current, type: value as DashboardFilters["type"] }))
+                setFilters((current) => ({ ...current, type: value as DashboardFilterPreferences["type"] }))
               }
             >
               <SelectTrigger aria-label="Filter by assignment type">
@@ -310,7 +300,7 @@ export function Dashboard({
             <Select
               value={filters.priority}
               onValueChange={(value) =>
-                setFilters((current) => ({ ...current, priority: value as DashboardFilters["priority"] }))
+                setFilters((current) => ({ ...current, priority: value as DashboardFilterPreferences["priority"] }))
               }
             >
               <SelectTrigger aria-label="Filter by priority">
@@ -332,7 +322,7 @@ export function Dashboard({
             <Select
               value={filters.status}
               onValueChange={(value) =>
-                setFilters((current) => ({ ...current, status: value as DashboardFilters["status"] }))
+                setFilters((current) => ({ ...current, status: value as DashboardFilterPreferences["status"] }))
               }
             >
               <SelectTrigger aria-label="Filter by status">

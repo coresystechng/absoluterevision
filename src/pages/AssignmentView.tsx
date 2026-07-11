@@ -260,7 +260,7 @@ export function AssignmentView({
     ? getActivityItems(assignment, activities, actorName)
     : []
   const canManageAssignment = assignment?.currentUserRole === "admin"
-  const canUpdateProgress = Boolean(
+  const canUploadFiles = Boolean(
     assignment &&
       (assignment.currentUserRole === "admin" || assignment.assigneeUserId === user.id),
   )
@@ -349,7 +349,7 @@ export function AssignmentView({
                     <Select
                       value={assignment.status}
                       onValueChange={(value) => void updateStatus(value as AssignmentStatus)}
-                      disabled={!canUpdateProgress}
+                      disabled={!canManageAssignment}
                     >
                       <SelectTrigger className="mt-2">
                         <SelectValue />
@@ -376,7 +376,7 @@ export function AssignmentView({
                     <Select
                       value={assignment.progressStage}
                       onValueChange={(value) => void updateProgressStage(value as AssignmentProgressStage)}
-                      disabled={!canUpdateProgress}
+                      disabled={!canManageAssignment}
                     >
                       <SelectTrigger className="mt-2">
                         <SelectValue />
@@ -428,7 +428,7 @@ export function AssignmentView({
               user={user}
               actorName={actorName}
               onActivityChange={refreshActivities}
-              canUpload={canUpdateProgress}
+              canUpload={canUploadFiles}
               allowedCategories={canManageAssignment ? undefined : ["final"]}
               canDelete={canManageAssignment}
             />

@@ -334,7 +334,6 @@ async function getAccessibleAssignmentRow(userId: string, id: number) {
     `${assignmentSelect(`
       tm.user_id = $1
       AND a.id = $2
-      AND (tm.role = 'admin' OR a.assignee_user_id = $1)
     `)}
      LIMIT 1`,
     [userId, id],
@@ -364,7 +363,6 @@ export async function getAll(userId: string, teamId?: number | null) {
       `${assignmentSelect(`
         tm.user_id = $1
         AND ($2::integer IS NULL OR a.team_id = $2::integer)
-        AND (tm.role = 'admin' OR a.assignee_user_id = $1)
       `)}
        ORDER BY
          CASE a.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
@@ -546,7 +544,7 @@ export async function updateStatus(
 ) {
   try {
     await initDb()
-    const current = await getAccessibleAssignmentRow(userId, id)
+    const current = await getAdminAssignmentRow(userId, id)
     if (!current) {
       return null
     }
@@ -592,7 +590,7 @@ export async function updateProgressStage(
 ) {
   try {
     await initDb()
-    const current = await getAccessibleAssignmentRow(userId, id)
+    const current = await getAdminAssignmentRow(userId, id)
     if (!current) {
       return null
     }
