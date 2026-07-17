@@ -33,6 +33,7 @@ export function initDb() {
         id TEXT PRIMARY KEY,
         email TEXT NOT NULL,
         display_name TEXT,
+        active_team_id INTEGER,
         dashboard_filter_type TEXT NOT NULL DEFAULT 'all',
         dashboard_filter_priority TEXT NOT NULL DEFAULT 'all',
         dashboard_filter_status TEXT NOT NULL DEFAULT 'all',
@@ -130,6 +131,7 @@ export function initDb() {
     await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_filter_type TEXT NOT NULL DEFAULT 'all'")
     await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_filter_priority TEXT NOT NULL DEFAULT 'all'")
     await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_filter_status TEXT NOT NULL DEFAULT 'all'")
+    await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS active_team_id INTEGER")
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS due_time TIME")
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS progress_stage TEXT NOT NULL DEFAULT 'ai-draft'")
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE")

@@ -107,6 +107,7 @@ export type UserProfile = {
   id: string
   email: string
   displayName: string | null
+  activeTeamId: number | null
   dashboardFilters: DashboardFilterPreferences
   createdAt: string
 }

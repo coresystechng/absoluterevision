@@ -267,7 +267,11 @@ export function AssignmentView({
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar user={user} onSignOut={onSignOut} />
+      <Navbar
+        user={user}
+        onSignOut={onSignOut}
+        activeTeamName={isLoading ? undefined : assignment?.teamName ?? null}
+      />
       <main className="mx-auto grid max-w-4xl gap-6 px-4 py-6">
         <Button variant="ghost" asChild className="w-fit px-0">
           <Link to="/dashboard">

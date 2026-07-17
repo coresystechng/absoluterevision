@@ -175,6 +175,46 @@ export async function updateTeamName(userId: string, teamId: number, name: strin
   )
 }
 
+export async function deleteTeam(userId: string, teamId: number) {
+  await initDb()
+  await requireTeamAdmin(userId, teamId)
+
+  const remainingTeams = await query<{ team_id: number }>(
+    `SELECT team_id
+     FROM team_memberships
+     WHERE user_id = $1
+       AND team_id <> $2
+     ORDER BY created_at ASC
+     LIMIT 1`,
+    [userId, teamId],
+  )
+  const nextTeamId = remainingTeams[0]?.team_id
+  if (!nextTeamId) {
+    throw new Error("Create another team before deleting your only workspace.")
+  }
+
+  await query(
+    `UPDATE users
+     SET active_team_id = NULL
+     WHERE active_team_id = $1`,
+    [teamId],
+  )
+  await query(
+    `DELETE FROM teams
+     WHERE id = $1
+       AND admin_user_id = $2`,
+    [teamId, userId],
+  )
+  await query(
+    `UPDATE users
+     SET active_team_id = $2
+     WHERE id = $1`,
+    [userId, nextTeamId],
+  )
+
+  return nextTeamId
+}
+
 export async function addTeamMember(userId: string, teamId: number, email: string) {
   await initDb()
   await requireTeamAdmin(userId, teamId)
