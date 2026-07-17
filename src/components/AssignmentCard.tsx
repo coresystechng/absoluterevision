@@ -1,7 +1,6 @@
-import { isAfter, isBefore, parseISO } from "date-fns"
+import { format, formatDistanceToNowStrict } from "date-fns"
 import {
   CalendarClock,
-  CheckCircle2,
   ClipboardList,
   GraduationCap,
   MoreHorizontal,
@@ -14,7 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 
 import { AssignmentDialog } from "@/components/AssignmentDialog"
 import { Badge } from "@/components/ui/badge"
@@ -26,7 +25,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Progress } from "@/components/ui/progress"
+import { getAssignmentStatusLabel } from "@/lib/assignment-status"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
+import {
+  getAssignmentDeadline,
+  isAssignmentDueSoon,
+  isAssignmentOverdue,
+} from "@/lib/dashboard-view"
 import { cn } from "@/lib/utils"
 import type {
   Assignment,
@@ -44,14 +50,14 @@ const assignmentTypeIcons: Record<AssignmentType, LucideIcon> = {
   Presentation,
 }
 
-function statusTone(status: Assignment["status"]) {
+function statusBadgeTone(status: Assignment["status"]) {
   if (status === "completed") {
-    return "text-emerald-600 dark:text-emerald-400"
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
   }
   if (status === "ongoing") {
-    return "text-amber-600 dark:text-amber-400"
+    return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300"
   }
-  return "text-muted-foreground"
+  return "border-border bg-muted/50 text-muted-foreground"
 }
 
 function priorityBadgeTone(priority: Assignment["priority"]) {
@@ -65,83 +71,35 @@ function priorityBadgeTone(priority: Assignment["priority"]) {
 }
 
 function priorityLabel(priority: Assignment["priority"]) {
-  if (priority === "high") {
-    return "High"
-  }
-  if (priority === "medium") {
-    return "Medium"
-  }
-  return "Low"
+  return `${priority.charAt(0).toUpperCase()}${priority.slice(1)} priority`
 }
 
-function priorityInitial(priority: Assignment["priority"]) {
-  return priority.charAt(0).toUpperCase()
-}
-
-function dueDateTime(assignment: Assignment) {
-  if (!assignment.dueDate) {
-    return null
+function deadlineDetails(assignment: Assignment) {
+  const deadline = getAssignmentDeadline(assignment)
+  if (!deadline) {
+    return { date: "No deadline", urgency: "Schedule not set", tone: "text-muted-foreground" }
   }
 
-  return parseISO(`${assignment.dueDate}T${assignment.dueTime ?? "00:00"}`)
-}
-
-function dueTone(assignment: Assignment) {
-  const due = dueDateTime(assignment)
+  const formatted = format(deadline, assignment.dueTime ? "EEE, d MMM · h:mm a" : "EEE, d MMM")
   if (assignment.status === "completed") {
-    return "text-foreground"
+    return { date: formatted, urgency: "Completed", tone: "text-muted-foreground" }
   }
-  if (!due) {
-    return "text-muted-foreground"
+  if (isAssignmentOverdue(assignment)) {
+    return {
+      date: formatted,
+      urgency: `${formatDistanceToNowStrict(deadline)} overdue`,
+      tone: "text-destructive",
+    }
   }
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const soon = new Date(today)
-  soon.setDate(today.getDate() + 3)
-
-  if (isBefore(due, today)) {
-    return "text-destructive"
+  return {
+    date: formatted,
+    urgency: isAssignmentDueSoon(assignment)
+      ? `Due in ${formatDistanceToNowStrict(deadline)}`
+      : formatDistanceToNowStrict(deadline, { addSuffix: true }),
+    tone: isAssignmentDueSoon(assignment)
+      ? "text-amber-600 dark:text-amber-400"
+      : "text-muted-foreground",
   }
-  if (isAfter(due, today) && isBefore(due, soon)) {
-    return "text-amber-600 dark:text-amber-400"
-  }
-  return "text-muted-foreground"
-}
-
-function getTimeLeftLabel(assignment: Assignment) {
-  if (assignment.status === "completed") {
-    return "Submitted"
-  }
-
-  const due = dueDateTime(assignment)
-  if (!due) {
-    return "No deadline"
-  }
-
-  const diffMs = due.getTime() - Date.now()
-  if (diffMs <= 0) {
-    return "Overdue"
-  }
-
-  const totalMinutes = Math.floor(diffMs / (1000 * 60))
-  const days = Math.floor(totalMinutes / (60 * 24))
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
-  const minutes = totalMinutes % 60
-
-  if (days > 0) {
-    return `${days}d ${hours} hrs left`
-  }
-
-  if (hours > 0) {
-    return `${hours} hrs ${minutes} mins left`
-  }
-
-  if (minutes > 0) {
-    return `${minutes} mins left`
-  }
-
-  return "Due soon"
 }
 
 export function AssignmentCard({
@@ -160,72 +118,79 @@ export function AssignmentCard({
   canManage?: boolean
   teamMembers?: TeamMember[]
 }) {
-  const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
   const assignmentType = normalizeAssignmentType(assignment.category)
   const AssignmentTypeIcon = assignmentTypeIcons[assignmentType]
+  const deadline = deadlineDetails(assignment)
+  const isCompleted = assignment.status === "completed"
 
   return (
     <>
       <Card
-        className="h-full cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md"
-        role="button"
-        tabIndex={0}
-        onClick={() => navigate(`/assignments/${assignment.id}`)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            navigate(`/assignments/${assignment.id}`)
-          }
-        }}
+        className={cn(
+          "h-full transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md",
+          isCompleted && "bg-muted/20",
+        )}
       >
         <CardContent className="flex h-full flex-col gap-4 p-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <AssignmentTypeIcon
-                  className={cn("h-5 w-5 shrink-0", statusTone(assignment.status))}
-                  aria-label={`${assignmentType} assignment type`}
-                />
-                <h3 className={cn("truncate text-base font-semibold", statusTone(assignment.status))}>
+            <Link
+              to={`/assignments/${assignment.id}`}
+              className="min-w-0 flex-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label={`Open ${assignment.title}`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">
                   {assignment.title}
                 </h3>
+                <Badge variant="outline" className={cn("shrink-0", statusBadgeTone(assignment.status))}>
+                  {getAssignmentStatusLabel(assignment.status)}
+                </Badge>
               </div>
-              <div className={cn("mt-2 flex items-center gap-2 text-sm", dueTone(assignment))}>
-                {assignment.status === "completed" ? (
-                  <CheckCircle2 className="h-4 w-4" />
-                ) : (
-                  <CalendarClock className="h-4 w-4" />
-                )}
-                <span>{getTimeLeftLabel(assignment)}</span>
-              </div>
-            </div>
+            </Link>
             {canManage ? (
-              <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="ghost" size="icon" aria-label="More actions">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-                    <DropdownMenuItem onSelect={(event) => { event.preventDefault(); setIsEditing(true) }}>
-                      <Pencil className="h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        void onDelete()
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="shrink-0" aria-label={`More actions for ${assignment.title}`}>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={(event) => { event.preventDefault(); setIsEditing(true) }}>
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      void onDelete()
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : null}
+          </div>
+
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <AssignmentTypeIcon className="h-4 w-4" aria-hidden="true" />
+              {assignmentType}
+            </span>
+            <Badge variant="outline" className={cn("font-medium", priorityBadgeTone(assignment.priority))}>
+              {priorityLabel(assignment.priority)}
+            </Badge>
+          </div>
+
+          <div className={cn("flex items-start gap-2 text-sm", deadline.tone)}>
+            <CalendarClock className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              <span className="block font-medium">{deadline.date}</span>
+              <span className="block text-xs">{deadline.urgency}</span>
+            </span>
           </div>
 
           {assignment.notes ? (
@@ -234,29 +199,20 @@ export function AssignmentCard({
             </p>
           ) : null}
 
-          <div className="mt-auto flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <span className="text-sm font-semibold text-muted-foreground">
-                {assignment.progress}%
-              </span>
-              <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-                <UserRound className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">
-                  {assignment.assigneeName || assignment.assigneeEmail || "Unassigned"}
-                </span>
+          <div className="mt-auto grid gap-3">
+            <div>
+              <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Progress</span>
+                <span className="font-semibold tabular-nums">{assignment.progress}%</span>
               </div>
+              <Progress value={assignment.progress} aria-label={`${assignment.title} progress: ${assignment.progress}%`} />
             </div>
-            <Badge
-              variant="outline"
-              className={cn(
-                "h-7 w-7 justify-center rounded-full px-0 text-xs font-semibold",
-                priorityBadgeTone(assignment.priority),
-              )}
-              aria-label={`${priorityLabel(assignment.priority)} priority`}
-              title={priorityLabel(assignment.priority)}
-            >
-              {priorityInitial(assignment.priority)}
-            </Badge>
+            <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+              <UserRound className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                {assignment.assigneeName || assignment.assigneeEmail || "Unassigned"}
+              </span>
+            </div>
           </div>
         </CardContent>
       </Card>
