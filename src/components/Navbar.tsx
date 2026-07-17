@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { AuthUser } from "@/types"
 
-import logoImage from "../../img/logo.png"
+import logoImage from "../../img/icon.png"
 
 function initials(user: AuthUser) {
   const source = user.displayName || user.email

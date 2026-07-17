@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getNeonAuthClient, isNeonAuthConfigured } from "@/lib/auth"
 
-import logoImage from "../../img/logo.png"
+import logoImage from "../../img/icon.png"
 
 export function Login() {
   if (!isNeonAuthConfigured) {

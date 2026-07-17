@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { BookOpenCheck, Plus, Search, SlidersHorizontal } from "lucide-react"
+import { BookOpenCheck, Plus, Search, SlidersHorizontal, X } from "lucide-react"
 
 import { getOrCreateUser } from "@/api/users"
 import { AssignmentCard } from "@/components/AssignmentCard"
@@ -34,6 +34,12 @@ import type {
 
 type SortField = "deadline" | "name"
 type SortDirection = "asc" | "desc"
+type DashboardFilterKey = keyof DashboardFilterPreferences
+
+type ActiveFilter = {
+  key: DashboardFilterKey
+  label: string
+}
 
 const priorityOptions: Array<{ value: AssignmentPriority; label: string }> = [
   { value: "high", label: "High" },
@@ -124,6 +130,31 @@ function getActorName(user: AuthUser) {
   return user.displayName?.trim() || user.email.split("@")[0] || "User"
 }
 
+function getActiveFilters(filters: DashboardFilterPreferences): ActiveFilter[] {
+  const activeFilters: ActiveFilter[] = []
+
+  if (filters.type !== "all") {
+    activeFilters.push({ key: "type", label: filters.type })
+  }
+
+  if (filters.priority !== "all") {
+    const priorityLabel = priorityOptions.find(({ value }) => value === filters.priority)?.label
+    activeFilters.push({
+      key: "priority",
+      label: `${priorityLabel ?? filters.priority} priority`,
+    })
+  }
+
+  if (filters.status !== "all") {
+    activeFilters.push({
+      key: "status",
+      label: getAssignmentStatusLabel(filters.status),
+    })
+  }
+
+  return activeFilters
+}
+
 export function Dashboard({
   user,
   onSignOut,
@@ -189,7 +220,12 @@ export function Dashboard({
         .sort((a, b) => compareAssignments(a, b, sortField, sortDirection)),
     [assignments, filters, searchQuery, sortDirection, sortField],
   )
-  const activeFilterCount = Object.values(filters).filter((value) => value !== "all").length
+  const activeFilters = getActiveFilters(filters)
+  const activeFilterCount = activeFilters.length
+
+  const clearFilter = (key: DashboardFilterKey) => {
+    setFilters((current) => ({ ...current, [key]: "all" }))
+  }
 
   const uploadFiles = async (
     assignmentId: number,
@@ -273,6 +309,38 @@ export function Dashboard({
             ) : null}
           </Button>
         </div>
+
+        {activeFilters.length > 0 ? (
+          <div
+            className="flex flex-wrap items-center gap-2"
+            role="group"
+            aria-label="Active assignment filters"
+          >
+            {activeFilters.map((filter) => (
+              <Button
+                key={filter.key}
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="rounded-md px-3"
+                onClick={() => clearFilter(filter.key)}
+                aria-label={`Remove ${filter.label} filter`}
+              >
+                {filter.label}
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+            ))}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="px-2"
+              onClick={() => setFilters({ ...defaultDashboardFilters })}
+            >
+              Clear all
+            </Button>
+          </div>
+        ) : null}
 
         {filtersOpen ? (
           <div

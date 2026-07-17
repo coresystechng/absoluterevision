@@ -40,7 +40,7 @@ import { Separator } from "@/components/ui/separator"
 
 import privacyPolicyUrl from "../../assets/privacy.md?url"
 import termsUrl from "../../assets/terms.md?url"
-import logoImage from "../../img/logo.png"
+import logoImage from "../../img/icon.png"
 
 const acceptedDocumentExtensions = [
   "csv",
