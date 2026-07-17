@@ -67,6 +67,14 @@ export function useTeams(userId: string | null, selectedTeamId?: number | null) 
         await teamsApi.updateTeamName(userId, teamId, name)
         await reloadTeams()
       },
+      deleteTeam: async (teamId: number) => {
+        if (!userId) {
+          throw new Error("Missing user")
+        }
+        const nextTeamId = await teamsApi.deleteTeam(userId, teamId)
+        await reloadTeams()
+        return nextTeamId
+      },
       addTeamMember: async (teamId: number, email: string) => {
         if (!userId) {
           throw new Error("Missing user")

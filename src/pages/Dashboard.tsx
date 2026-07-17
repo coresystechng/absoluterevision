@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { BookOpenCheck, Plus, Search, UsersRound } from "lucide-react"
+import { BookOpenCheck, Plus, Search, SlidersHorizontal } from "lucide-react"
 
 import { getOrCreateUser } from "@/api/users"
 import { AssignmentCard } from "@/components/AssignmentCard"
@@ -135,6 +135,7 @@ export function Dashboard({
   const [sortField, setSortField] = useState<SortField>("deadline")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [searchQuery, setSearchQuery] = useState("")
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [activeTeamId, setActiveTeamId] = useState<number | null>(null)
   const actorName = getActorName(user)
@@ -146,7 +147,7 @@ export function Dashboard({
     reloadTeams,
   } = useTeams(user.id, activeTeamId)
   const activeTeam = useMemo(
-    () => teams.find((team) => team.id === activeTeamId) ?? teams[0] ?? null,
+    () => teams.find((team) => team.id === activeTeamId) ?? null,
     [activeTeamId, teams],
   )
   const canManageActiveTeam = activeTeam?.role === "admin"
@@ -160,12 +161,17 @@ export function Dashboard({
     void getOrCreateUser(user)
       .then((profile) => {
         setFilters(profile.dashboardFilters)
+        setActiveTeamId(profile.activeTeamId)
         return reloadTeams()
       })
       .catch(() => toast.error("Something went wrong. Try again."))
   }, [reloadTeams, user])
 
   useEffect(() => {
+    if (teamsLoading) {
+      return
+    }
+
     if (teams.length === 0) {
       setActiveTeamId(null)
       return
@@ -174,7 +180,7 @@ export function Dashboard({
     if (!activeTeamId || !teams.some((team) => team.id === activeTeamId)) {
       setActiveTeamId(teams[0].id)
     }
-  }, [activeTeamId, teams])
+  }, [activeTeamId, teams, teamsLoading])
 
   const filteredAssignments = useMemo(
     () =>
@@ -183,6 +189,7 @@ export function Dashboard({
         .sort((a, b) => compareAssignments(a, b, sortField, sortDirection)),
     [assignments, filters, searchQuery, sortDirection, sortField],
   )
+  const activeFilterCount = Object.values(filters).filter((value) => value !== "all").length
 
   const uploadFiles = async (
     assignmentId: number,
@@ -216,7 +223,11 @@ export function Dashboard({
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar user={user} onSignOut={onSignOut} />
+      <Navbar
+        user={user}
+        onSignOut={onSignOut}
+        activeTeamName={teamsLoading ? undefined : activeTeam?.name ?? null}
+      />
       <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -231,48 +242,43 @@ export function Dashboard({
           </Button>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-md border bg-card p-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="grid flex-1 gap-2">
-            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Team</span>
-            <Select
-              value={activeTeam ? String(activeTeam.id) : ""}
-              onValueChange={(value) => setActiveTeamId(Number(value))}
-              disabled={teamsLoading || teams.length === 0}
-            >
-              <SelectTrigger aria-label="Select team">
-                <SelectValue placeholder={teamsLoading ? "Loading teams" : "Select team"} />
-              </SelectTrigger>
-              <SelectContent>
-                {teams.map((team) => (
-                  <SelectItem key={team.id} value={String(team.id)}>
-                    {team.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search assignments, type, priority, status, or notes"
+              className="h-11 pl-9"
+              aria-label="Search assignments"
+            />
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <UsersRound className="h-4 w-4" />
-            <span>
-              {activeTeam
-                ? `${activeTeam.memberCount} member${activeTeam.memberCount === 1 ? "" : "s"} - ${activeTeam.role === "admin" ? "Admin" : "Member"}`
-                : "No team selected"}
-            </span>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 justify-center rounded-xl px-4 sm:w-auto"
+            aria-expanded={filtersOpen}
+            aria-controls="dashboard-filters"
+            onClick={() => setFiltersOpen((open) => !open)}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filter
+            {activeFilterCount > 0 ? (
+              <span
+                className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground"
+                aria-label={`${activeFilterCount} active ${activeFilterCount === 1 ? "filter" : "filters"}`}
+              >
+                {activeFilterCount}
+              </span>
+            ) : null}
+          </Button>
         </div>
 
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search assignments, type, priority, status, or notes"
-            className="h-11 pl-9"
-            aria-label="Search assignments"
-          />
-        </div>
-
-        <div className="grid gap-3 rounded-md border bg-card p-3 sm:grid-cols-2 lg:grid-cols-5">
+        {filtersOpen ? (
+          <div
+            id="dashboard-filters"
+            className="grid gap-3 rounded-md border bg-card p-3 sm:grid-cols-2 lg:grid-cols-5"
+          >
           <div className="grid gap-2">
             <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Assignment Type</span>
             <Select
@@ -370,7 +376,8 @@ export function Dashboard({
               </SelectContent>
             </Select>
           </div>
-        </div>
+          </div>
+        ) : null}
 
         {teamsError ? (
           <Card>

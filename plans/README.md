@@ -13,6 +13,7 @@ row when finished.
 | 002 | Authenticate serverless API requests with verified Neon Auth JWTs | P1 | M | 001 | DONE |
 | 003 | Move application database access behind authenticated API routes | P1 | L | 001, 002 | TODO |
 | 004 | Make related database mutations atomic | P2 | M | 003 | TODO |
+| 005 | Make the dashboard an attention-first operational workspace | P1 | L | 001 | DONE (verified at `e128398`) |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` (with a one-line
 reason), or `REJECTED` (with a one-line rationale).
@@ -25,6 +26,9 @@ reason), or `REJECTED` (with a one-line rationale).
   profile, team, and assignment API routes.
 - Plan 003 removes browser-held PostgreSQL credentials and centralizes writes
   on the server. Plan 004 then adds transactions at that stable boundary.
+- Plan 005 is independent of Plans 003 and 004. It depends only on the test
+  baseline and can execute against the current UI while preserving the
+  operator's existing uncommitted dashboard and team-management work.
 
 ## Findings considered and rejected
 

@@ -1,16 +1,48 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Plus, Trash2, UserMinus, UsersRound } from "lucide-react"
+import { MoreHorizontal, Pencil, Plus, Trash2, UserMinus, UserPlus, UsersRound } from "lucide-react"
 
 import { removeAll } from "@/api/assignments"
-import { getOrCreateUser, updateDashboardFilters, updateProfile } from "@/api/users"
+import {
+  getOrCreateUser,
+  updateActiveTeamSelection,
+  updateDashboardFilters,
+  updateProfile,
+} from "@/api/users"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { Navbar } from "@/components/Navbar"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import {
   Select,
   SelectContent,
@@ -34,6 +66,17 @@ const priorityOptions: Array<{ value: AssignmentPriority; label: string }> = [
   { value: "low", label: "Low" },
 ]
 
+const createTeamValue = "create-new-team"
+
+function getMemberInitials(displayName: string | null, email: string) {
+  return (displayName || email)
+    .split(/[ .@_-]/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("")
+}
+
 export function Settings({
   user,
   onSignOut,
@@ -48,6 +91,11 @@ export function Settings({
   )
   const [isSavingFilters, setIsSavingFilters] = useState(false)
   const [activeTeamId, setActiveTeamId] = useState<number | null>(null)
+  const [isSavingTeam, setIsSavingTeam] = useState(false)
+  const [createTeamOpen, setCreateTeamOpen] = useState(false)
+  const [editTeamOpen, setEditTeamOpen] = useState(false)
+  const [deleteTeamOpen, setDeleteTeamOpen] = useState(false)
+  const [isDeletingTeam, setIsDeletingTeam] = useState(false)
   const [newTeamName, setNewTeamName] = useState("")
   const [teamName, setTeamName] = useState("")
   const [memberEmail, setMemberEmail] = useState("")
@@ -59,6 +107,7 @@ export function Settings({
     reloadTeams,
     createTeam,
     updateTeamName,
+    deleteTeam,
     addTeamMember,
     removeTeamMember,
   } = useTeams(user.id, activeTeamId)
@@ -70,12 +119,17 @@ export function Settings({
       .then((profile) => {
         setDisplayName(profile.displayName ?? "")
         setDashboardFilters(profile.dashboardFilters)
+        setActiveTeamId(profile.activeTeamId)
       })
       .then(() => reloadTeams())
       .catch(() => toast.error("Something went wrong. Try again."))
   }, [reloadTeams, user])
 
   useEffect(() => {
+    if (teamsLoading) {
+      return
+    }
+
     if (teams.length === 0) {
       setActiveTeamId(null)
       setTeamName("")
@@ -88,7 +142,7 @@ export function Settings({
 
     setActiveTeamId(nextActiveTeam.id)
     setTeamName(nextActiveTeam.name)
-  }, [activeTeamId, teams])
+  }, [activeTeamId, teams, teamsLoading])
 
   const saveProfile = async () => {
     setIsSaving(true)
@@ -124,15 +178,58 @@ export function Settings({
     }
   }
 
+  const changeActiveTeam = async (teamId: number) => {
+    const previousTeamId = activeTeamId
+    setActiveTeamId(teamId)
+    setIsSavingTeam(true)
+
+    try {
+      const profile = await updateActiveTeamSelection(user.id, teamId)
+      setActiveTeamId(profile.activeTeamId)
+      toast.success("Dashboard team saved")
+    } catch (error) {
+      setActiveTeamId(previousTeamId)
+      toast.error(error instanceof Error ? error.message : "Could not update the dashboard team.")
+    } finally {
+      setIsSavingTeam(false)
+    }
+  }
+
+  const handleWorkspaceSelection = (value: string) => {
+    if (value === createTeamValue) {
+      setCreateTeamOpen(true)
+      return
+    }
+
+    void changeActiveTeam(Number(value))
+  }
+
   const createNewTeam = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+
+    const previousTeamId = activeTeamId
+    let team: Awaited<ReturnType<typeof createTeam>>
+    setIsSavingTeam(true)
     try {
-      const team = await createTeam(newTeamName)
-      setNewTeamName("")
-      setActiveTeamId(team.id)
-      toast.success("Team created")
+      team = await createTeam(newTeamName)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not create team.")
+      setIsSavingTeam(false)
+      return
+    }
+
+    setNewTeamName("")
+    setCreateTeamOpen(false)
+    setActiveTeamId(team.id)
+    try {
+      const profile = await updateActiveTeamSelection(user.id, team.id)
+      setActiveTeamId(profile.activeTeamId)
+      toast.success("Team created and selected")
+    } catch {
+      setActiveTeamId(previousTeamId)
+      toast.error("Team created, but it could not be selected for the dashboard.")
+    } finally {
+      setIsSavingTeam(false)
     }
   }
 
@@ -141,11 +238,42 @@ export function Settings({
       return
     }
 
+    setIsSavingTeam(true)
     try {
       await updateTeamName(activeTeam.id, teamName)
+      setEditTeamOpen(false)
       toast.success("Team updated")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update team.")
+    } finally {
+      setIsSavingTeam(false)
+    }
+  }
+
+  const openEditTeam = () => {
+    if (!activeTeam) {
+      return
+    }
+
+    setTeamName(activeTeam.name)
+    setEditTeamOpen(true)
+  }
+
+  const deleteActiveTeam = async () => {
+    if (!activeTeam) {
+      return
+    }
+
+    setIsDeletingTeam(true)
+    try {
+      const nextTeamId = await deleteTeam(activeTeam.id)
+      setActiveTeamId(nextTeamId)
+      setDeleteTeamOpen(false)
+      toast.success("Workspace deleted")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete the workspace.")
+    } finally {
+      setIsDeletingTeam(false)
     }
   }
 
@@ -179,7 +307,11 @@ export function Settings({
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar user={user} onSignOut={onSignOut} />
+      <Navbar
+        user={user}
+        onSignOut={onSignOut}
+        activeTeamName={teamsLoading ? undefined : activeTeam?.name ?? null}
+      />
       <main className="mx-auto grid max-w-4xl gap-6 px-4 py-6">
         <div>
           <h1 className="text-3xl font-semibold tracking-normal">Settings</h1>
@@ -206,7 +338,7 @@ export function Settings({
             </div>
             <div className="grid gap-2">
               <Label htmlFor="accountId">Account ID</Label>
-              <Input id="accountId" value={user.id} readOnly />
+              <Input id="accountId" value={user.id.slice(-6)} readOnly />
             </div>
             <Button className="w-fit" onClick={() => void saveProfile()} disabled={isSaving}>
               {isSaving ? "Saving..." : "Save profile"}
@@ -319,131 +451,317 @@ export function Settings({
 
         <Card>
           <CardHeader>
-            <CardTitle>Team & members</CardTitle>
-            <CardDescription>Admins can create teams, add members, and assign work from the dashboard.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-5">
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-              <div className="grid gap-2">
-                <Label>Current team</Label>
-                <Select
-                  value={activeTeam ? String(activeTeam.id) : ""}
-                  onValueChange={(value) => setActiveTeamId(Number(value))}
-                  disabled={teamsLoading || teams.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={teamsLoading ? "Loading teams" : "Select team"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teams.map((team) => (
-                      <SelectItem key={team.id} value={String(team.id)}>
-                        {team.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <UsersRound className="h-5 w-5" />
               </div>
-              <div className="flex min-h-10 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground">
-                <UsersRound className="h-4 w-4" />
-                {activeTeam
-                  ? `${activeTeam.memberCount} member${activeTeam.memberCount === 1 ? "" : "s"} - ${activeTeam.role === "admin" ? "Admin" : "Member"}`
-                  : "No team"}
+              <div className="grid gap-1">
+                <CardTitle>Teams & members</CardTitle>
+                <CardDescription>
+                  Select your active workspace and manage its access from one place.
+                </CardDescription>
               </div>
             </div>
+          </CardHeader>
+          <CardContent className="grid gap-6">
+            <section className="grid gap-4" aria-labelledby="active-workspace-heading">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 id="active-workspace-heading" className="font-medium">Active workspace</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    This team's assignments are shown on your dashboard.
+                  </p>
+                </div>
+                <div className="w-full sm:w-72">
+                  <Select
+                    value={activeTeam ? String(activeTeam.id) : ""}
+                    onValueChange={handleWorkspaceSelection}
+                    disabled={teamsLoading || isSavingTeam}
+                  >
+                    <SelectTrigger aria-label="Select active workspace">
+                      <SelectValue placeholder={teamsLoading ? "Loading teams" : "Select team"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={String(team.id)}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={createTeamValue} className="mt-1 border-t text-primary">
+                        <span className="flex items-center gap-2">
+                          <Plus className="h-4 w-4" />
+                          Create new team
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-            <form className="grid gap-3 rounded-md border p-3 sm:grid-cols-[1fr_auto] sm:items-end" onSubmit={createNewTeam}>
+              {activeTeam ? (
+                <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Team</p>
+                    <p className="mt-1 truncate font-medium">{activeTeam.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Members</p>
+                    <p className="mt-1 font-medium">
+                      {activeTeam.memberCount} {activeTeam.memberCount === 1 ? "person" : "people"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Your access</p>
+                    <Badge className="mt-1" variant={canManageActiveTeam ? "default" : "secondary"}>
+                      {canManageActiveTeam ? "Administrator" : "Member"}
+                    </Badge>
+                  </div>
+                  {canManageActiveTeam ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="justify-self-end"
+                          aria-label={`Manage ${activeTeam.name}`}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={openEditTeam}>
+                          <Pencil className="h-4 w-4" />
+                          Edit workspace
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={teams.length <= 1}
+                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                          onSelect={() => setDeleteTeamOpen(true)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete workspace
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <span className="hidden sm:block" />
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  {teamsLoading ? "Loading your workspace..." : "Create a team to get started."}
+                </div>
+              )}
+            </section>
+
+            <Separator />
+
+            <section className="grid gap-4" aria-labelledby="members-heading">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 id="members-heading" className="font-medium">Members</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    People with access to {activeTeam?.name || "this workspace"}.
+                  </p>
+                </div>
+                <Badge variant="outline">{members.length}</Badge>
+              </div>
+
+              {activeTeam && canManageActiveTeam ? (
+                <form
+                  className="grid gap-3 rounded-lg bg-muted/50 p-4 sm:grid-cols-[1fr_auto] sm:items-end"
+                  onSubmit={addMember}
+                >
+                  <div className="grid gap-2">
+                    <Label htmlFor="member-email">Invite by email</Label>
+                    <Input
+                      id="member-email"
+                      type="email"
+                      value={memberEmail}
+                      onChange={(event) => setMemberEmail(event.target.value)}
+                      placeholder="member@example.com"
+                    />
+                  </div>
+                  <Button type="submit">
+                    <UserPlus className="h-4 w-4" />
+                    Add member
+                  </Button>
+                </form>
+              ) : null}
+
+              {isMembersLoading ? (
+                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  Loading members...
+                </div>
+              ) : members.length > 0 ? (
+                <div className="overflow-hidden rounded-lg border">
+                  {members.map((member) => (
+                    <div
+                      key={member.userId}
+                      className="flex flex-col gap-3 border-b p-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarFallback className="text-xs">
+                            {getMemberInitials(member.displayName, member.email)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-medium">{member.displayName || member.email}</p>
+                            {member.userId === user.id ? <Badge variant="outline">You</Badge> : null}
+                          </div>
+                          <p className="truncate text-sm text-muted-foreground">{member.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 sm:justify-end">
+                        <Badge variant={member.role === "admin" ? "default" : "secondary"}>
+                          {member.role === "admin" ? "Admin" : "Member"}
+                        </Badge>
+                        {canManageActiveTeam && member.role !== "admin" ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => void removeMember(member.userId)}
+                          >
+                            <UserMinus className="h-4 w-4" />
+                            Remove
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid justify-items-center gap-2 rounded-lg border border-dashed p-8 text-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                    <UsersRound className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-medium">No members yet</p>
+                  <p className="text-sm text-muted-foreground">Invite someone to collaborate in this workspace.</p>
+                </div>
+              )}
+            </section>
+          </CardContent>
+        </Card>
+
+        <Dialog
+          open={createTeamOpen}
+          onOpenChange={(open) => {
+            if (isSavingTeam) return
+            setCreateTeamOpen(open)
+            if (!open) setNewTeamName("")
+          }}
+        >
+          <DialogContent>
+            <form className="grid gap-4" onSubmit={createNewTeam}>
+              <DialogHeader>
+                <DialogTitle>Create a new team</DialogTitle>
+                <DialogDescription>
+                  Start a separate workspace with its own assignments and members.
+                </DialogDescription>
+              </DialogHeader>
               <div className="grid gap-2">
-                <Label htmlFor="new-team-name">New team</Label>
+                <Label htmlFor="new-team-name">Team name</Label>
                 <Input
                   id="new-team-name"
                   value={newTeamName}
                   onChange={(event) => setNewTeamName(event.target.value)}
                   placeholder="e.g. July Dissertation Team"
+                  autoFocus
                 />
               </div>
-              <Button type="submit">
-                <Plus className="h-4 w-4" />
-                Create team
-              </Button>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSavingTeam}
+                  onClick={() => setCreateTeamOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSavingTeam}>
+                  <Plus className="h-4 w-4" />
+                  {isSavingTeam ? "Creating..." : "Create team"}
+                </Button>
+              </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
 
-            {activeTeam ? (
-              <>
-                <div className="grid gap-3 rounded-md border p-3">
-                  <div className="grid gap-2">
-                    <Label htmlFor="team-name">Team name</Label>
-                    <Input
-                      id="team-name"
-                      value={teamName}
-                      onChange={(event) => setTeamName(event.target.value)}
-                      disabled={!canManageActiveTeam}
-                    />
-                  </div>
-                  {canManageActiveTeam ? (
-                    <Button className="w-fit" type="button" onClick={() => void saveTeamName()}>
-                      Save team
-                    </Button>
-                  ) : null}
-                </div>
+        <Dialog
+          open={editTeamOpen}
+          onOpenChange={(open) => {
+            if (!isSavingTeam) setEditTeamOpen(open)
+          }}
+        >
+          <DialogContent>
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void saveTeamName()
+              }}
+            >
+              <DialogHeader>
+                <DialogTitle>Edit workspace</DialogTitle>
+                <DialogDescription>
+                  Update the workspace name for every member.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-2">
+                <Label htmlFor="team-name">Team name</Label>
+                <Input
+                  id="team-name"
+                  value={teamName}
+                  onChange={(event) => setTeamName(event.target.value)}
+                  autoFocus
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSavingTeam}
+                  onClick={() => setEditTeamOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSavingTeam}>
+                  {isSavingTeam ? "Saving..." : "Save changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
 
-                {canManageActiveTeam ? (
-                  <form className="grid gap-3 rounded-md border p-3 sm:grid-cols-[1fr_auto] sm:items-end" onSubmit={addMember}>
-                    <div className="grid gap-2">
-                      <Label htmlFor="member-email">Add member by email</Label>
-                      <Input
-                        id="member-email"
-                        type="email"
-                        value={memberEmail}
-                        onChange={(event) => setMemberEmail(event.target.value)}
-                        placeholder="member@example.com"
-                      />
-                    </div>
-                    <Button type="submit">
-                      <Plus className="h-4 w-4" />
-                      Add member
-                    </Button>
-                  </form>
-                ) : null}
-
-                <div className="grid gap-2">
-                  <Label>Members</Label>
-                  <div className="grid gap-2">
-                    {isMembersLoading ? (
-                      <div className="rounded-md border p-3 text-sm text-muted-foreground">Loading members...</div>
-                    ) : members.length > 0 ? (
-                      members.map((member) => (
-                        <div
-                          key={member.userId}
-                          className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate font-medium">{member.displayName || member.email}</p>
-                            <p className="truncate text-sm text-muted-foreground">
-                              {member.email} - {member.role === "admin" ? "Admin" : "Member"}
-                            </p>
-                          </div>
-                          {canManageActiveTeam && member.role !== "admin" ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => void removeMember(member.userId)}
-                            >
-                              <UserMinus className="h-4 w-4" />
-                              Remove
-                            </Button>
-                          ) : null}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-md border p-3 text-sm text-muted-foreground">No members yet.</div>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : null}
-          </CardContent>
-        </Card>
+        <AlertDialog open={deleteTeamOpen} onOpenChange={setDeleteTeamOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {activeTeam?.name || "this workspace"}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently removes the workspace, its assignments, and every member's access.
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingTeam}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={isDeletingTeam}
+                className="bg-destructive text-white hover:bg-destructive/90"
+                onClick={(event) => {
+                  event.preventDefault()
+                  void deleteActiveTeam()
+                }}
+              >
+                {isDeletingTeam ? "Deleting..." : "Delete workspace"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <Card className="border-destructive/40">
           <CardHeader>

@@ -9,6 +9,7 @@ type UserRow = {
   id: string
   email: string
   display_name: string | null
+  active_team_id: number | null
   dashboard_filter_type: string
   dashboard_filter_priority: string
   dashboard_filter_status: string
@@ -24,6 +25,7 @@ function mapUser(row: UserRow): UserProfile {
     id: row.id,
     email: row.email,
     displayName: row.display_name,
+    activeTeamId: row.active_team_id,
     dashboardFilters: normalizeDashboardFilters({
       type: row.dashboard_filter_type,
       priority: row.dashboard_filter_priority,
@@ -68,6 +70,25 @@ async function getOrCreateDefaultTeam(user: AuthUser) {
   return teamId
 }
 
+async function ensureActiveTeamSelection(userId: string, defaultTeamId: number) {
+  const rows = await query<UserRow>(
+    `UPDATE users
+     SET active_team_id = CASE
+       WHEN EXISTS (
+         SELECT 1
+         FROM team_memberships
+         WHERE team_memberships.user_id = $1
+           AND team_memberships.team_id = users.active_team_id
+       ) THEN active_team_id
+       ELSE $2
+     END
+     WHERE id = $1
+     RETURNING *`,
+    [userId, defaultTeamId],
+  )
+  return rows[0]
+}
+
 async function seedAssignments(userId: string, teamId: number) {
   const today = new Date()
   await query(
@@ -98,18 +119,15 @@ export async function getOrCreateUser(user: AuthUser) {
       [user.id, user.email, user.displayName],
     )
 
+    const defaultTeamId = await getOrCreateDefaultTeam(user)
+
     if (inserted.length > 0) {
-      const teamId = await getOrCreateDefaultTeam(user)
+      const teamId = defaultTeamId
       await seedAssignments(user.id, teamId)
-      return mapUser(inserted[0])
+      return mapUser(await ensureActiveTeamSelection(user.id, defaultTeamId))
     }
 
-    await getOrCreateDefaultTeam(user)
-    const existing = await query<UserRow>("SELECT * FROM users WHERE id = $1 LIMIT 1", [
-      user.id,
-    ])
-    const [row] = existing
-    return mapUser(row)
+    return mapUser(await ensureActiveTeamSelection(user.id, defaultTeamId))
   } catch (error) {
     console.error("Failed to get or create user", error)
     throw error
@@ -152,6 +170,38 @@ export async function updateDashboardFilters(
     return mapUser(rows[0])
   } catch (error) {
     console.error("Failed to update dashboard filters", error)
+    throw error
+  }
+}
+
+export async function updateActiveTeamSelection(userId: string, teamId: number) {
+  if (!Number.isInteger(teamId) || teamId <= 0) {
+    throw new Error("Select a valid team.")
+  }
+
+  try {
+    await initDb()
+    const rows = await query<UserRow>(
+      `UPDATE users
+       SET active_team_id = $2
+       WHERE id = $1
+         AND EXISTS (
+           SELECT 1
+           FROM team_memberships
+           WHERE team_memberships.user_id = $1
+             AND team_memberships.team_id = $2
+         )
+       RETURNING *`,
+      [userId, teamId],
+    )
+
+    if (!rows[0]) {
+      throw new Error("You can only select a team you belong to.")
+    }
+
+    return mapUser(rows[0])
+  } catch (error) {
+    console.error("Failed to update active team", error)
     throw error
   }
 }

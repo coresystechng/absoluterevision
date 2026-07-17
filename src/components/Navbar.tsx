@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom"
-import { LayoutDashboard, LogOut, Settings } from "lucide-react"
+import { LayoutDashboard, LogOut, Settings, UsersRound } from "lucide-react"
 
-import { ThemeToggle } from "@/components/ThemeToggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,9 +28,11 @@ function initials(user: AuthUser) {
 export function Navbar({
   user,
   onSignOut,
+  activeTeamName,
 }: {
   user: AuthUser
   onSignOut: () => void | Promise<void>
+  activeTeamName?: string | null
 }) {
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
@@ -51,7 +52,7 @@ export function Navbar({
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuLabel className="px-2 py-1.5 text-sm font-normal">
                 <span className="block font-medium">{user.displayName || "Signed in"}</span>
                 <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
@@ -70,14 +71,24 @@ export function Navbar({
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                Theme
+              <DropdownMenuLabel className="flex items-center gap-3 px-2 py-2 font-normal">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  <UsersRound className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs text-muted-foreground">Current team</span>
+                  <span className="block truncate text-sm font-medium">
+                    {activeTeamName === undefined
+                      ? "Loading team..."
+                      : activeTeamName || "No team selected"}
+                  </span>
+                </span>
               </DropdownMenuLabel>
-              <div className="px-2 pb-2" onClick={(event) => event.stopPropagation()}>
-                <ThemeToggle />
-              </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => void onSignOut()}>
+              <DropdownMenuItem
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                onClick={() => void onSignOut()}
+              >
                 <LogOut className="h-4 w-4" />
                 Sign out
               </DropdownMenuItem>
