@@ -164,7 +164,7 @@ export function Dashboard({
 }) {
   const [filters, setFilters] = useState<DashboardFilterPreferences>(defaultDashboardFilters)
   const [sortField, setSortField] = useState<SortField>("deadline")
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [searchQuery, setSearchQuery] = useState("")
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)

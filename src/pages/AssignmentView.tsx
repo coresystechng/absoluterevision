@@ -402,18 +402,6 @@ export function AssignmentView({
 
                 <Separator />
 
-                <div className="grid gap-3">
-                  <p className="text-sm text-muted-foreground">Progress summary</p>
-                  <Badge
-                    className="w-fit rounded-full border px-3 py-1 text-sm font-semibold shadow-sm"
-                    style={getProgressBadgeStyle(assignment.progress)}
-                  >
-                    {getAssignmentProgressLabel(assignment.progressStage)} - {assignment.progress}%
-                  </Badge>
-                </div>
-
-                <Separator />
-
                 <div>
                   <p className="text-sm text-muted-foreground">Notes</p>
                   <p className="mt-2 whitespace-pre-wrap leading-7">{assignment.notes || "No notes added."}</p>
