@@ -198,7 +198,10 @@ export function AssignmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent
+        className="max-w-2xl"
+        onPointerDownOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{assignment ? "Edit assignment" : "New assignment"}</DialogTitle>
           <DialogDescription>
@@ -375,7 +378,7 @@ export function AssignmentDialog({
                   Choose files
                 </Label>
               </Button>
-              <Input
+              <input
                 id="assignment-files"
                 type="file"
                 multiple
