@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   assignmentProgressStages,
   getAssignmentProgress,
+  getAssignmentProgressIndicatorClassName,
   getAssignmentProgressLabel,
   normalizeAssignmentProgressStage,
   normalizeAssignmentStatus,
@@ -39,4 +40,17 @@ describe("assignment status helpers", () => {
       expect(getAssignmentProgress("ongoing", value)).toBe(progress)
     },
   )
+
+  it("gives every active progress stage a distinct indicator color", () => {
+    const indicatorColors = assignmentProgressStages.map(({ value }) =>
+      getAssignmentProgressIndicatorClassName("ongoing", value),
+    )
+
+    expect(new Set(indicatorColors).size).toBe(assignmentProgressStages.length)
+  })
+
+  it("uses status colors for assignments outside the active workflow", () => {
+    expect(getAssignmentProgressIndicatorClassName("not-started", "final-review")).toContain("slate")
+    expect(getAssignmentProgressIndicatorClassName("completed", "ai-draft")).toContain("green")
+  })
 })

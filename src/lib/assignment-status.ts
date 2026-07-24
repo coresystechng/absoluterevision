@@ -10,13 +10,14 @@ export const assignmentProgressStages: Array<{
   value: AssignmentProgressStage
   label: string
   progress: number
+  indicatorClassName: string
 }> = [
-  { value: "ai-draft", label: "AI Draft", progress: 15 },
-  { value: "humaned", label: "Humaned", progress: 30 },
-  { value: "grammar-check", label: "Grammar Check", progress: 45 },
-  { value: "plagiarism-check", label: "Plagiarism Check", progress: 60 },
-  { value: "text-format", label: "Text Format", progress: 75 },
-  { value: "final-review", label: "Final Review", progress: 90 },
+  { value: "ai-draft", label: "AI Draft", progress: 15, indicatorClassName: "bg-red-500" },
+  { value: "humaned", label: "Humaned", progress: 30, indicatorClassName: "bg-orange-500" },
+  { value: "grammar-check", label: "Grammar Check", progress: 45, indicatorClassName: "bg-amber-500" },
+  { value: "plagiarism-check", label: "Plagiarism Check", progress: 60, indicatorClassName: "bg-yellow-500" },
+  { value: "text-format", label: "Text Format", progress: 75, indicatorClassName: "bg-lime-500" },
+  { value: "final-review", label: "Final Review", progress: 90, indicatorClassName: "bg-emerald-500" },
 ]
 
 const legacyStatusMap: Record<string, AssignmentStatus> = {
@@ -78,6 +79,24 @@ export function getAssignmentProgressLabel(progressStage: AssignmentProgressStag
   return (
     assignmentProgressStages.find((item) => item.value === progressStage)?.label ??
     "AI Draft"
+  )
+}
+
+export function getAssignmentProgressIndicatorClassName(
+  status: AssignmentStatus,
+  progressStage: AssignmentProgressStage,
+) {
+  if (status === "not-started") {
+    return "bg-slate-400 dark:bg-slate-500"
+  }
+
+  if (status === "completed") {
+    return "bg-green-600 dark:bg-green-500"
+  }
+
+  return (
+    assignmentProgressStages.find((item) => item.value === progressStage)?.indicatorClassName ??
+    "bg-red-500"
   )
 }
 

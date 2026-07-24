@@ -27,6 +27,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
+import {
+  getAssignmentProgressIndicatorClassName,
+  getAssignmentProgressLabel,
+} from "@/lib/assignment-status"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
 import { cn } from "@/lib/utils"
 import type {
@@ -166,6 +170,7 @@ export function AssignmentCard({
   const assignmentType = normalizeAssignmentType(assignment.category)
   const AssignmentTypeIcon = assignmentTypeIcons[assignmentType]
   const progress = Math.min(Math.max(assignment.progress, 0), 100)
+  const progressStageLabel = getAssignmentProgressLabel(assignment.progressStage)
 
   return (
     <>
@@ -245,7 +250,12 @@ export function AssignmentCard({
               <Progress
                 value={progress}
                 className="h-1.5"
+                indicatorClassName={getAssignmentProgressIndicatorClassName(
+                  assignment.status,
+                  assignment.progressStage,
+                )}
                 aria-label={`${assignment.title} progress`}
+                aria-valuetext={`${progressStageLabel}, ${progress}%`}
               />
             </div>
 
