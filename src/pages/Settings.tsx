@@ -530,14 +530,22 @@ export function Settings({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={openEditTeam}>
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault()
+                            openEditTeam()
+                          }}
+                        >
                           <Pencil className="h-4 w-4" />
                           Edit workspace
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           disabled={teams.length <= 1}
                           className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                          onSelect={() => setDeleteTeamOpen(true)}
+                          onSelect={(event) => {
+                            event.preventDefault()
+                            setDeleteTeamOpen(true)
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                           Delete workspace

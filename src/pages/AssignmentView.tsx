@@ -32,7 +32,7 @@ import {
   getAssignmentStatusLabel,
 } from "@/lib/assignment-status"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
-import { getProgressBadgeStyle, titleCase } from "@/lib/utils"
+import { titleCase } from "@/lib/utils"
 import type {
   Assignment,
   AssignmentActivity,
@@ -260,7 +260,12 @@ export function AssignmentView({
     ? getActivityItems(assignment, activities, actorName)
     : []
   const canManageAssignment = assignment?.currentUserRole === "admin"
-  const canUploadFiles = Boolean(
+  const statusBadgeVariant = assignment?.status === "completed"
+    ? "success"
+    : assignment?.status === "ongoing"
+      ? "warning"
+      : "outline"
+  const canAccessDropboxFileActions = Boolean(
     assignment &&
       (assignment.currentUserRole === "admin" || assignment.assigneeUserId === user.id),
   )
@@ -291,7 +296,7 @@ export function AssignmentView({
               <div>
                 <div className="mb-3 flex flex-wrap gap-2">
                   <Badge>{titleCase(assignment.priority)}</Badge>
-                  <Badge variant="secondary">{getAssignmentStatusLabel(assignment.status)}</Badge>
+                  <Badge variant={statusBadgeVariant}>{getAssignmentStatusLabel(assignment.status)}</Badge>
                   <Badge variant="outline">{getAssignmentProgressLabel(assignment.progressStage)}</Badge>
                   <Badge variant="outline">{assignmentType}</Badge>
                 </div>
@@ -348,51 +353,64 @@ export function AssignmentView({
                       <span>{getTimeLeftLabel(assignment)}</span>
                     </div>
                   </div>
-                  <div>
-                    <Label>Status</Label>
-                    <Select
-                      value={assignment.status}
-                      onValueChange={(value) => void updateStatus(value as AssignmentStatus)}
-                      disabled={!canManageAssignment}
-                    >
-                      <SelectTrigger className="mt-2">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {assignmentStatuses.map((status) => (
-                          <SelectItem key={status.value} value={status.value}>
-                            {status.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between gap-3">
-                      <Label>Progress</Label>
-                      <Badge
-                        className="rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm"
-                        style={getProgressBadgeStyle(assignment.progress)}
+                  <div className="grid content-start gap-1">
+                    <Label className="font-normal text-muted-foreground">Status</Label>
+                    {canManageAssignment ? (
+                      <Select
+                        value={assignment.status}
+                        onValueChange={(value) => void updateStatus(value as AssignmentStatus)}
                       >
-                        {assignment.progress}%
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {assignmentStatuses.map((status) => (
+                            <SelectItem key={status.value} value={status.value}>
+                              {status.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Badge variant={statusBadgeVariant} className="w-fit">
+                        {getAssignmentStatusLabel(assignment.status)}
                       </Badge>
-                    </div>
-                    <Select
-                      value={assignment.progressStage}
-                      onValueChange={(value) => void updateProgressStage(value as AssignmentProgressStage)}
-                      disabled={!canManageAssignment}
-                    >
-                      <SelectTrigger className="mt-2">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {assignmentProgressStages.map((progressStage) => (
-                          <SelectItem key={progressStage.value} value={progressStage.value}>
-                            {progressStage.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    )}
+                  </div>
+                  <div className="grid content-start gap-1">
+                    {canManageAssignment ? (
+                      <>
+                        <Label className="font-normal text-muted-foreground">
+                          Progress ({assignment.progress}%)
+                        </Label>
+                        <Select
+                          value={assignment.progressStage}
+                          onValueChange={(value) => void updateProgressStage(value as AssignmentProgressStage)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {assignmentProgressStages.map((progressStage) => (
+                              <SelectItem key={progressStage.value} value={progressStage.value}>
+                                {progressStage.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    ) : (
+                      <>
+                        <Label className="font-normal text-muted-foreground">
+                          Progress ({assignment.progress}%)
+                        </Label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline">
+                            {getAssignmentProgressLabel(assignment.progressStage)}
+                          </Badge>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Priority</p>
@@ -420,8 +438,9 @@ export function AssignmentView({
               user={user}
               actorName={actorName}
               onActivityChange={refreshActivities}
-              canUpload={canUploadFiles}
+              canUpload={canAccessDropboxFileActions}
               allowedCategories={canManageAssignment ? undefined : ["final"]}
+              canDownload={canAccessDropboxFileActions}
               canDelete={canManageAssignment}
             />
 

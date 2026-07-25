@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  canDownloadAssignmentFile,
   normalizeAssignmentFileCategory,
   normalizeFileName,
   slugifyFolderSegment,
@@ -22,5 +23,29 @@ describe("assignment file helpers", () => {
     expect(normalizeAssignmentFileCategory("brief")).toBe("brief")
     expect(normalizeAssignmentFileCategory("private")).toBe("other")
     expect(normalizeAssignmentFileCategory(null)).toBe("other")
+  })
+
+  it("only allows admins and the assignee to download assignment files", () => {
+    expect(
+      canDownloadAssignmentFile({
+        userId: "admin-user",
+        assigneeUserId: "assigned-user",
+        role: "admin",
+      }),
+    ).toBe(true)
+    expect(
+      canDownloadAssignmentFile({
+        userId: "assigned-user",
+        assigneeUserId: "assigned-user",
+        role: "member",
+      }),
+    ).toBe(true)
+    expect(
+      canDownloadAssignmentFile({
+        userId: "other-member",
+        assigneeUserId: "assigned-user",
+        role: "member",
+      }),
+    ).toBe(false)
   })
 })

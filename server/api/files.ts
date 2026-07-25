@@ -17,6 +17,14 @@ export const assignmentFileCategoryFolders: Record<AssignmentFileCategory, strin
   other: "Other",
 }
 
+export function canDownloadAssignmentFile(input: {
+  userId: string
+  assigneeUserId: string | null
+  role: "admin" | "member" | undefined
+}) {
+  return input.role === "admin" || input.assigneeUserId === input.userId
+}
+
 export function normalizeAssignmentFileCategory(
   category: unknown,
 ): AssignmentFileCategory {

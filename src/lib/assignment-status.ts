@@ -11,13 +11,14 @@ export const assignmentProgressStages: Array<{
   label: string
   progress: number
   indicatorClassName: string
+  textClassName: string
 }> = [
-  { value: "ai-draft", label: "AI Draft", progress: 15, indicatorClassName: "bg-red-500" },
-  { value: "humaned", label: "Humaned", progress: 30, indicatorClassName: "bg-orange-500" },
-  { value: "grammar-check", label: "Grammar Check", progress: 45, indicatorClassName: "bg-amber-500" },
-  { value: "plagiarism-check", label: "Plagiarism Check", progress: 60, indicatorClassName: "bg-yellow-500" },
-  { value: "text-format", label: "Text Format", progress: 75, indicatorClassName: "bg-lime-500" },
-  { value: "final-review", label: "Final Review", progress: 90, indicatorClassName: "bg-emerald-500" },
+  { value: "ai-draft", label: "AI Draft", progress: 15, indicatorClassName: "bg-red-500", textClassName: "text-red-600 dark:text-red-400" },
+  { value: "humaned", label: "Humaned", progress: 30, indicatorClassName: "bg-orange-500", textClassName: "text-orange-600 dark:text-orange-400" },
+  { value: "grammar-check", label: "Grammar Check", progress: 45, indicatorClassName: "bg-amber-500", textClassName: "text-amber-600 dark:text-amber-400" },
+  { value: "plagiarism-check", label: "Plagiarism Check", progress: 60, indicatorClassName: "bg-yellow-500", textClassName: "text-yellow-600 dark:text-yellow-400" },
+  { value: "text-format", label: "Text Format", progress: 75, indicatorClassName: "bg-lime-500", textClassName: "text-lime-600 dark:text-lime-400" },
+  { value: "final-review", label: "Final Review", progress: 90, indicatorClassName: "bg-emerald-500", textClassName: "text-emerald-600 dark:text-emerald-400" },
 ]
 
 const legacyStatusMap: Record<string, AssignmentStatus> = {
@@ -97,6 +98,24 @@ export function getAssignmentProgressIndicatorClassName(
   return (
     assignmentProgressStages.find((item) => item.value === progressStage)?.indicatorClassName ??
     "bg-red-500"
+  )
+}
+
+export function getAssignmentProgressTextClassName(
+  status: AssignmentStatus,
+  progressStage: AssignmentProgressStage,
+) {
+  if (status === "not-started") {
+    return "text-slate-500 dark:text-slate-400"
+  }
+
+  if (status === "completed") {
+    return "text-green-600 dark:text-green-400"
+  }
+
+  return (
+    assignmentProgressStages.find((item) => item.value === progressStage)?.textClassName ??
+    "text-red-600 dark:text-red-400"
   )
 }
 

@@ -30,6 +30,7 @@ import { Progress } from "@/components/ui/progress"
 import {
   getAssignmentProgressIndicatorClassName,
   getAssignmentProgressLabel,
+  getAssignmentProgressTextClassName,
 } from "@/lib/assignment-status"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
 import { cn } from "@/lib/utils"
@@ -47,16 +48,6 @@ const assignmentTypeIcons: Record<AssignmentType, LucideIcon> = {
   Dissertation: GraduationCap,
   Assignment: ClipboardList,
   Presentation,
-}
-
-function statusTone(status: Assignment["status"]) {
-  if (status === "completed") {
-    return "text-emerald-600 dark:text-emerald-400"
-  }
-  if (status === "ongoing") {
-    return "text-amber-600 dark:text-amber-400"
-  }
-  return "text-muted-foreground"
 }
 
 function priorityBadgeTone(priority: Assignment["priority"]) {
@@ -171,6 +162,10 @@ export function AssignmentCard({
   const AssignmentTypeIcon = assignmentTypeIcons[assignmentType]
   const progress = Math.min(Math.max(assignment.progress, 0), 100)
   const progressStageLabel = getAssignmentProgressLabel(assignment.progressStage)
+  const progressTextClassName = getAssignmentProgressTextClassName(
+    assignment.status,
+    assignment.progressStage,
+  )
 
   return (
     <>
@@ -190,10 +185,10 @@ export function AssignmentCard({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <AssignmentTypeIcon
-                  className={cn("h-5 w-5 shrink-0", statusTone(assignment.status))}
+                  className={cn("h-5 w-5 shrink-0", progressTextClassName)}
                   aria-label={`${assignmentType} assignment type`}
                 />
-                <h3 className={cn("truncate text-base font-semibold", statusTone(assignment.status))}>
+                <h3 className={cn("truncate text-base font-semibold", progressTextClassName)}>
                   {assignment.title}
                 </h3>
               </div>
@@ -207,7 +202,11 @@ export function AssignmentCard({
               </div>
             </div>
             {canManage ? (
-              <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
+              <div
+                className="flex items-center gap-1"
+                onClick={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button type="button" variant="ghost" size="icon" aria-label="More actions">

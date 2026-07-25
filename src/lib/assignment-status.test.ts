@@ -5,6 +5,7 @@ import {
   getAssignmentProgress,
   getAssignmentProgressIndicatorClassName,
   getAssignmentProgressLabel,
+  getAssignmentProgressTextClassName,
   normalizeAssignmentProgressStage,
   normalizeAssignmentStatus,
 } from "@/lib/assignment-status"
@@ -52,5 +53,14 @@ describe("assignment status helpers", () => {
   it("uses status colors for assignments outside the active workflow", () => {
     expect(getAssignmentProgressIndicatorClassName("not-started", "final-review")).toContain("slate")
     expect(getAssignmentProgressIndicatorClassName("completed", "ai-draft")).toContain("green")
+    expect(getAssignmentProgressTextClassName("not-started", "final-review")).toContain("slate")
+    expect(getAssignmentProgressTextClassName("completed", "ai-draft")).toContain("green")
   })
+
+  it.each(assignmentProgressStages)(
+    "uses the $label progress tone for active assignment text",
+    ({ value, textClassName }) => {
+      expect(getAssignmentProgressTextClassName("ongoing", value)).toBe(textClassName)
+    },
+  )
 })

@@ -223,6 +223,7 @@ export type AssignmentFileRow = {
   status: string
   created_at: Date | string
   updated_at: Date | string
+  assignee_user_id?: string | null
   current_user_role?: "admin" | "member"
 }
 
@@ -336,8 +337,9 @@ export async function listAssignmentFiles(userId: string, assignmentId: number) 
 export async function getAssignmentFile(userId: string, fileId: number) {
   await initFilesDb()
   const rows = await query<AssignmentFileRow>(
-    `SELECT
+     `SELECT
        f.*,
+       a.assignee_user_id,
        tm.role AS current_user_role
      FROM assignment_files f
      JOIN assignments a

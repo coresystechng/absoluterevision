@@ -52,6 +52,7 @@ type AssignmentFilesProps = {
   onActivityChange: () => void | Promise<void>
   canUpload?: boolean
   allowedCategories?: AssignmentFileCategory[]
+  canDownload?: boolean
   canDelete?: boolean
 }
 
@@ -195,6 +196,7 @@ export function AssignmentFiles({
   onActivityChange,
   canUpload = true,
   allowedCategories,
+  canDownload = true,
   canDelete = true,
 }: AssignmentFilesProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -506,29 +508,33 @@ export function AssignmentFiles({
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex shrink-0 gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => void downloadFile(file)}
-                                >
-                                  <ExternalLink className="h-4 w-4" />
-                                  Download
-                                </Button>
-                                {canDelete ? (
-                                  <ConfirmDialog
-                                    title="Remove file?"
-                                    description="This removes the file from Dropbox and the assignment."
-                                    confirmLabel="Remove"
-                                    onConfirm={() => deleteFile(file)}
-                                  >
-                                    <Button variant="outline" size="sm">
-                                      <Trash2 className="h-4 w-4" />
-                                      Remove
+                              {canDownload || canDelete ? (
+                                <div className="flex shrink-0 gap-2">
+                                  {canDownload ? (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => void downloadFile(file)}
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
+                                      Download
                                     </Button>
-                                  </ConfirmDialog>
-                                ) : null}
-                              </div>
+                                  ) : null}
+                                  {canDelete ? (
+                                    <ConfirmDialog
+                                      title="Remove file?"
+                                      description="This removes the file from Dropbox and the assignment."
+                                      confirmLabel="Remove"
+                                      onConfirm={() => deleteFile(file)}
+                                    >
+                                      <Button variant="outline" size="sm">
+                                        <Trash2 className="h-4 w-4" />
+                                        Remove
+                                      </Button>
+                                    </ConfirmDialog>
+                                  ) : null}
+                                </div>
+                              ) : null}
                             </div>
                           )
                         })}
