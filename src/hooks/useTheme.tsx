@@ -28,6 +28,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemePreference>(getInitialTheme)
 
   useEffect(() => {
+    const toggleTheme = (event: KeyboardEvent) => {
+      if (
+        event.repeat ||
+        !event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.key.toLowerCase() !== "t"
+      ) {
+        return
+      }
+
+      event.preventDefault()
+      const isDark = window.document.documentElement.classList.contains("dark")
+      setThemeState(isDark ? "light" : "dark")
+    }
+
+    window.addEventListener("keydown", toggleTheme)
+    return () => window.removeEventListener("keydown", toggleTheme)
+  }, [])
+
+  useEffect(() => {
     applyTheme(theme)
     window.localStorage.setItem(storageKey, theme)
 

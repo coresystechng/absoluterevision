@@ -354,7 +354,12 @@ export function Settings({
           <CardContent className="grid gap-6">
             <div className="grid gap-2">
               <Label>Appearance</Label>
-              <ThemeToggle />
+              <div className="flex flex-wrap items-center gap-3">
+                <ThemeToggle />
+                <span className="text-sm text-muted-foreground">
+                  Shortcut: <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">Alt + T</kbd>
+                </span>
+              </div>
             </div>
 
             <div className="grid gap-4 rounded-md border p-4">

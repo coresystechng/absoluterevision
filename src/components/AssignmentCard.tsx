@@ -170,7 +170,7 @@ export function AssignmentCard({
   return (
     <>
       <Card
-        className="h-full cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md"
+        className="h-full cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-md active:border-primary/60"
         role="button"
         tabIndex={0}
         onClick={() => navigate(`/assignments/${assignment.id}`)}
