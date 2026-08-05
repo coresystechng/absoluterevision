@@ -44,6 +44,7 @@ const phoneDisplay = "+1 937 249 0400"
 const phoneHref = "tel:+19372490400"
 
 const navLinks = [
+  { label: "Track assignment", href: "/track-assignment" },
   { label: "About", href: "#about" },
   { label: "Reviews", href: "#reviews" },
   { label: "Services", href: "#services" },
@@ -167,6 +168,7 @@ const faqs = [
 ]
 
 const footerLinks = [
+  { label: "Track assignment", href: "/track-assignment" },
   { label: "Back To Top", href: "#top" },
   { label: "About Us", href: "#about" },
   { label: "Why Choose Us", href: "#why-choose" },
@@ -208,9 +210,15 @@ export function Landing() {
 
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex" aria-label="Primary">
             {navLinks.map((link) => (
-              <a key={link.href} href={link.href} className="transition-colors hover:text-foreground">
-                {link.label}
-              </a>
+              link.href.startsWith("#") ? (
+                <a key={link.href} href={link.href} className="transition-colors hover:text-foreground">
+                  {link.label}
+                </a>
+              ) : (
+                <Link key={link.href} to={link.href} className="transition-colors hover:text-foreground">
+                  {link.label}
+                </Link>
+              )
             ))}
           </nav>
 
@@ -564,9 +572,15 @@ export function Landing() {
             <ul className="mt-4 grid gap-3 text-sm text-muted-foreground">
               {footerLinks.map((link) => (
                 <li key={link.href}>
-                  <a href={link.href} className="transition-colors hover:text-foreground">
-                    {link.label}
-                  </a>
+                  {link.href.startsWith("#") ? (
+                    <a href={link.href} className="transition-colors hover:text-foreground">
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link to={link.href} className="transition-colors hover:text-foreground">
+                      {link.label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

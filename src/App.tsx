@@ -4,6 +4,7 @@ import { Toaster } from "sonner"
 import { ThemeProvider } from "@/hooks/useTheme"
 import { getNeonAuthClient, isNeonAuthConfigured } from "@/lib/auth"
 import { AssignmentView } from "@/pages/AssignmentView"
+import { AssignmentTracking } from "@/pages/AssignmentTracking"
 import { Dashboard } from "@/pages/Dashboard"
 import { DocumentUpload } from "@/pages/DocumentUpload"
 import { Landing } from "@/pages/Landing"
@@ -68,6 +69,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/document-upload" element={<DocumentUpload />} />
+        <Route path="/track-assignment" element={<AssignmentTracking />} />
         <Route path="/login" element={<Login />} />
         <Route path="/sign-in" element={<Login />} />
         <Route path="/sign-up" element={<Login />} />
