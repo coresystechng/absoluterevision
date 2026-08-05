@@ -5,13 +5,13 @@ const mocks = vi.hoisted(() => ({
   normalizeTrackingCredentials: vi.fn(),
   isFilesDatabaseConfigured: vi.fn(),
 }))
-vi.mock("../server/api/public-assignment-status.js", () => ({
+vi.mock("./public-assignment-status.js", () => ({
   getPublicAssignmentStatus: mocks.getPublicAssignmentStatus,
   normalizeTrackingCredentials: mocks.normalizeTrackingCredentials,
 }))
-vi.mock("../server/api/db.js", () => ({ isFilesDatabaseConfigured: mocks.isFilesDatabaseConfigured }))
+vi.mock("./db.js", () => ({ isFilesDatabaseConfigured: mocks.isFilesDatabaseConfigured }))
 
-import handler from "./assignment-status.js"
+import handler from "../../api/assignment-status.js"
 
 const code = "AR-7A91F2-88C4D0-1B6E35-902AF8"
 const reference = "AR-902AF8"
