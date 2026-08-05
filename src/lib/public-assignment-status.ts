@@ -2,10 +2,32 @@ import type { PublicAssignmentStatus } from "@/api/public-assignment-status"
 import type { AssignmentProgressStage, AssignmentStatus } from "@/types"
 
 export const trackingCodePattern = /^AR-[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$/
+export const trackingReferencePattern = /^AR-[0-9A-F]{6}$/
+export const trackingAccessCodePattern = /^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$/
 
 export function normalizeTrackingCode(value: string) {
   const normalized = value.trim().toUpperCase()
   return trackingCodePattern.test(normalized) ? normalized : null
+}
+
+export function normalizeTrackingReference(value: string) {
+  const normalized = value.trim().toUpperCase()
+  return trackingReferencePattern.test(normalized) ? normalized : null
+}
+
+export function normalizeTrackingAccessCode(value: string) {
+  const normalized = value.trim().toUpperCase()
+  return trackingAccessCodePattern.test(normalized) ? normalized : null
+}
+
+export function splitTrackingCode(value: string) {
+  const trackingCode = normalizeTrackingCode(value)
+  if (!trackingCode) return null
+  const [, first, second, third, last] = trackingCode.split("-")
+  return {
+    reference: `AR-${last}`,
+    accessCode: `${first}-${second}-${third}`,
+  }
 }
 
 export function getPublicStatusLabel(status: AssignmentStatus) {
@@ -17,8 +39,8 @@ export function getPublicStatusLabel(status: AssignmentStatus) {
 const stageDetails: Record<AssignmentProgressStage, { label: string; description: string; progress: number }> = {
   "ai-draft": { label: "Initial draft", description: "Your work has been received and is being prepared.", progress: 15 },
   humaned: { label: "Expert editing", description: "An editor is reviewing your manuscript.", progress: 30 },
-  "grammar-check": { label: "Language review", description: "Language and clarity are being checked.", progress: 45 },
-  "plagiarism-check": { label: "Originality review", description: "Originality checks are in progress.", progress: 60 },
+  "grammar-check": { label: "Grammar check", description: "Grammar, language, and clarity are being checked.", progress: 45 },
+  "plagiarism-check": { label: "Plagiarism check", description: "Plagiarism and originality checks are in progress.", progress: 60 },
   "text-format": { label: "Formatting", description: "Formatting is being refined.", progress: 75 },
   "final-review": { label: "Final quality check", description: "A final quality check is underway.", progress: 90 },
 }
@@ -56,11 +78,4 @@ export function formatPublicDueDate(value: string | null) {
   if (!match) return "No due date available"
   return new Intl.DateTimeFormat(undefined, { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })
     .format(new Date(`${value}T00:00:00.000Z`))
-}
-
-export function formatPublicUpdatedAt(value: string) {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? "Recently updated" : new Intl.DateTimeFormat(undefined, {
-    year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-  }).format(date)
 }

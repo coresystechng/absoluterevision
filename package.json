@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "invites:generate": "node --env-file=.env scripts/generate-signup-invites.mjs",
+    "invites:revoke": "node --env-file=.env scripts/revoke-signup-invite.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"

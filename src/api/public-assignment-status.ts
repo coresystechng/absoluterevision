@@ -1,13 +1,12 @@
 import type { AssignmentProgressStage, AssignmentStatus, AssignmentType } from "@/types"
 
 export type PublicAssignmentStatus = {
-  trackingCode: string
+  reference: string
   category: AssignmentType | null
   status: AssignmentStatus
   progressStage: AssignmentProgressStage
   progress: number
   dueDate: string | null
-  updatedAt: string
 }
 
 export class PublicAssignmentStatusError extends Error {
@@ -19,17 +18,19 @@ export class PublicAssignmentStatusError extends Error {
 function isPublicAssignmentStatus(value: unknown): value is PublicAssignmentStatus {
   if (!value || typeof value !== "object") return false
   const assignment = value as Record<string, unknown>
-  return typeof assignment.trackingCode === "string" &&
+  return typeof assignment.reference === "string" &&
     typeof assignment.status === "string" &&
     typeof assignment.progressStage === "string" &&
     typeof assignment.progress === "number" &&
-    (typeof assignment.dueDate === "string" || assignment.dueDate === null) &&
-    typeof assignment.updatedAt === "string"
+    (typeof assignment.dueDate === "string" || assignment.dueDate === null)
 }
 
-export async function getPublicAssignmentStatus(trackingId: string) {
-  const query = new URLSearchParams({ trackingId })
-  const response = await fetch(`/api/assignment-status?${query.toString()}`)
+export async function getPublicAssignmentStatus(reference: string, accessCode: string) {
+  const response = await fetch("/api/assignment-status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reference, accessCode }),
+  })
   if (response.status === 404) throw new PublicAssignmentStatusError("not-found")
   if (response.status === 429) throw new PublicAssignmentStatusError("rate-limited")
   if (!response.ok) throw new PublicAssignmentStatusError("unavailable")

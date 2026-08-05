@@ -88,6 +88,24 @@ export function initFilesDb() {
     `)
 
     await query(`
+      CREATE TABLE IF NOT EXISTS signup_invites (
+        id BIGSERIAL PRIMARY KEY,
+        token_hash TEXT NOT NULL UNIQUE,
+        label TEXT,
+        expires_at TIMESTAMPTZ,
+        reserved_for_email TEXT,
+        reservation_hash TEXT,
+        reserved_until TIMESTAMPTZ,
+        redeemed_at TIMESTAMPTZ,
+        redeemed_by_email TEXT,
+        revoked_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+    await query("ALTER TABLE signup_invites ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ")
+    await query("CREATE INDEX IF NOT EXISTS signup_invites_available_idx ON signup_invites(token_hash, redeemed_at, revoked_at, expires_at)")
+
+    await query(`
       CREATE TABLE IF NOT EXISTS assignment_activities (
         id SERIAL PRIMARY KEY,
         assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
