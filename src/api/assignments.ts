@@ -23,6 +23,7 @@ import type {
 
 type AssignmentRow = {
   id: number
+  tracking_code: string
   user_id: string
   team_id: number
   team_name: string
@@ -81,6 +82,7 @@ function mapAssignment(row: AssignmentRow): Assignment {
 
   return {
     id: row.id,
+    trackingCode: row.tracking_code,
     userId: row.user_id,
     teamId: row.team_id,
     teamName: row.team_name,

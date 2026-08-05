@@ -36,6 +36,7 @@ export type AssignmentFileStatus = "uploading" | "ready" | "failed" | "deleted"
 
 export type Assignment = {
   id: number
+  trackingCode: string
   userId: string
   teamId: number
   teamName: string

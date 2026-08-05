@@ -64,6 +64,12 @@ export function initFilesDb() {
     await query(`
       CREATE TABLE IF NOT EXISTS assignments (
         id SERIAL PRIMARY KEY,
+        tracking_code TEXT NOT NULL DEFAULT (
+          'AR-' || UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6)) || '-' ||
+          UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6)) || '-' ||
+          UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6)) || '-' ||
+          UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6))
+        ),
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
         assignee_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
@@ -80,6 +86,24 @@ export function initFilesDb() {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `)
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS signup_invites (
+        id BIGSERIAL PRIMARY KEY,
+        token_hash TEXT NOT NULL UNIQUE,
+        label TEXT,
+        expires_at TIMESTAMPTZ,
+        reserved_for_email TEXT,
+        reservation_hash TEXT,
+        reserved_until TIMESTAMPTZ,
+        redeemed_at TIMESTAMPTZ,
+        redeemed_by_email TEXT,
+        revoked_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+    await query("ALTER TABLE signup_invites ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ")
+    await query("CREATE INDEX IF NOT EXISTS signup_invites_available_idx ON signup_invites(token_hash, redeemed_at, revoked_at, expires_at)")
 
     await query(`
       CREATE TABLE IF NOT EXISTS assignment_activities (
@@ -141,6 +165,27 @@ export function initFilesDb() {
     `)
 
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS due_time TIME")
+    await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS tracking_code TEXT")
+    await query(`
+      UPDATE assignments
+      SET tracking_code =
+        'AR-' || UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6)) || '-' ||
+        UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6)) || '-' ||
+        UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6)) || '-' ||
+        UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6))
+      WHERE tracking_code IS NULL OR BTRIM(tracking_code) = ''
+    `)
+    await query(`
+      ALTER TABLE assignments
+      ALTER COLUMN tracking_code SET DEFAULT (
+        'AR-' || UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6)) || '-' ||
+        UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6)) || '-' ||
+        UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6)) || '-' ||
+        UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 6))
+      )
+    `)
+    await query("ALTER TABLE assignments ALTER COLUMN tracking_code SET NOT NULL")
+    await query("CREATE UNIQUE INDEX IF NOT EXISTS assignments_tracking_code_uidx ON assignments(tracking_code)")
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS progress_stage TEXT NOT NULL DEFAULT 'ai-draft'")
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE")
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS assignee_user_id TEXT REFERENCES users(id) ON DELETE SET NULL")

@@ -17,6 +17,7 @@ import {
 function assignmentRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 42,
+    tracking_code: "AR-7A91F2-88C4D0-1B6E35-902AF8",
     user_id: "admin-user",
     team_id: 7,
     team_name: "Revision Team",
@@ -56,6 +57,7 @@ describe("assignment access control", () => {
     expect(sql).not.toMatch(/WHERE[\s\S]*a\.assignee_user_id\s*=/)
     expect(params).toEqual(["member-user", 7])
     expect(assignments).toHaveLength(1)
+    expect(assignments[0].trackingCode).toBe("AR-7A91F2-88C4D0-1B6E35-902AF8")
   })
 
   it("returns a team assignment that belongs to a different assignee", async () => {

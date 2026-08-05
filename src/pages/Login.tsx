@@ -2,6 +2,8 @@ import { useState } from "react"
 import { Navigate, Link, useLocation } from "react-router-dom"
 import { toast } from "sonner"
 
+import { redeemSignupInvite, releaseSignupInvite, reserveSignupInvite, SignupInviteError } from "@/api/signup-invites"
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -52,7 +54,9 @@ function LoginForm() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [accessToken, setAccessToken] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [inviteMessage, setInviteMessage] = useState("")
 
   if (session.data) {
     return <Navigate to="/dashboard" replace />
@@ -64,12 +68,26 @@ function LoginForm() {
 
     try {
       if (isSignUp) {
-        await authClient.signUp.email({
-          email,
-          password,
-          name: name.trim() || email.split("@")[0] || "New user",
-          callbackURL: "/dashboard",
-        })
+        if (!accessToken.trim()) {
+          setInviteMessage("Registration is currently private. Ask the Absolute Revision team for a one-time access token, then enter it here to create your account.")
+          return
+        }
+        const receipt = await reserveSignupInvite(accessToken, email)
+        let accountCreated = false
+        try {
+          await authClient.signUp.email({
+            email,
+            password,
+            name: name.trim() || email.split("@")[0] || "New user",
+            callbackURL: "/dashboard",
+          })
+          accountCreated = true
+          await redeemSignupInvite(accessToken, email, receipt)
+        } catch (error) {
+          if (accountCreated) await authClient.signOut().catch(() => undefined)
+          await releaseSignupInvite(accessToken, email, receipt)
+          throw error
+        }
       } else {
         await authClient.signIn.email({
           email,
@@ -79,8 +97,12 @@ function LoginForm() {
       }
 
       window.location.assign("/dashboard")
-    } catch {
-      toast.error("Something went wrong. Try again.")
+    } catch (error) {
+      if (error instanceof SignupInviteError) {
+        setInviteMessage(error.message)
+      } else {
+        toast.error("Something went wrong. Try again.")
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -130,6 +152,21 @@ function LoginForm() {
                 />
               </div>
 
+              {isSignUp ? (
+                <div className="grid gap-2">
+                  <Label htmlFor="access-token">Access token</Label>
+                  <Input
+                    id="access-token"
+                    value={accessToken}
+                    onChange={(event) => setAccessToken(event.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="INV-XXXXXX-XXXXXX-XXXXXX"
+                  />
+                  <p className="text-xs leading-5 text-muted-foreground">Registration is invite-only. Contact our team if you have been approved but have not received a token.</p>
+                </div>
+              ) : null}
+
               <div className="grid gap-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -147,15 +184,22 @@ function LoginForm() {
               </Button>
             </form>
 
-            <p className="mt-6 text-center text-sm text-muted-foreground">
-              {isSignUp ? "Already have an account?" : "Need an account?"}{" "}
-              <Link className="font-medium text-foreground underline underline-offset-4" to={isSignUp ? "/sign-in" : "/sign-up"}>
-                {isSignUp ? "Sign in" : "Sign up"}
-              </Link>
-            </p>
+            {isSignUp ? <p className="mt-6 text-center text-sm text-muted-foreground">Already have an account?{" "}<Link className="font-medium text-foreground underline underline-offset-4" to="/sign-in">Sign in</Link></p> : null}
           </CardContent>
         </Card>
       </div>
+      <AlertDialog open={Boolean(inviteMessage)} onOpenChange={(open) => { if (!open) setInviteMessage("") }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Private registration</AlertDialogTitle>
+            <AlertDialogDescription>{inviteMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            <Button asChild><a href="mailto:support@absoluterevision.com?subject=Private%20account%20access">Request access</a></Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }

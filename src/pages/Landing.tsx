@@ -7,6 +7,7 @@ import {
   FileCheck2,
   FileText,
   GraduationCap,
+  ListChecks,
   Mail,
   Phone,
   ShieldCheck,
@@ -44,6 +45,7 @@ const phoneDisplay = "+1 937 249 0400"
 const phoneHref = "tel:+19372490400"
 
 const navLinks = [
+  { label: "Track assignment", href: "/track-assignment" },
   { label: "About", href: "#about" },
   { label: "Reviews", href: "#reviews" },
   { label: "Services", href: "#services" },
@@ -167,6 +169,8 @@ const faqs = [
 ]
 
 const footerLinks = [
+  { label: "Track assignment", href: "/track-assignment" },
+  { label: "Sign Up", href: "/sign-up" },
   { label: "Back To Top", href: "#top" },
   { label: "About Us", href: "#about" },
   { label: "Why Choose Us", href: "#why-choose" },
@@ -208,9 +212,15 @@ export function Landing() {
 
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex" aria-label="Primary">
             {navLinks.map((link) => (
-              <a key={link.href} href={link.href} className="transition-colors hover:text-foreground">
-                {link.label}
-              </a>
+              link.href.startsWith("#") ? (
+                <a key={link.href} href={link.href} className="transition-colors hover:text-foreground">
+                  {link.label}
+                </a>
+              ) : (
+                <Link key={link.href} to={link.href} className="transition-colors hover:text-foreground">
+                  {link.label}
+                </Link>
+              )
             ))}
           </nav>
 
@@ -219,8 +229,8 @@ export function Landing() {
               <Link to="/login">Sign in</Link>
             </Button>
             <Button asChild>
-              <Link to={documentUploadUrl}>
-                Get started
+              <Link to="/track-assignment">
+                Track assignment
               </Link>
             </Button>
           </div>
@@ -279,6 +289,24 @@ export function Landing() {
               {supportEmail}
             </a>
           </div>
+        </div>
+      </section>
+
+      <section className="border-b bg-muted/30 px-4 py-16 lg:py-20" aria-labelledby="tracking-heading">
+        <div className="mx-auto grid max-w-6xl gap-8 rounded-xl border bg-background p-6 shadow-sm sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center lg:p-10">
+          <div className="flex gap-5">
+            <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground sm:flex">
+              <ListChecks className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Clear progress, whenever you need it</p>
+              <h2 id="tracking-heading" className="mt-2 text-3xl font-semibold tracking-normal">Track your assignment from receipt to final review</h2>
+              <p className="mt-4 max-w-3xl leading-7 text-muted-foreground">Use the private reference and access code provided by our team to see the current stage, due date, and overall progress. Your details are submitted securely and never placed in the page URL.</p>
+            </div>
+          </div>
+          <Button size="lg" asChild className="w-fit lg:ml-6">
+            <Link to="/track-assignment">Check assignment status</Link>
+          </Button>
         </div>
       </section>
 
@@ -564,9 +592,15 @@ export function Landing() {
             <ul className="mt-4 grid gap-3 text-sm text-muted-foreground">
               {footerLinks.map((link) => (
                 <li key={link.href}>
-                  <a href={link.href} className="transition-colors hover:text-foreground">
-                    {link.label}
-                  </a>
+                  {link.href.startsWith("#") ? (
+                    <a href={link.href} className="transition-colors hover:text-foreground">
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link to={link.href} className="transition-colors hover:text-foreground">
+                      {link.label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

@@ -1,5 +1,5 @@
 import { format, parseISO } from "date-fns"
-import { ArrowLeft, CalendarClock, CheckCircle2, Pencil, Trash2 } from "lucide-react"
+import { ArrowLeft, CalendarClock, CheckCircle2, Copy, Pencil, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -32,6 +32,7 @@ import {
   getAssignmentStatusLabel,
 } from "@/lib/assignment-status"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
+import { splitTrackingCode } from "@/lib/public-assignment-status"
 import { titleCase } from "@/lib/utils"
 import type {
   Assignment,
@@ -255,7 +256,31 @@ export function AssignmentView({
     }
   }
 
+  const copyTrackingCredentials = async () => {
+    if (!assignment) return
+    const credentials = splitTrackingCode(assignment.trackingCode)
+    if (!credentials) return
+    try {
+      await navigator.clipboard.writeText(`Reference: ${credentials.reference}\nAccess code: ${credentials.accessCode}`)
+      toast.success("Tracking details copied")
+    } catch {
+      toast.error("Could not copy the tracking details")
+    }
+  }
+
+  const copyTrackingLink = async () => {
+    if (!assignment) return
+    try {
+      const url = `${window.location.origin}/track-assignment`
+      await navigator.clipboard.writeText(url)
+      toast.success("Tracking link copied")
+    } catch {
+      toast.error("Could not copy the tracking link")
+    }
+  }
+
   const assignmentType = assignment ? normalizeAssignmentType(assignment.category) : null
+  const trackingCredentials = assignment ? splitTrackingCode(assignment.trackingCode) : null
   const activityItems = assignment
     ? getActivityItems(assignment, activities, actorName)
     : []
@@ -428,6 +453,23 @@ export function AssignmentView({
                 <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
                   <p>Created at {format(parseISO(assignment.createdAt), "MMM d, yyyy h:mm a")}</p>
                   <p>Last updated {format(parseISO(assignment.updatedAt), "MMM d, yyyy h:mm a")}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Client tracking</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                <p className="text-sm text-muted-foreground">Share both private details only with the intended client. The tracking page URL contains no credentials.</p>
+                {trackingCredentials ? <div className="grid gap-3 rounded-md border bg-muted/50 p-4 sm:grid-cols-2">
+                  <div><p className="text-xs uppercase tracking-wide text-muted-foreground">Reference</p><p className="mt-1 font-mono text-sm font-medium">{trackingCredentials.reference}</p></div>
+                  <div><p className="text-xs uppercase tracking-wide text-muted-foreground">Access code</p><p className="mt-1 break-all font-mono text-sm font-medium">{trackingCredentials.accessCode}</p></div>
+                </div> : null}
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => void copyTrackingCredentials()}><Copy className="h-4 w-4" />Copy tracking details</Button>
+                  <Button variant="outline" onClick={() => void copyTrackingLink()}><Copy className="h-4 w-4" />Copy clean tracking link</Button>
                 </div>
               </CardContent>
             </Card>
