@@ -14,6 +14,7 @@ row when finished.
 | 003 | Move application database access behind authenticated API routes | P1 | L | 001, 002 | TODO |
 | 004 | Make related database mutations atomic | P2 | M | 003 | TODO |
 | 005 | Make the dashboard an attention-first operational workspace | P1 | L | 001 | DONE (verified at `e128398`) |
+| 006 | Deliver secure public assignment tracking | P1 | L | 001 | DONE (reviewed at `13a6f9b`) |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` (with a one-line
 reason), or `REJECTED` (with a one-line rationale).
@@ -29,6 +30,10 @@ reason), or `REJECTED` (with a one-line rationale).
 - Plan 005 is independent of Plans 003 and 004. It depends only on the test
   baseline and can execute against the current UI while preserving the
   operator's existing uncommitted dashboard and team-management work.
+- Plan 006 is independent of the full Plan 003 migration: its public lookup is
+  server-only and narrowly projected, while the authenticated app only gains a
+  tracking-code field and copy-link control. If Plan 003 executes later, it
+  must preserve that field without widening the public response.
 
 ## Findings considered and rejected
 
