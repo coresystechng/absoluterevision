@@ -104,3 +104,8 @@ dist
 # TernJS port file
 .tern-port
 .vercel
+
+# Browser test artifacts and private session state
+playwright-report/
+test-results/
+playwright/.auth/
