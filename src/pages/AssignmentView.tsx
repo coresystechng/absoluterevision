@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns"
 import { ArrowLeft, CalendarClock, CheckCircle2, Copy, Pencil, Trash2 } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
@@ -10,6 +10,7 @@ import { getOrCreateUser } from "@/api/users"
 import { AssignmentDialog } from "@/components/AssignmentDialog"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { Navbar } from "@/components/Navbar"
+import { StatePanel } from "@/components/StatePanel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -51,6 +52,8 @@ type ActivityTimelineItem = {
   createdAt: string
 }
 
+type AssignmentLoadState = "loading" | "success" | "not-found" | "error"
+
 function getActorName(user: AuthUser) {
   return user.displayName?.trim() || user.email.split("@")[0] || "User"
 }
@@ -89,7 +92,12 @@ export function AssignmentView({
   const id = Number(params.id)
   const [assignment, setAssignment] = useState<Assignment | null>(null)
   const [activities, setActivities] = useState<AssignmentActivity[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [loadState, setLoadState] = useState<AssignmentLoadState>("loading")
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [activityError, setActivityError] = useState(false)
+  const requestId = useRef(0)
+  const assignmentRef = useRef(assignment)
+  assignmentRef.current = assignment
   const [isEditing, setIsEditing] = useState(false)
   const [filesVersion, setFilesVersion] = useState(0)
   const actorName = getActorName(user)
@@ -100,30 +108,55 @@ export function AssignmentView({
       return
     }
 
-    setActivities(await assignmentApi.getActivities(user.id, id))
+    setActivityError(false)
+    try {
+      setActivities(await assignmentApi.getActivities(user.id, id))
+    } catch {
+      setActivityError(true)
+    }
   }, [id, user.id])
 
-  useEffect(() => {
-    if (!Number.isFinite(id)) {
-      return
+  const loadAssignment = useCallback(async () => {
+    if (!Number.isFinite(id)) return
+    const currentRequest = ++requestId.current
+    const isSameAssignment = assignmentRef.current?.id === id
+    if (isSameAssignment) {
+      setIsRefreshing(true)
+    } else {
+      assignmentRef.current = null
+      setAssignment(null)
+      setActivities([])
+      setLoadState("loading")
     }
-
-    setIsLoading(true)
-    setActivities([])
-    void getOrCreateUser(user)
-      .then(() =>
-        Promise.all([
-          assignmentApi.getById(user.id, id),
-          assignmentApi.getActivities(user.id, id),
-        ]),
-      )
-      .then(([result, activityResult]) => {
-        setAssignment(result)
-        setActivities(activityResult)
-      })
-      .catch(() => toast.error("Something went wrong. Try again."))
-      .finally(() => setIsLoading(false))
+    try {
+      await getOrCreateUser(user)
+      const result = await assignmentApi.getById(user.id, id)
+      if (currentRequest !== requestId.current) return
+      if (!result) {
+        setAssignment(null)
+        setLoadState("not-found")
+        return
+      }
+      setAssignment(result)
+      setLoadState("success")
+      setActivityError(false)
+      try {
+        const activityResult = await assignmentApi.getActivities(user.id, id)
+        if (currentRequest === requestId.current) setActivities(activityResult)
+      } catch {
+        if (currentRequest === requestId.current) setActivityError(true)
+      }
+    } catch {
+      if (currentRequest === requestId.current && !assignmentRef.current) setLoadState("error")
+    } finally {
+      if (currentRequest === requestId.current) setIsRefreshing(false)
+    }
   }, [id, user])
+
+  useEffect(() => {
+    void loadAssignment()
+    return () => { requestId.current += 1 }
+  }, [loadAssignment])
 
   if (!Number.isFinite(id)) {
     return <Navigate to="/dashboard" replace />
@@ -234,7 +267,7 @@ export function AssignmentView({
       <Navbar
         user={user}
         onSignOut={onSignOut}
-        activeTeamName={isLoading ? undefined : assignment?.teamName ?? null}
+        activeTeamName={loadState === "loading" ? undefined : assignment?.teamName ?? null}
       />
       <main className="mx-auto grid max-w-4xl gap-6 px-4 py-6">
         <Button variant="ghost" asChild className="w-fit px-0">
@@ -244,12 +277,13 @@ export function AssignmentView({
           </Link>
         </Button>
 
-        {isLoading ? (
+        <div aria-busy={loadState === "loading" || isRefreshing || undefined}>
+        {loadState === "loading" ? (
           <div className="grid gap-4">
             <Skeleton className="h-20" />
             <Skeleton className="h-80" />
           </div>
-        ) : assignment ? (
+        ) : loadState === "success" && assignment ? (
           <>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
@@ -425,7 +459,9 @@ export function AssignmentView({
                 <CardTitle>Activity</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-1">
+                {activityError ? (
+                  <StatePanel context="inline" tone="error" title="Could not load activity" description="The assignment is still available." primaryAction={{ label: "Try again", onClick: () => void refreshActivities() }} live="polite" />
+                ) : <div className="grid gap-1">
                   {activityItems.map((activity) => (
                     <div
                       key={`${activity.id}-${activity.createdAt}`}
@@ -441,7 +477,7 @@ export function AssignmentView({
                       </time>
                     </div>
                   ))}
-                </div>
+                </div>}
               </CardContent>
             </Card>
 
@@ -455,13 +491,12 @@ export function AssignmentView({
               onSave={updateAssignment}
             />
           </>
+        ) : loadState === "error" ? (
+          <StatePanel context="page" tone="error" title="Could not load this assignment" description="The assignment could not be loaded right now." primaryAction={{ label: "Try again", onClick: () => void loadAssignment() }} secondaryAction={{ label: "Back to dashboard", onClick: () => navigate("/dashboard") }} live="assertive" />
         ) : (
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-sm text-muted-foreground">Assignment not found.</p>
-            </CardContent>
-          </Card>
+          <StatePanel context="page" title="Assignment not found" description="This assignment does not exist or you do not have access to it." primaryAction={{ label: "Back to dashboard", onClick: () => navigate("/dashboard") }} />
         )}
+        </div>
       </main>
     </div>
   )

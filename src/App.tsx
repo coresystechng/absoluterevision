@@ -1,7 +1,8 @@
-import { Navigate, Route, Routes } from "react-router-dom"
+import { Navigate, Route, Routes, useLocation } from "react-router-dom"
 import { Toaster } from "sonner"
 
 import { ThemeProvider } from "@/hooks/useTheme"
+import { RoutePending } from "@/components/RoutePending"
 import { getNeonAuthClient, isNeonAuthConfigured } from "@/lib/auth"
 import { AssignmentView } from "@/pages/AssignmentView"
 import { AssignmentTracking } from "@/pages/AssignmentTracking"
@@ -31,8 +32,10 @@ function Protected({
 }: {
   children: (user: AuthUser, signOut: () => Promise<void>) => React.ReactNode
 }) {
+  const location = useLocation()
+  const from = `${location.pathname}${location.search}${location.hash}`
   if (!isNeonAuthConfigured) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/login" replace state={{ from }} />
   }
 
   return <ProtectedWithAuth>{children}</ProtectedWithAuth>
@@ -43,15 +46,16 @@ function ProtectedWithAuth({
 }: {
   children: (user: AuthUser, signOut: () => Promise<void>) => React.ReactNode
 }) {
+  const location = useLocation()
   const authClient = getNeonAuthClient()
   const session = authClient.useSession()
 
   if (session.isPending) {
-    return null
+    return <RoutePending />
   }
 
   if (!session.data) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}${location.hash}` }} />
   }
 
   const authUser = toAuthUser(session.data.user)

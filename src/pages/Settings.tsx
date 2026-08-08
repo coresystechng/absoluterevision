@@ -11,6 +11,7 @@ import {
 } from "@/api/users"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { Navbar } from "@/components/Navbar"
+import { StatePanel } from "@/components/StatePanel"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -104,7 +105,10 @@ export function Settings({
     members,
     isLoading: teamsLoading,
     isMembersLoading,
+    error: teamsError,
+    membersError,
     reloadTeams,
+    reloadMembers,
     createTeam,
     updateTeamName,
     deleteTeam,
@@ -470,6 +474,7 @@ export function Settings({
           </CardHeader>
           <CardContent className="grid gap-6">
             <section className="grid gap-4" aria-labelledby="active-workspace-heading">
+              {teamsError && teams.length > 0 ? <StatePanel context="inline" tone="warning" title="Could not refresh teams" description="Showing the last available workspaces." primaryAction={{ label: "Try again", onClick: () => void reloadTeams() }} live="polite" /> : null}
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h3 id="active-workspace-heading" className="font-medium">Active workspace</h3>
@@ -503,7 +508,9 @@ export function Settings({
                 </div>
               </div>
 
-              {activeTeam ? (
+              {teamsError && teams.length === 0 ? (
+                <StatePanel context="inline" tone="error" title="Could not load your teams" description="Workspace settings are temporarily unavailable." primaryAction={{ label: "Try again", onClick: () => void reloadTeams() }} live="assertive" />
+              ) : activeTeam ? (
                 <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center">
                   <div className="min-w-0">
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Team</p>
@@ -603,7 +610,9 @@ export function Settings({
                 </form>
               ) : null}
 
-              {isMembersLoading ? (
+              {membersError ? (
+                <StatePanel context="inline" tone="error" title="Could not load members" description={members.length > 0 ? "Showing the last available member list." : "The member list is temporarily unavailable."} primaryAction={{ label: "Try again", onClick: () => void reloadMembers() }} live="polite" />
+              ) : isMembersLoading && members.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
                   Loading members...
                 </div>

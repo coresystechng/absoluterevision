@@ -76,4 +76,21 @@ describe("AssignmentTracking", () => {
     expect(screen.getByText(`Reference ${validReference}`)).toBeVisible()
     await waitFor(() => expect(heading).toHaveFocus())
   })
+
+  it("renders rate-limit guidance and retries a temporary error with the last validated input", async () => {
+    getStatusMock
+      .mockRejectedValueOnce(new PublicAssignmentStatusError("rate-limited"))
+      .mockRejectedValueOnce(new PublicAssignmentStatusError("unavailable"))
+      .mockResolvedValueOnce(assignment)
+    const { user } = renderWithRouter(<AssignmentTracking />)
+    await enterValidDetails(user)
+    await user.click(screen.getByRole("button", { name: "Check progress" }))
+    expect(await screen.findByRole("heading", { name: "Too many requests" })).toBeVisible()
+
+    await user.click(screen.getByRole("button", { name: "Check progress" }))
+    expect(await screen.findByRole("heading", { name: "Tracking is temporarily unavailable" })).toBeVisible()
+    await user.click(screen.getByRole("button", { name: "Try again" }))
+    expect(await screen.findByText(`Reference ${validReference}`)).toBeVisible()
+    expect(screen.getByLabelText("Access code")).toHaveValue("")
+  })
 })

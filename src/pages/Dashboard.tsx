@@ -6,6 +6,7 @@ import { getOrCreateUser } from "@/api/users"
 import { AssignmentCard } from "@/components/AssignmentCard"
 import { AssignmentDialog } from "@/components/AssignmentDialog"
 import { Navbar } from "@/components/Navbar"
+import { StatePanel } from "@/components/StatePanel"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -182,7 +183,7 @@ export function Dashboard({
     [activeTeamId, teams],
   )
   const canManageActiveTeam = activeTeam?.role === "admin"
-  const { assignments, isLoading, error, create, update, remove } = useAssignments(
+  const { assignments, isLoading, isRefreshing, error, reload, create, update, remove } = useAssignments(
     user.id,
     actorName,
     activeTeam?.id ?? null,
@@ -447,26 +448,26 @@ export function Dashboard({
           </div>
         ) : null}
 
-        {teamsError ? (
-          <Card>
-            <CardContent className="p-6 text-sm text-destructive">Could not load teams. Try again.</CardContent>
-          </Card>
-        ) : null}
-
-        {error ? (
-          <Card>
-            <CardContent className="p-6 text-sm text-destructive">Something went wrong. Try again.</CardContent>
-          </Card>
-        ) : null}
-
-        {isLoading ? (
+        {teamsLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Skeleton className="h-36" />
             <Skeleton className="h-36" />
             <Skeleton className="h-36" />
             <Skeleton className="h-36" />
           </div>
+        ) : teamsError && teams.length === 0 ? (
+          <StatePanel tone="error" title="Could not load your teams" description="Your workspace is temporarily unavailable." primaryAction={{ label: "Try again", onClick: () => void reloadTeams() }} live="assertive" />
+        ) : !activeTeam ? (
+          <StatePanel title="Create a team to get started" description="Assignments belong to a team workspace." />
+        ) : isLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Skeleton className="h-36" /><Skeleton className="h-36" /><Skeleton className="h-36" />
+          </div>
+        ) : error && assignments.length === 0 ? (
+          <StatePanel tone="error" title="Could not load assignments" description="Your assignments are temporarily unavailable." primaryAction={{ label: "Try again", onClick: () => void reload() }} live="assertive" />
         ) : filteredAssignments.length > 0 ? (
+          <div className="grid gap-4" aria-busy={isRefreshing || undefined}>
+          {error ? <StatePanel context="inline" tone="warning" title="Could not refresh assignments" description="Showing the last available results." primaryAction={{ label: "Try again", onClick: () => void reload() }} live="polite" /> : null}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredAssignments.map((assignment) => (
               <AssignmentCard
@@ -489,13 +490,16 @@ export function Dashboard({
               />
             ))}
           </div>
+          </div>
+        ) : searchQuery.trim() || activeFilterCount > 0 ? (
+          <StatePanel icon={BookOpenCheck} title="No assignments match this view" description="Clear the search or filters to see other assignments." />
         ) : (
           <Card>
             <CardContent className="flex flex-col items-center justify-center px-6 py-14 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full border bg-muted">
                 <BookOpenCheck className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h2 className="mt-6 text-lg font-semibold">No assignments match this view</h2>
+              <h2 className="mt-6 text-lg font-semibold">No assignments yet</h2>
               <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                 Create your first assignment or switch filters to review existing work.
               </p>

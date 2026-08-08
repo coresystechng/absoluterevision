@@ -26,6 +26,7 @@ import {
   uploadAssignmentFile,
 } from "@/api/assignment-files"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
+import { StatePanel } from "@/components/StatePanel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -286,10 +287,7 @@ export function AssignmentFiles({
             and matching server Dropbox credentials to enable uploads.
           </div>
         ) : statusError ? (
-          <div className="grid gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Could not check Dropbox connection.</p>
-            <p>{statusError}</p>
-          </div>
+          <StatePanel context="inline" tone="error" title="Could not check Dropbox connection" description="Files are temporarily unavailable." primaryAction={{ label: "Try again", onClick: () => void loadFiles() }} live="polite" />
         ) : !status?.isConfigured ? (
           <div className="grid gap-2 rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
             <p>Dropbox credentials are not configured on the server.</p>
