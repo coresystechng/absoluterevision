@@ -42,25 +42,25 @@ describe("assignment status helpers", () => {
     },
   )
 
-  it("gives every active progress stage a distinct indicator color", () => {
+  it("gives every active progress stage a static semantic indicator", () => {
     const indicatorColors = assignmentProgressStages.map(({ value }) =>
       getAssignmentProgressIndicatorClassName("ongoing", value),
     )
 
-    expect(new Set(indicatorColors).size).toBe(assignmentProgressStages.length)
+    expect(indicatorColors.every((className) => className.endsWith("-foreground"))).toBe(true)
   })
 
   it("uses status colors for assignments outside the active workflow", () => {
-    expect(getAssignmentProgressIndicatorClassName("not-started", "final-review")).toContain("slate")
-    expect(getAssignmentProgressIndicatorClassName("completed", "ai-draft")).toContain("green")
-    expect(getAssignmentProgressTextClassName("not-started", "final-review")).toContain("slate")
-    expect(getAssignmentProgressTextClassName("completed", "ai-draft")).toContain("green")
+    expect(getAssignmentProgressIndicatorClassName("not-started", "final-review")).toContain("neutral")
+    expect(getAssignmentProgressIndicatorClassName("completed", "ai-draft")).toContain("success")
+    expect(getAssignmentProgressTextClassName("not-started", "final-review")).toContain("neutral")
+    expect(getAssignmentProgressTextClassName("completed", "ai-draft")).toContain("success")
   })
 
   it.each(assignmentProgressStages)(
     "uses the $label progress tone for active assignment text",
-    ({ value, textClassName }) => {
-      expect(getAssignmentProgressTextClassName("ongoing", value)).toBe(textClassName)
+    ({ value, tone }) => {
+      expect(getAssignmentProgressTextClassName("ongoing", value)).toContain(tone)
     },
   )
 })

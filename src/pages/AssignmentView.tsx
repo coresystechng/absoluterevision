@@ -29,11 +29,10 @@ import {
   assignmentProgressStages,
   assignmentStatuses,
   getAssignmentProgressLabel,
-  getAssignmentStatusLabel,
 } from "@/lib/assignment-status"
+import { getDeadlinePresentation, getPriorityPresentation, getStatusPresentation, semanticTextClassNames } from "@/lib/assignment-presentation"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
 import { splitTrackingCode } from "@/lib/public-assignment-status"
-import { titleCase } from "@/lib/utils"
 import type {
   Assignment,
   AssignmentActivity,
@@ -50,69 +49,6 @@ type ActivityTimelineItem = {
   action: AssignmentActivityAction
   message: string
   createdAt: string
-}
-
-function dueDateTime(assignment: Assignment) {
-  if (!assignment.dueDate) {
-    return null
-  }
-
-  return parseISO(`${assignment.dueDate}T${assignment.dueTime ?? "00:00"}`)
-}
-
-function dueTone(assignment: Assignment) {
-  const due = dueDateTime(assignment)
-  if (!due || assignment.status === "completed") {
-    return assignment.status === "completed" ? "text-foreground" : "text-muted-foreground"
-  }
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const soon = new Date(today)
-  soon.setDate(today.getDate() + 3)
-
-  if (due < today) {
-    return "text-destructive"
-  }
-  if (due > today && due < soon) {
-    return "text-amber-600 dark:text-amber-400"
-  }
-  return "text-muted-foreground"
-}
-
-function getTimeLeftLabel(assignment: Assignment) {
-  if (assignment.status === "completed") {
-    return "Submitted"
-  }
-
-  const due = dueDateTime(assignment)
-  if (!due) {
-    return "No deadline"
-  }
-
-  const diffMs = due.getTime() - Date.now()
-  if (diffMs <= 0) {
-    return "Overdue"
-  }
-
-  const totalMinutes = Math.floor(diffMs / (1000 * 60))
-  const days = Math.floor(totalMinutes / (60 * 24))
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
-  const minutes = totalMinutes % 60
-
-  if (days > 0) {
-    return `${days}d ${hours} hrs left`
-  }
-
-  if (hours > 0) {
-    return `${hours} hrs ${minutes} mins left`
-  }
-
-  if (minutes > 0) {
-    return `${minutes} mins left`
-  }
-
-  return "Due soon"
 }
 
 function getActorName(user: AuthUser) {
@@ -285,11 +221,9 @@ export function AssignmentView({
     ? getActivityItems(assignment, activities, actorName)
     : []
   const canManageAssignment = assignment?.currentUserRole === "admin"
-  const statusBadgeVariant = assignment?.status === "completed"
-    ? "success"
-    : assignment?.status === "ongoing"
-      ? "warning"
-      : "outline"
+  const statusPresentation = assignment ? getStatusPresentation(assignment.status) : null
+  const priorityPresentation = assignment ? getPriorityPresentation(assignment.priority) : null
+  const deadlinePresentation = assignment ? getDeadlinePresentation(assignment) : null
   const canAccessDropboxFileActions = Boolean(
     assignment &&
       (assignment.currentUserRole === "admin" || assignment.assigneeUserId === user.id),
@@ -320,8 +254,8 @@ export function AssignmentView({
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="mb-3 flex flex-wrap gap-2">
-                  <Badge>{titleCase(assignment.priority)}</Badge>
-                  <Badge variant={statusBadgeVariant}>{getAssignmentStatusLabel(assignment.status)}</Badge>
+                  <Badge variant={priorityPresentation!.tone}>{priorityPresentation!.label}</Badge>
+                  <Badge variant={statusPresentation!.tone}>{statusPresentation!.label}</Badge>
                   <Badge variant="outline">{getAssignmentProgressLabel(assignment.progressStage)}</Badge>
                   <Badge variant="outline">{assignmentType}</Badge>
                 </div>
@@ -369,13 +303,13 @@ export function AssignmentView({
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Deadline</p>
-                    <div className={`mt-1 flex items-center gap-2 text-sm ${dueTone(assignment)}`}>
+                    <div className={`mt-1 flex items-center gap-2 text-sm ${semanticTextClassNames[deadlinePresentation!.tone]}`}>
                       {assignment.status === "completed" ? (
                         <CheckCircle2 className="h-4 w-4" />
                       ) : (
                         <CalendarClock className="h-4 w-4" />
                       )}
-                      <span>{getTimeLeftLabel(assignment)}</span>
+                      <span>{deadlinePresentation!.label}</span>
                     </div>
                   </div>
                   <div className="grid content-start gap-1">
@@ -397,8 +331,8 @@ export function AssignmentView({
                         </SelectContent>
                       </Select>
                     ) : (
-                      <Badge variant={statusBadgeVariant} className="w-fit">
-                        {getAssignmentStatusLabel(assignment.status)}
+                      <Badge variant={statusPresentation!.tone} className="w-fit">
+                        {statusPresentation!.label}
                       </Badge>
                     )}
                   </div>
@@ -439,7 +373,7 @@ export function AssignmentView({
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Priority</p>
-                    <p className="mt-1 font-medium">{titleCase(assignment.priority)}</p>
+                    <Badge variant={priorityPresentation!.tone} className="mt-1 w-fit">{priorityPresentation!.label}</Badge>
                   </div>
                 </div>
 
