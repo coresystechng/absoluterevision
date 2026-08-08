@@ -78,3 +78,58 @@ test("tracking displays and focuses a fabricated successful response", async ({ 
   await expect(resultHeading).toBeFocused()
   await expect(page.getByText(`Reference ${assignment.reference}`)).toBeVisible()
 })
+
+test("visual foundations remain distinct and unclipped across themes and public viewports", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Viewport matrix runs once on the desktop Chromium engine")
+
+  const viewports = [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+    { width: 320, height: 760 },
+  ]
+
+  for (const theme of ["light", "dark"] as const) {
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport)
+      await page.goto("/track-assignment", { waitUntil: "domcontentloaded" })
+      await page.evaluate((preference) => window.localStorage.setItem("absolute-revision-theme", preference), theme)
+      await page.reload({ waitUntil: "domcontentloaded" })
+
+      const root = page.locator("html")
+      if (theme === "dark") await expect(root).toHaveClass(/dark/)
+      else await expect(root).not.toHaveClass(/dark/)
+
+      const styles = await page.evaluate(() => {
+        const body = getComputedStyle(document.body)
+        const heading = getComputedStyle(document.querySelector("h1")!)
+        const card = getComputedStyle(document.querySelector("main [class*='bg-surface-raised']")!)
+        const input = getComputedStyle(document.querySelector("input")!)
+        return {
+          bodyBackground: body.backgroundColor,
+          bodyFontFamily: body.fontFamily,
+          bodyFontWeight: body.fontWeight,
+          headingFontFamily: heading.fontFamily,
+          cardBackground: card.backgroundColor,
+          inputBackground: input.backgroundColor,
+          inputBorder: input.borderColor,
+          inputFontWeight: input.fontWeight,
+          overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        }
+      })
+
+      expect(styles.bodyBackground).not.toBe(styles.cardBackground)
+      expect(styles.cardBackground).not.toBe(styles.inputBackground)
+      expect(styles.inputBorder).not.toBe(styles.inputBackground)
+      expect(styles.bodyFontFamily).toContain("Geist")
+      expect(styles.headingFontFamily).toContain("Bricolage Grotesque")
+      expect(styles.bodyFontWeight).toBe("400")
+      expect(styles.inputFontWeight).toBe("400")
+      expect(styles.overflow).toBe(false)
+
+      const reference = page.getByLabel("Assignment reference")
+      await reference.focus()
+      const focusShadow = await reference.evaluate((element) => getComputedStyle(element).boxShadow)
+      expect(focusShadow).not.toBe("none")
+    }
+  }
+})

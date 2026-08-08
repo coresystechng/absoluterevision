@@ -7,8 +7,11 @@
 :root {
   color-scheme: light;
   --radius: 0.625rem;
-  --background: #f2f0e3;
+  --background: #eae6d4;
   --foreground: #1f2a24;
+  --surface: #f2efdf;
+  --surface-raised: #fbfaf2;
+  --surface-inset: #f4f0df;
   --card: #fbfaf2;
   --card-foreground: #1f2a24;
   --popover: #fffdf5;
@@ -22,7 +25,7 @@
   --secondary-active: #c3d0bc;
   --secondary-foreground: #26372f;
   --muted: #e7e4d5;
-  --muted-foreground: #626b64;
+  --muted-foreground: #59625b;
   --accent: #d9e5d8;
   --accent-hover: #cddccd;
   --accent-active: #bfd0c0;
@@ -31,8 +34,9 @@
   --destructive-hover: #8c3528;
   --destructive-active: #74291f;
   --border: #cec9b5;
-  --input: #c4bfaa;
+  --input: #777363;
   --ring: #3f745b;
+  --overlay: #172019;
   --chart-1: #355f4b;
   --chart-2: #b86f45;
   --chart-3: #52758a;
@@ -44,9 +48,12 @@
   color-scheme: dark;
   --background: #141a17;
   --foreground: #f3f0e4;
-  --card: #1b231f;
+  --surface: #1b231f;
+  --surface-raised: #222c26;
+  --surface-inset: #18201c;
+  --card: #222c26;
   --card-foreground: #f3f0e4;
-  --popover: #202923;
+  --popover: #29352e;
   --popover-foreground: #f3f0e4;
   --primary: #9fc3a5;
   --primary-hover: #b2d0b6;
@@ -68,6 +75,7 @@
   --border: #59695f;
   --input: #607166;
   --ring: #83ab90;
+  --overlay: #080d0a;
   --chart-1: #9fc3a5;
   --chart-2: #dc8a5f;
   --chart-3: #79a8bb;
@@ -82,6 +90,9 @@
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-inset: var(--surface-inset);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -106,6 +117,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -154,7 +166,7 @@ input,
 textarea,
 select {
   font-family: var(--font-sans);
-  font-weight: 300;
+  font-weight: 400;
 }
 
 button,
