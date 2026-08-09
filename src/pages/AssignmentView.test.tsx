@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import { createMemoryRouter, RouterProvider } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -63,6 +63,21 @@ describe("AssignmentView load states", () => {
     expect(screen.getByRole("heading", { name: "Could not load activity" })).toBeVisible()
     await interaction.click(screen.getByRole("button", { name: "Try again" }))
     expect(await screen.findByText(/created the assignment/i)).toBeVisible()
+  })
+
+  it("keeps only the status above the assignment title and labels the facts card Details", async () => {
+    getById.mockResolvedValue(assignment)
+    renderView()
+
+    const heading = await screen.findByRole("heading", { name: "Research brief" })
+    const headingGroup = heading.parentElement
+
+    expect(headingGroup).not.toBeNull()
+    expect(within(headingGroup!).getByText("Ongoing")).toBeVisible()
+    expect(headingGroup).not.toHaveTextContent("30% complete")
+    expect(headingGroup).not.toHaveTextContent(/hrs left/i)
+    expect(screen.getByRole("heading", { name: "Details" })).toBeVisible()
+    expect(screen.queryByRole("heading", { name: "Workflow" })).not.toBeInTheDocument()
   })
 
   it("ignores stale responses after the route id changes", async () => {
