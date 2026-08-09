@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import * as assignmentApi from "@/api/assignments"
 import type { Assignment, AssignmentInput, AssignmentProgressStage, AssignmentStatus } from "@/types"
@@ -27,7 +27,10 @@ export function useAssignments(
 ) {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const assignmentsRef = useRef(assignments)
+  assignmentsRef.current = assignments
 
   const reload = useCallback(async () => {
     if (!userId) {
@@ -36,7 +39,9 @@ export function useAssignments(
       return
     }
 
-    setIsLoading(true)
+    const hasKnownData = assignmentsRef.current.length > 0
+    setIsLoading(!hasKnownData)
+    setIsRefreshing(hasKnownData)
     setError(null)
     try {
       setAssignments(await assignmentApi.getAll(userId, teamId))
@@ -44,6 +49,7 @@ export function useAssignments(
       setError(caught instanceof Error ? caught : new Error("Unknown error"))
     } finally {
       setIsLoading(false)
+      setIsRefreshing(false)
     }
   }, [teamId, userId])
 
@@ -96,5 +102,5 @@ export function useAssignments(
     [actorName, reload, userId],
   )
 
-  return { assignments, isLoading, error, reload, isOverdue, ...actions }
+  return { assignments, isLoading, isRefreshing, error, reload, isOverdue, ...actions }
 }

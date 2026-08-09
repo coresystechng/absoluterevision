@@ -1,24 +1,23 @@
 import type { AssignmentProgressStage, AssignmentStatus } from "@/types"
+import { getProgressPresentation, progressStagePresentation, semanticTextClassNames, statusPresentation, type SemanticTone } from "@/lib/assignment-presentation"
 
-export const assignmentStatuses: Array<{ value: AssignmentStatus; label: string }> = [
-  { value: "not-started", label: "Not Started" },
-  { value: "ongoing", label: "Ongoing" },
-  { value: "completed", label: "Completed" },
-]
+const progressIndicatorClassNames: Record<SemanticTone, string> = {
+  success: "bg-success-foreground",
+  warning: "bg-warning-foreground",
+  danger: "bg-danger-foreground",
+  info: "bg-info-foreground",
+  neutral: "bg-neutral-foreground",
+}
+
+export const assignmentStatuses = (Object.entries(statusPresentation) as Array<[AssignmentStatus, { label: string }]>).map(([value, item]) => ({ value, label: item.label }))
 
 export const assignmentProgressStages: Array<{
   value: AssignmentProgressStage
   label: string
   progress: number
-  indicatorClassName: string
-  textClassName: string
+  tone: "success" | "warning" | "danger" | "info" | "neutral"
 }> = [
-  { value: "ai-draft", label: "AI Draft", progress: 15, indicatorClassName: "bg-red-500", textClassName: "text-red-600 dark:text-red-400" },
-  { value: "humaned", label: "Humaned", progress: 30, indicatorClassName: "bg-orange-500", textClassName: "text-orange-600 dark:text-orange-400" },
-  { value: "grammar-check", label: "Grammar Check", progress: 45, indicatorClassName: "bg-amber-500", textClassName: "text-amber-600 dark:text-amber-400" },
-  { value: "plagiarism-check", label: "Plagiarism Check", progress: 60, indicatorClassName: "bg-yellow-500", textClassName: "text-yellow-600 dark:text-yellow-400" },
-  { value: "text-format", label: "Text Format", progress: 75, indicatorClassName: "bg-lime-500", textClassName: "text-lime-600 dark:text-lime-400" },
-  { value: "final-review", label: "Final Review", progress: 90, indicatorClassName: "bg-emerald-500", textClassName: "text-emerald-600 dark:text-emerald-400" },
+  ...Object.entries(progressStagePresentation).map(([value, item]) => ({ value: value as AssignmentProgressStage, ...item })),
 ]
 
 const legacyStatusMap: Record<string, AssignmentStatus> = {
@@ -87,52 +86,19 @@ export function getAssignmentProgressIndicatorClassName(
   status: AssignmentStatus,
   progressStage: AssignmentProgressStage,
 ) {
-  if (status === "not-started") {
-    return "bg-slate-400 dark:bg-slate-500"
-  }
-
-  if (status === "completed") {
-    return "bg-green-600 dark:bg-green-500"
-  }
-
-  return (
-    assignmentProgressStages.find((item) => item.value === progressStage)?.indicatorClassName ??
-    "bg-red-500"
-  )
+  return progressIndicatorClassNames[getProgressPresentation(status, progressStage).tone]
 }
 
 export function getAssignmentProgressTextClassName(
   status: AssignmentStatus,
   progressStage: AssignmentProgressStage,
 ) {
-  if (status === "not-started") {
-    return "text-slate-500 dark:text-slate-400"
-  }
-
-  if (status === "completed") {
-    return "text-green-600 dark:text-green-400"
-  }
-
-  return (
-    assignmentProgressStages.find((item) => item.value === progressStage)?.textClassName ??
-    "text-red-600 dark:text-red-400"
-  )
+  return semanticTextClassNames[getProgressPresentation(status, progressStage).tone]
 }
 
 export function getAssignmentProgress(
   status: AssignmentStatus,
   progressStage: AssignmentProgressStage,
 ) {
-  if (status === "not-started") {
-    return 0
-  }
-
-  if (status === "completed") {
-    return 100
-  }
-
-  return (
-    assignmentProgressStages.find((item) => item.value === progressStage)?.progress ??
-    15
-  )
+  return getProgressPresentation(status, progressStage).progress
 }

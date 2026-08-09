@@ -368,7 +368,7 @@ export function DocumentUpload() {
       <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-md border border-success-border bg-success-background text-success-foreground">
               <CheckCircle2 className="h-6 w-6" />
             </div>
             <DialogTitle>Submission received</DialogTitle>

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getNeonAuthClient, isNeonAuthConfigured } from "@/lib/auth"
+import { RoutePending } from "@/components/RoutePending"
 
 import logoImage from "../../img/icon.png"
 
@@ -57,9 +58,17 @@ function LoginForm() {
   const [accessToken, setAccessToken] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [inviteMessage, setInviteMessage] = useState("")
+  const requestedDestination = (location.state as { from?: unknown } | null)?.from
+  const destination = typeof requestedDestination === "string" && requestedDestination.startsWith("/") && !requestedDestination.startsWith("//")
+    ? requestedDestination
+    : "/dashboard"
+
+  if (session.isPending) {
+    return <RoutePending label="Checking your session" />
+  }
 
   if (session.data) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={destination} replace />
   }
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -79,7 +88,7 @@ function LoginForm() {
             email,
             password,
             name: name.trim() || email.split("@")[0] || "New user",
-            callbackURL: "/dashboard",
+            callbackURL: destination,
           })
           accountCreated = true
           await redeemSignupInvite(accessToken, email, receipt)
@@ -92,11 +101,11 @@ function LoginForm() {
         await authClient.signIn.email({
           email,
           password,
-          callbackURL: "/dashboard",
+          callbackURL: destination,
         })
       }
 
-      window.location.assign("/dashboard")
+      window.location.assign(destination)
     } catch (error) {
       if (error instanceof SignupInviteError) {
         setInviteMessage(error.message)

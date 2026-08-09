@@ -71,6 +71,7 @@ typings/
 # dotenv environment variables file
 .env
 .env.test
+.env.local
 private/signup-invite-codes-*.txt
 
 # parcel-bundler cache (https://parceljs.org/)
@@ -104,3 +105,8 @@ dist
 # TernJS port file
 .tern-port
 .vercel
+
+# Browser test artifacts and private session state
+playwright-report/
+test-results/
+playwright/.auth/

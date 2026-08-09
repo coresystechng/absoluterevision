@@ -12,10 +12,31 @@ export default defineConfig({
   },
   test: {
     clearMocks: true,
+    fileParallelism: false,
+    maxWorkers: 1,
     passWithNoTests: true,
     coverage: {
       enabled: false,
     },
     environment: "node",
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["src/**/*.test.ts"],
+          environment: "node",
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "ui",
+          include: ["src/**/*.test.tsx"],
+          environment: "jsdom",
+          setupFiles: ["./src/test/setup.ts"],
+        },
+      },
+    ],
   },
 })

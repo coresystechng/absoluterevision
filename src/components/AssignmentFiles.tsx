@@ -26,6 +26,7 @@ import {
   uploadAssignmentFile,
 } from "@/api/assignment-files"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
+import { StatePanel } from "@/components/StatePanel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -42,6 +43,8 @@ import {
   assignmentFileCategories,
   getAssignmentFileCategoryLabel,
 } from "@/lib/assignment-files"
+import { semanticTextClassNames, type SemanticTone } from "@/lib/assignment-presentation"
+import { getFilePresentation, type FilePresentationKind } from "@/lib/file-presentation"
 import { cn } from "@/lib/utils"
 import type { AssignmentFile, AssignmentFileCategory, AuthUser } from "@/types"
 
@@ -66,16 +69,20 @@ type FileVisual = {
   icon: LucideIcon
   label: string
   iconClassName: string
-  badgeClassName: string
+  tone: SemanticTone
 }
 
 const ownerUserId = import.meta.env.VITE_DROPBOX_OWNER_USER_ID as string | undefined
 
-const defaultFileVisual: FileVisual = {
-  icon: File,
-  label: "FILE",
-  iconClassName: "text-muted-foreground",
-  badgeClassName: "border-border bg-muted text-muted-foreground",
+const fileIcons: Record<FilePresentationKind, LucideIcon> = {
+  pdf: FileBadge,
+  word: FileText,
+  presentation: Presentation,
+  spreadsheet: FileSpreadsheet,
+  image: FileImage,
+  archive: FileArchive,
+  text: FileText,
+  unknown: File,
 }
 
 function formatBytes(sizeBytes: number) {
@@ -89,97 +96,14 @@ function formatBytes(sizeBytes: number) {
   return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
 }
 
-function getFileExtension(fileName: string) {
-  const normalizedName = fileName.trim().toLowerCase()
-  const extensionStart = normalizedName.lastIndexOf(".")
-
-  if (extensionStart <= 0 || extensionStart === normalizedName.length - 1) {
-    return ""
-  }
-
-  return normalizedName.slice(extensionStart + 1)
-}
-
 function getFileVisual(file: AssignmentFile): FileVisual {
-  const extension = getFileExtension(file.name)
-
-  if (extension === "pdf") {
-    return {
-      icon: FileBadge,
-      label: "PDF",
-      iconClassName: "text-red-600",
-      badgeClassName: "border-red-200 bg-red-50 text-red-700",
-    }
+  const presentation = getFilePresentation(file)
+  return {
+    icon: fileIcons[presentation.kind],
+    label: presentation.label,
+    iconClassName: semanticTextClassNames[presentation.tone],
+    tone: presentation.tone,
   }
-
-  if (extension === "doc" || extension === "docx") {
-    return {
-      icon: FileText,
-      label: extension.toUpperCase(),
-      iconClassName: "text-blue-600",
-      badgeClassName: "border-blue-200 bg-blue-50 text-blue-700",
-    }
-  }
-
-  if (extension === "ppt" || extension === "pptx") {
-    return {
-      icon: Presentation,
-      label: extension.toUpperCase(),
-      iconClassName: "text-orange-600",
-      badgeClassName: "border-orange-200 bg-orange-50 text-orange-700",
-    }
-  }
-
-  if (extension === "xls" || extension === "xlsx" || extension === "csv") {
-    return {
-      icon: FileSpreadsheet,
-      label: extension.toUpperCase(),
-      iconClassName: "text-emerald-600",
-      badgeClassName: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    }
-  }
-
-  if (file.mimeType.startsWith("image/")) {
-    return {
-      icon: FileImage,
-      label: extension ? extension.toUpperCase() : "IMAGE",
-      iconClassName: "text-sky-600",
-      badgeClassName: "border-sky-200 bg-sky-50 text-sky-700",
-    }
-  }
-
-  if (
-    file.mimeType.includes("zip") ||
-    file.mimeType.includes("rar") ||
-    file.mimeType.includes("tar")
-  ) {
-    return {
-      icon: FileArchive,
-      label: extension ? extension.toUpperCase() : "ARCHIVE",
-      iconClassName: "text-violet-600",
-      badgeClassName: "border-violet-200 bg-violet-50 text-violet-700",
-    }
-  }
-
-  if (
-    file.mimeType.includes("pdf") ||
-    file.mimeType.includes("document") ||
-    file.mimeType.includes("text")
-  ) {
-    return {
-      icon: FileText,
-      label: extension ? extension.toUpperCase() : "TEXT",
-      iconClassName: "text-blue-600",
-      badgeClassName: "border-blue-200 bg-blue-50 text-blue-700",
-    }
-  }
-
-  return extension
-    ? {
-        ...defaultFileVisual,
-        label: extension.toUpperCase(),
-      }
-    : defaultFileVisual
 }
 
 function groupFilesByCategory(files: AssignmentFile[]) {
@@ -363,10 +287,7 @@ export function AssignmentFiles({
             and matching server Dropbox credentials to enable uploads.
           </div>
         ) : statusError ? (
-          <div className="grid gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Could not check Dropbox connection.</p>
-            <p>{statusError}</p>
-          </div>
+          <StatePanel context="inline" tone="error" title="Could not check Dropbox connection" description="Files are temporarily unavailable." primaryAction={{ label: "Try again", onClick: () => void loadFiles() }} live="polite" />
         ) : !status?.isConfigured ? (
           <div className="grid gap-2 rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
             <p>Dropbox credentials are not configured on the server.</p>
@@ -493,11 +414,8 @@ export function AssignmentFiles({
                                   <p className="break-words font-medium leading-6">{file.name}</p>
                                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                     <Badge
-                                      variant="outline"
-                                      className={cn(
-                                        "h-5 rounded px-1.5 py-0 text-[10px] font-semibold tracking-normal",
-                                        fileVisual.badgeClassName,
-                                      )}
+                                      variant={fileVisual.tone}
+                                      className="h-5 rounded px-1.5 py-0 text-[10px] font-semibold tracking-normal"
                                     >
                                       {fileVisual.label}
                                     </Badge>

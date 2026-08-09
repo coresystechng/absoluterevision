@@ -7,8 +7,11 @@
 :root {
   color-scheme: light;
   --radius: 0.625rem;
-  --background: #f2f0e3;
+  --background: #eae6d4;
   --foreground: #1f2a24;
+  --surface: #f2efdf;
+  --surface-raised: #fbfaf2;
+  --surface-inset: #f4f0df;
   --card: #fbfaf2;
   --card-foreground: #1f2a24;
   --popover: #fffdf5;
@@ -22,7 +25,7 @@
   --secondary-active: #c3d0bc;
   --secondary-foreground: #26372f;
   --muted: #e7e4d5;
-  --muted-foreground: #626b64;
+  --muted-foreground: #59625b;
   --accent: #d9e5d8;
   --accent-hover: #cddccd;
   --accent-active: #bfd0c0;
@@ -31,8 +34,24 @@
   --destructive-hover: #8c3528;
   --destructive-active: #74291f;
   --border: #cec9b5;
-  --input: #c4bfaa;
+  --input: #777363;
   --ring: #3f745b;
+  --overlay: #172019;
+  --success-foreground: #245b3b;
+  --success-background: #dcebdd;
+  --success-border: #668b6e;
+  --warning-foreground: #704c09;
+  --warning-background: #f4e7c1;
+  --warning-border: #94752f;
+  --danger-foreground: #7f2f26;
+  --danger-background: #f4ddd7;
+  --danger-border: #a55c50;
+  --info-foreground: #28576d;
+  --info-background: #dce9ee;
+  --info-border: #638797;
+  --neutral-foreground: #4f5b54;
+  --neutral-background: #e2e4dc;
+  --neutral-border: #7c877f;
   --chart-1: #355f4b;
   --chart-2: #b86f45;
   --chart-3: #52758a;
@@ -44,9 +63,12 @@
   color-scheme: dark;
   --background: #141a17;
   --foreground: #f3f0e4;
-  --card: #1b231f;
+  --surface: #1b231f;
+  --surface-raised: #222c26;
+  --surface-inset: #18201c;
+  --card: #222c26;
   --card-foreground: #f3f0e4;
-  --popover: #202923;
+  --popover: #29352e;
   --popover-foreground: #f3f0e4;
   --primary: #9fc3a5;
   --primary-hover: #b2d0b6;
@@ -68,6 +90,22 @@
   --border: #59695f;
   --input: #607166;
   --ring: #83ab90;
+  --overlay: #080d0a;
+  --success-foreground: #b7ddbd;
+  --success-background: #1e3928;
+  --success-border: #63846b;
+  --warning-foreground: #f0d58c;
+  --warning-background: #403516;
+  --warning-border: #8f783e;
+  --danger-foreground: #f1b8ae;
+  --danger-background: #49241f;
+  --danger-border: #9b5d52;
+  --info-foreground: #b8dce9;
+  --info-background: #1d3540;
+  --info-border: #5f8493;
+  --neutral-foreground: #c7d0ca;
+  --neutral-background: #29312d;
+  --neutral-border: #68766e;
   --chart-1: #9fc3a5;
   --chart-2: #dc8a5f;
   --chart-3: #79a8bb;
@@ -82,6 +120,9 @@
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-inset: var(--surface-inset);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -106,6 +147,22 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-background: var(--success-background);
+  --color-success-border: var(--success-border);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-background: var(--warning-background);
+  --color-warning-border: var(--warning-border);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-background: var(--danger-background);
+  --color-danger-border: var(--danger-border);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-background: var(--info-background);
+  --color-info-border: var(--info-border);
+  --color-neutral-foreground: var(--neutral-foreground);
+  --color-neutral-background: var(--neutral-background);
+  --color-neutral-border: var(--neutral-border);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -154,7 +211,7 @@ input,
 textarea,
 select {
   font-family: var(--font-sans);
-  font-weight: 300;
+  font-weight: 400;
 }
 
 button,

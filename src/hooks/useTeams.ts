@@ -9,6 +9,7 @@ export function useTeams(userId: string | null, selectedTeamId?: number | null) 
   const [isLoading, setIsLoading] = useState(true)
   const [isMembersLoading, setIsMembersLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const [membersError, setMembersError] = useState<Error | null>(null)
 
   const reloadTeams = useCallback(async () => {
     if (!userId) {
@@ -31,12 +32,16 @@ export function useTeams(userId: string | null, selectedTeamId?: number | null) 
   const reloadMembers = useCallback(async () => {
     if (!userId || !selectedTeamId) {
       setMembers([])
+      setMembersError(null)
       return
     }
 
     setIsMembersLoading(true)
+    setMembersError(null)
     try {
       setMembers(await teamsApi.getTeamMembers(userId, selectedTeamId))
+    } catch (caught) {
+      setMembersError(caught instanceof Error ? caught : new Error("Unknown error"))
     } finally {
       setIsMembersLoading(false)
     }
@@ -99,6 +104,7 @@ export function useTeams(userId: string | null, selectedTeamId?: number | null) 
     isLoading,
     isMembersLoading,
     error,
+    membersError,
     reloadTeams,
     reloadMembers,
     ...actions,

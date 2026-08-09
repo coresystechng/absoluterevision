@@ -4,12 +4,14 @@ import { CheckCircle2, Circle, Loader2, Mail, Phone } from "lucide-react"
 
 import { getPublicAssignmentStatus, PublicAssignmentStatusError, type PublicAssignmentStatus } from "@/api/public-assignment-status"
 import { Badge } from "@/components/ui/badge"
+import { StatePanel } from "@/components/StatePanel"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
+import { getProgressPresentation, getStatusPresentation } from "@/lib/assignment-presentation"
 import {
   formatPublicDueDate,
   getPublicMilestones,
@@ -34,6 +36,26 @@ export function AssignmentTracking() {
   const [state, setState] = useState<ViewState>("initial")
   const [assignment, setAssignment] = useState<PublicAssignmentStatus | null>(null)
   const resultsHeading = useRef<HTMLHeadingElement>(null)
+  const referenceInput = useRef<HTMLInputElement>(null)
+  const retryCredentials = useRef<{ reference: string; accessCode: string } | null>(null)
+
+  const checkStatus = async (normalizedReference: string, normalizedAccessCode: string) => {
+    retryCredentials.current = { reference: normalizedReference, accessCode: normalizedAccessCode }
+    setState("loading")
+    setAssignment(null)
+    try {
+      const result = await getPublicAssignmentStatus(normalizedReference, normalizedAccessCode)
+      setAssignment(result)
+      setAccessCode("")
+      retryCredentials.current = null
+      setState("success")
+      window.setTimeout(() => resultsHeading.current?.focus(), 0)
+    } catch (error) {
+      const nextState = error instanceof PublicAssignmentStatusError && error.kind !== "unavailable" ? error.kind : "error"
+      setState(nextState)
+      if (nextState !== "error") retryCredentials.current = null
+    }
+  }
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -47,21 +69,13 @@ export function AssignmentTracking() {
 
     setReference(normalizedReference)
     setAccessCode(normalizedAccessCode)
-    setState("loading")
-    setAssignment(null)
-    try {
-      const result = await getPublicAssignmentStatus(normalizedReference, normalizedAccessCode)
-      setAssignment(result)
-      setAccessCode("")
-      setState("success")
-      window.setTimeout(() => resultsHeading.current?.focus(), 0)
-    } catch (error) {
-      setState(error instanceof PublicAssignmentStatusError && error.kind !== "unavailable" ? error.kind : "error")
-    }
+    await checkStatus(normalizedReference, normalizedAccessCode)
   }
 
   const milestones = assignment ? getPublicMilestones(assignment) : []
   const progress = assignment ? getPublicProgress(assignment.status, assignment.progressStage) : 0
+  const statusPresentation = assignment ? getStatusPresentation(assignment.status) : null
+  const progressPresentation = assignment ? getProgressPresentation(assignment.status, assignment.progressStage) : null
 
   return (
     <div className="min-h-screen bg-background">
@@ -87,11 +101,11 @@ export function AssignmentTracking() {
             <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="tracking-reference">Assignment reference</Label>
-                <Input id="tracking-reference" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="AR-902AF8" autoComplete="off" spellCheck={false} required />
+                <Input ref={referenceInput} id="tracking-reference" value={reference} onChange={(event) => { retryCredentials.current = null; setReference(event.target.value) }} placeholder="AR-902AF8" autoComplete="off" spellCheck={false} required />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="tracking-access-code">Access code</Label>
-                <Input id="tracking-access-code" value={accessCode} onChange={(event) => setAccessCode(event.target.value)} placeholder="7A91F2-88C4D0-1B6E35" autoComplete="off" spellCheck={false} required />
+                <Input id="tracking-access-code" value={accessCode} onChange={(event) => { retryCredentials.current = null; setAccessCode(event.target.value) }} placeholder="7A91F2-88C4D0-1B6E35" autoComplete="off" spellCheck={false} required />
               </div>
               <Button type="submit" disabled={state === "loading"} className="sm:col-span-2">
                 {state === "loading" ? <><Loader2 className="h-4 w-4 animate-spin" />Checking</> : "Check progress"}
@@ -101,10 +115,10 @@ export function AssignmentTracking() {
         </Card>
 
         <div aria-live="polite" aria-atomic="true">
-          {state === "loading" ? <Card><CardContent className="flex items-center gap-3 p-6"><Loader2 className="h-5 w-5 animate-spin" />Checking your assignment…</CardContent></Card> : null}
-          {state === "not-found" ? <Card><CardContent className="p-6 text-muted-foreground">We could not verify those details. Check both values and try again.</CardContent></Card> : null}
-          {state === "rate-limited" ? <Card><CardContent className="p-6 text-muted-foreground">Too many requests. Please wait a moment and try again.</CardContent></Card> : null}
-          {state === "error" ? <Card><CardContent className="p-6 text-muted-foreground">Tracking is temporarily unavailable. Please try again later.</CardContent></Card> : null}
+          {state === "loading" ? <StatePanel context="inline" tone="info" icon={Loader2} title="Checking your assignment" /> : null}
+          {state === "not-found" ? <StatePanel context="inline" title="We could not verify those details" description="Check both values and try again." primaryAction={{ label: "Check the fields", onClick: () => referenceInput.current?.focus() }} /> : null}
+          {state === "rate-limited" ? <StatePanel context="inline" tone="warning" title="Too many requests" description="Wait a minute before checking again." /> : null}
+          {state === "error" ? <StatePanel context="inline" tone="error" title="Tracking is temporarily unavailable" description="Your details were not changed. Try the request again." primaryAction={{ label: "Try again", onClick: () => { const value = retryCredentials.current; if (value) void checkStatus(value.reference, value.accessCode) } }} /> : null}
           {assignment && state === "success" ? (
             <Card>
               <CardHeader className="gap-5">
@@ -113,7 +127,7 @@ export function AssignmentTracking() {
                     <CardTitle tabIndex={-1} ref={resultsHeading}>{assignment.category ?? "Service"}</CardTitle>
                     <CardDescription>Reference {assignment.reference}</CardDescription>
                   </div>
-                  <Badge className="w-fit">{getPublicStatusLabel(assignment.status)}</Badge>
+                  <Badge variant={statusPresentation!.tone} className="w-fit">{getPublicStatusLabel(assignment.status)}</Badge>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
                   <div className="grid gap-2">
@@ -121,7 +135,7 @@ export function AssignmentTracking() {
                       <span>{getPublicStageDetails(assignment.progressStage).label}</span>
                       <span>{progress}%</span>
                     </div>
-                    <Progress value={progress} aria-label="Assignment progress" />
+                    <Progress value={progress} tone={progressPresentation!.tone} aria-label="Assignment progress" />
                   </div>
                   <div className="sm:min-w-40 sm:text-right">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Due date</p>
@@ -137,11 +151,11 @@ export function AssignmentTracking() {
                     const isUpcoming = milestone.state === "upcoming"
                     const Icon = isUpcoming ? Circle : CheckCircle2
                     return (
-                      <li key={milestone.value} className={`flex gap-3 rounded-md px-2 py-2 ${isCurrent ? "bg-muted/70" : ""} ${isUpcoming ? "text-muted-foreground/60" : ""}`}>
-                        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${milestone.state === "complete" ? "text-primary" : isCurrent ? "stroke-[2.5] text-foreground" : "text-muted-foreground/50"}`} />
+                      <li key={milestone.value} className={`flex gap-3 rounded-md px-2 py-2 ${isCurrent ? "bg-muted/70" : ""} ${isUpcoming ? "text-muted-foreground" : ""}`}>
+                        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${milestone.state === "complete" ? "text-success-foreground" : isCurrent ? "stroke-[2.5] text-foreground" : "text-muted-foreground"}`} />
                         <div>
                           <p className={isCurrent ? "font-semibold" : milestone.state === "complete" ? "font-medium" : "font-normal"}>{milestone.label}</p>
-                          <p className={`text-sm ${isUpcoming ? "text-muted-foreground/60" : "text-muted-foreground"}`}>{milestone.description}</p>
+                          <p className="text-sm text-muted-foreground">{milestone.description}</p>
                         </div>
                       </li>
                     )

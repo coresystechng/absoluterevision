@@ -1,0 +1,6 @@
+import { format, parseISO } from "date-fns"
+import { StatePanel } from "@/components/StatePanel"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
+export type AssignmentActivityItem = { id: number | string; message: string; createdAt: string }
+export function AssignmentActivity({ items, error, onRetry }: { items: AssignmentActivityItem[]; error: boolean; onRetry: () => void }) { return <Card><CardHeader><CardTitle>Activity</CardTitle></CardHeader><CardContent>{error ? <StatePanel context="inline" tone="error" title="Could not load activity" description="The assignment is still available." primaryAction={{ label: "Try again", onClick: onRetry }} live="polite" /> : items.length === 0 ? <p className="text-sm text-muted-foreground">No activity recorded yet.</p> : <ol className="grid gap-1">{items.map((item) => <li key={`${item.id}-${item.createdAt}`} className="relative border-l pb-5 pl-5 last:pb-0"><span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full border bg-background" /><p className="text-sm leading-6">{item.message}</p><time className="mt-1 block text-xs text-muted-foreground" dateTime={item.createdAt}>{format(parseISO(item.createdAt), "MMM d, yyyy h:mm a")}</time></li>)}</ol>}</CardContent></Card> }
