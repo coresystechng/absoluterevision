@@ -105,4 +105,34 @@ describe("AssignmentView load states", () => {
     resolve({ ...assignment, status: "completed", progress: 100 })
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Status" })).toHaveTextContent("Completed"))
   })
+
+  it("renders member facts without admin controls and handles quiet empty values", async () => {
+    getById.mockResolvedValue({ ...assignment, currentUserRole: "member", dueDate: null, dueTime: null, notes: null })
+    renderView(); await screen.findByRole("heading", { name: "Research brief" })
+    expect(screen.getByText("No notes added.")).toBeVisible()
+    expect(screen.getAllByText("No deadline").length).toBeGreaterThan(0)
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("combobox", { name: "Status" })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    [{ status: "completed" as const, progress: 100 }, "Submitted"],
+    [{ dueDate: "2020-01-01", dueTime: "00:00" }, "Overdue"],
+  ])("renders workflow deadline state %s", async (changes, expected) => {
+    getById.mockResolvedValue({ ...assignment, ...changes })
+    renderView(); await screen.findByRole("heading", { name: "Research brief" })
+    expect(screen.getAllByText(expected).length).toBeGreaterThan(0)
+  })
+
+  it("renders activity in chronological order", async () => {
+    getById.mockResolvedValue(assignment)
+    getActivities.mockResolvedValue([
+      { id: 2, assignmentId: 42, userId: "u", actorName: "User", action: "updated", message: "Second event", createdAt: "2026-08-03T10:00:00Z" },
+      { id: 1, assignmentId: 42, userId: "u", actorName: "User", action: "created", message: "First event", createdAt: "2026-08-02T10:00:00Z" },
+    ])
+    renderView(); await screen.findByText("First event")
+    const items = screen.getAllByRole("listitem")
+    expect(items[0]).toHaveTextContent("First event")
+    expect(items[1]).toHaveTextContent("Second event")
+  })
 })

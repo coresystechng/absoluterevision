@@ -1,522 +1,102 @@
-import { format, parseISO } from "date-fns"
-import { ArrowLeft, CalendarClock, CheckCircle2, Copy, Pencil, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom"
+import { Navigate, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import * as assignmentApi from "@/api/assignments"
-import { AssignmentFiles } from "@/components/AssignmentFiles"
 import { getOrCreateUser } from "@/api/users"
 import { AssignmentDialog } from "@/components/AssignmentDialog"
-import { ConfirmDialog } from "@/components/ConfirmDialog"
+import { AssignmentFiles } from "@/components/AssignmentFiles"
+import { DetailPageLayout } from "@/components/DetailPageLayout"
 import { Navbar } from "@/components/Navbar"
 import { StatePanel } from "@/components/StatePanel"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
+import { AssignmentActivity, type AssignmentActivityItem } from "@/components/assignment-detail/AssignmentActivity"
+import { AssignmentOverview } from "@/components/assignment-detail/AssignmentOverview"
+import { AssignmentPageHeader } from "@/components/assignment-detail/AssignmentPageHeader"
+import { AssignmentTrackingPanel } from "@/components/assignment-detail/AssignmentTrackingPanel"
+import { AssignmentWorkflowPanel } from "@/components/assignment-detail/AssignmentWorkflowPanel"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useTeams } from "@/hooks/useTeams"
 import { uploadAssignmentFileSelection } from "@/lib/assignment-file-uploads"
-import {
-  assignmentProgressStages,
-  assignmentStatuses,
-  getAssignmentProgressLabel,
-} from "@/lib/assignment-status"
-import { getDeadlinePresentation, getPriorityPresentation, getStatusPresentation, semanticTextClassNames } from "@/lib/assignment-presentation"
-import { normalizeAssignmentType } from "@/lib/assignment-types"
 import { splitTrackingCode } from "@/lib/public-assignment-status"
-import type {
-  Assignment,
-  AssignmentActivity,
-  AssignmentActivityAction,
-  AssignmentFileUpload,
-  AssignmentInput,
-  AssignmentProgressStage,
-  AssignmentStatus,
-  AuthUser,
-} from "@/types"
+import type { Assignment, AssignmentActivity as Activity, AssignmentFileUpload, AssignmentInput, AssignmentProgressStage, AssignmentStatus, AuthUser } from "@/types"
 
-type ActivityTimelineItem = {
-  id: number | string
-  action: AssignmentActivityAction
-  message: string
-  createdAt: string
+type LoadState = "loading" | "success" | "not-found" | "error"
+function actorName(user: AuthUser) { return user.displayName?.trim() || user.email.split("@")[0] || "User" }
+function activityItems(assignment: Assignment, activities: Activity[], name: string): AssignmentActivityItem[] {
+  const values: AssignmentActivityItem[] = activities.some((item) => item.action === "created") ? activities : [{ id: "created", message: `${name} created the assignment`, createdAt: assignment.createdAt }, ...activities]
+  return values.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 }
 
-type AssignmentLoadState = "loading" | "success" | "not-found" | "error"
-
-function getActorName(user: AuthUser) {
-  return user.displayName?.trim() || user.email.split("@")[0] || "User"
-}
-
-function getActivityItems(
-  assignment: Assignment,
-  activities: AssignmentActivity[],
-  actorName: string,
-): ActivityTimelineItem[] {
-  const hasCreatedActivity = activities.some((activity) => activity.action === "created")
-  const syntheticCreatedActivity: ActivityTimelineItem = {
-    id: "created",
-    action: "created",
-    message: `${actorName} created the assignment`,
-    createdAt: assignment.createdAt,
-  }
-
-  return [
-    ...(hasCreatedActivity ? [] : [syntheticCreatedActivity]),
-    ...activities,
-  ].sort(
-    (a, b) =>
-      parseISO(a.createdAt).getTime() - parseISO(b.createdAt).getTime(),
-  )
-}
-
-export function AssignmentView({
-  user,
-  onSignOut,
-}: {
-  user: AuthUser
-  onSignOut: () => void | Promise<void>
-}) {
-  const params = useParams()
-  const navigate = useNavigate()
-  const id = Number(params.id)
+export function AssignmentView({ user, onSignOut }: { user: AuthUser; onSignOut: () => void | Promise<void> }) {
+  const id = Number(useParams().id); const navigate = useNavigate(); const name = actorName(user)
   const [assignment, setAssignment] = useState<Assignment | null>(null)
-  const [activities, setActivities] = useState<AssignmentActivity[]>([])
-  const [loadState, setLoadState] = useState<AssignmentLoadState>("loading")
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const assignmentRef = useRef(assignment); assignmentRef.current = assignment
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [loadState, setLoadState] = useState<LoadState>("loading")
+  const [refreshing, setRefreshing] = useState(false)
   const [activityError, setActivityError] = useState(false)
-  const [isWorkflowSaving, setIsWorkflowSaving] = useState(false)
-  const [workflowError, setWorkflowError] = useState(false)
-  const workflowPending = useRef(false)
-  const [isAccessCodeRevealed, setIsAccessCodeRevealed] = useState(false)
-  const requestId = useRef(0)
-  const assignmentRef = useRef(assignment)
-  assignmentRef.current = assignment
-  const [isEditing, setIsEditing] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [filesVersion, setFilesVersion] = useState(0)
-  const actorName = getActorName(user)
+  const [workflowSaving, setWorkflowSaving] = useState(false)
+  const [workflowError, setWorkflowError] = useState(false)
+  const requestId = useRef(0); const workflowPending = useRef(false)
   const { members } = useTeams(user.id, assignment?.teamId ?? null)
 
   const refreshActivities = useCallback(async () => {
-    if (!Number.isFinite(id)) {
-      return
-    }
-
+    if (!Number.isFinite(id)) return
     setActivityError(false)
-    try {
-      setActivities(await assignmentApi.getActivities(user.id, id))
-    } catch {
-      setActivityError(true)
-    }
+    try { setActivities(await assignmentApi.getActivities(user.id, id)) } catch { setActivityError(true) }
   }, [id, user.id])
 
-  const loadAssignment = useCallback(async () => {
+  const load = useCallback(async () => {
     if (!Number.isFinite(id)) return
-    const currentRequest = ++requestId.current
-    const isSameAssignment = assignmentRef.current?.id === id
-    if (isSameAssignment) {
-      setIsRefreshing(true)
-    } else {
-      assignmentRef.current = null
-      setAssignment(null)
-      setActivities([])
-      setLoadState("loading")
-    }
+    const token = ++requestId.current; const same = assignmentRef.current?.id === id
+    if (same) setRefreshing(true); else { assignmentRef.current = null; setAssignment(null); setActivities([]); setLoadState("loading") }
     try {
-      await getOrCreateUser(user)
-      const result = await assignmentApi.getById(user.id, id)
-      if (currentRequest !== requestId.current) return
-      if (!result) {
-        setAssignment(null)
-        setLoadState("not-found")
-        return
-      }
-      setAssignment(result)
-      setLoadState("success")
-      setActivityError(false)
-      try {
-        const activityResult = await assignmentApi.getActivities(user.id, id)
-        if (currentRequest === requestId.current) setActivities(activityResult)
-      } catch {
-        if (currentRequest === requestId.current) setActivityError(true)
-      }
-    } catch {
-      if (currentRequest === requestId.current && !assignmentRef.current) setLoadState("error")
-    } finally {
-      if (currentRequest === requestId.current) setIsRefreshing(false)
-    }
+      await getOrCreateUser(user); const result = await assignmentApi.getById(user.id, id)
+      if (token !== requestId.current) return
+      if (!result) { setLoadState("not-found"); return }
+      setAssignment(result); setLoadState("success"); setActivityError(false)
+      try { const resultActivities = await assignmentApi.getActivities(user.id, id); if (token === requestId.current) setActivities(resultActivities) } catch { if (token === requestId.current) setActivityError(true) }
+    } catch { if (token === requestId.current && !assignmentRef.current) setLoadState("error") }
+    finally { if (token === requestId.current) setRefreshing(false) }
   }, [id, user])
+  useEffect(() => { void load(); return () => { requestId.current += 1 } }, [load])
 
-  useEffect(() => {
-    void loadAssignment()
-    return () => { requestId.current += 1 }
-  }, [loadAssignment])
-
-  useEffect(() => {
-    setIsAccessCodeRevealed(false)
-    return () => setIsAccessCodeRevealed(false)
-  }, [assignment?.id])
-
-  if (!Number.isFinite(id)) {
-    return <Navigate to="/dashboard" replace />
-  }
+  if (!Number.isFinite(id)) return <Navigate to="/dashboard" replace />
 
   const uploadFiles = async (files: AssignmentFileUpload[]) => {
-    if (files.length === 0) {
-      return false
-    }
-
-    const result = await uploadAssignmentFileSelection({
-      userId: user.id,
-      actorName,
-      assignmentId: id,
-      files,
-    })
-    if (result.uploaded > 0) {
-      setFilesVersion((current) => current + 1)
-    }
+    if (!files.length) return false
+    const result = await uploadAssignmentFileSelection({ userId: user.id, actorName: name, assignmentId: id, files })
+    if (result.uploaded) setFilesVersion((value) => value + 1)
     return result.failed > 0
   }
-
   const updateAssignment = async (input: AssignmentInput, files: AssignmentFileUpload[]) => {
-    const updated = await assignmentApi.update(user.id, id, input, actorName)
-    if (updated) {
-      setAssignment(updated)
-      const fileUploadFailed = await uploadFiles(files)
-      await refreshActivities()
-      return { fileUploadFailed }
-    }
+    const updated = await assignmentApi.update(user.id, id, input, name)
+    if (updated) { setAssignment(updated); const fileUploadFailed = await uploadFiles(files); await refreshActivities(); return { fileUploadFailed } }
   }
-
-  const runWorkflowMutation = async (request: () => Promise<Assignment | null>, successMessage: string) => {
+  const mutateWorkflow = async (request: () => Promise<Assignment | null>, message: string) => {
     if (workflowPending.current) return
-    workflowPending.current = true
-    setIsWorkflowSaving(true)
-    setWorkflowError(false)
-    try {
-      const updated = await request()
-      if (updated) {
-        setAssignment(updated)
-        await refreshActivities()
-        toast.success(successMessage)
-      } else {
-        throw new Error("Assignment mutation was not accepted")
-      }
-    } catch {
-      setWorkflowError(true)
-      toast.error("Something went wrong. Try again.")
-    } finally {
-      workflowPending.current = false
-      setIsWorkflowSaving(false)
-    }
+    workflowPending.current = true; setWorkflowSaving(true); setWorkflowError(false)
+    try { const updated = await request(); if (!updated) throw new Error("Not accepted"); setAssignment(updated); await refreshActivities(); toast.success(message) }
+    catch { setWorkflowError(true); toast.error("Something went wrong. Try again.") }
+    finally { workflowPending.current = false; setWorkflowSaving(false) }
   }
+  const deleteAssignment = async () => { try { await assignmentApi.remove(user.id, id); toast.success("Assignment deleted"); navigate("/dashboard") } catch (error) { toast.error("Something went wrong. Try again."); throw error } }
+  const copyDetails = async () => { const value = assignment && splitTrackingCode(assignment.trackingCode); if (!value) return; try { await navigator.clipboard.writeText(`Reference: ${value.reference}\nAccess code: ${value.accessCode}`); toast.success("Tracking details copied") } catch { toast.error("Could not copy the tracking details") } }
+  const copyLink = async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/track-assignment`); toast.success("Tracking link copied") } catch { toast.error("Could not copy the tracking link") } }
 
-  const updateStatus = async (status: AssignmentStatus) => {
-    await runWorkflowMutation(() => assignmentApi.updateStatus(user.id, id, status, actorName), status === "completed" ? "Marked as complete" : "Assignment updated")
-  }
-
-  const updateProgressStage = async (progressStage: AssignmentProgressStage) => {
-    await runWorkflowMutation(() => assignmentApi.updateProgressStage(user.id, id, progressStage, actorName), "Progress updated")
-  }
-
-  const deleteAssignment = async () => {
-    try {
-      await assignmentApi.remove(user.id, id)
-      toast.success("Assignment deleted")
-      navigate("/dashboard")
-    } catch (error) {
-      toast.error("Something went wrong. Try again.")
-      throw error
-    }
-  }
-
-  const copyTrackingCredentials = async () => {
-    if (!assignment) return
-    const credentials = splitTrackingCode(assignment.trackingCode)
-    if (!credentials) return
-    try {
-      await navigator.clipboard.writeText(`Reference: ${credentials.reference}\nAccess code: ${credentials.accessCode}`)
-      toast.success("Tracking details copied")
-    } catch {
-      toast.error("Could not copy the tracking details")
-    }
-  }
-
-  const copyTrackingLink = async () => {
-    if (!assignment) return
-    try {
-      const url = `${window.location.origin}/track-assignment`
-      await navigator.clipboard.writeText(url)
-      toast.success("Tracking link copied")
-    } catch {
-      toast.error("Could not copy the tracking link")
-    }
-  }
-
-  const assignmentType = assignment ? normalizeAssignmentType(assignment.category) : null
-  const trackingCredentials = assignment ? splitTrackingCode(assignment.trackingCode) : null
-  const activityItems = assignment
-    ? getActivityItems(assignment, activities, actorName)
-    : []
-  const canManageAssignment = assignment?.currentUserRole === "admin"
-  const statusPresentation = assignment ? getStatusPresentation(assignment.status) : null
-  const priorityPresentation = assignment ? getPriorityPresentation(assignment.priority) : null
-  const deadlinePresentation = assignment ? getDeadlinePresentation(assignment) : null
-  const canAccessDropboxFileActions = Boolean(
-    assignment &&
-      (assignment.currentUserRole === "admin" || assignment.assigneeUserId === user.id),
-  )
-
-  return (
-    <div className="min-h-screen bg-background">
-      <Navbar
-        user={user}
-        onSignOut={onSignOut}
-        activeTeamName={loadState === "loading" ? undefined : assignment?.teamName ?? null}
-      />
-      <main className="mx-auto grid max-w-4xl gap-6 px-4 py-6">
-        <Button variant="ghost" asChild className="w-fit px-0">
-          <Link to="/dashboard">
-            <ArrowLeft className="h-4 w-4" />
-            Back to dashboard
-          </Link>
-        </Button>
-
-        <div aria-busy={loadState === "loading" || isRefreshing || undefined}>
-        {loadState === "loading" ? (
-          <div className="grid gap-4">
-            <Skeleton className="h-20" />
-            <Skeleton className="h-80" />
-          </div>
-        ) : loadState === "success" && assignment ? (
-          <>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <div className="mb-3 flex flex-wrap gap-2">
-                  <Badge variant={priorityPresentation!.tone}>{priorityPresentation!.label}</Badge>
-                  <Badge variant={statusPresentation!.tone}>{statusPresentation!.label}</Badge>
-                  <Badge variant="outline">{getAssignmentProgressLabel(assignment.progressStage)}</Badge>
-                  <Badge variant="outline">{assignmentType}</Badge>
-                </div>
-                <h1 className="text-3xl font-semibold tracking-normal">{assignment.title}</h1>
-              </div>
-              {canManageAssignment ? (
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setIsEditing(true)}>
-                    <Pencil className="h-4 w-4" />
-                    Edit
-                  </Button>
-                  <ConfirmDialog
-                    title="Delete assignment?"
-                    description="This removes the assignment permanently."
-                    onConfirm={deleteAssignment}
-                  >
-                    <Button variant="destructive">
-                      <Trash2 className="h-4 w-4" />
-                      Delete
-                    </Button>
-                  </ConfirmDialog>
-                </div>
-              ) : null}
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Assignment details</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-6">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Team</p>
-                    <p className="mt-1 font-medium">{assignment.teamName}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Assigned to</p>
-                    <p className="mt-1 font-medium">
-                      {assignment.assigneeName || assignment.assigneeEmail || "Unassigned"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Type</p>
-                    <p className="mt-1 font-medium">{assignmentType}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Deadline</p>
-                    <div className={`mt-1 flex items-center gap-2 text-sm ${semanticTextClassNames[deadlinePresentation!.tone]}`}>
-                      {assignment.status === "completed" ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : (
-                        <CalendarClock className="h-4 w-4" />
-                      )}
-                      <span>{deadlinePresentation!.label}</span>
-                    </div>
-                  </div>
-                  <div className="grid content-start gap-1">
-                    <Label htmlFor="assignment-view-status" className="font-normal text-muted-foreground">Status</Label>
-                    {canManageAssignment ? (
-                      <Select
-                        value={assignment.status}
-                        onValueChange={(value) => void updateStatus(value as AssignmentStatus)}
-                        disabled={isWorkflowSaving}
-                      >
-                        <SelectTrigger id="assignment-view-status">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {assignmentStatuses.map((status) => (
-                            <SelectItem key={status.value} value={status.value}>
-                              {status.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge variant={statusPresentation!.tone} className="w-fit">
-                        {statusPresentation!.label}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="grid content-start gap-1">
-                    {canManageAssignment ? (
-                      <>
-                        <Label htmlFor="assignment-view-progress" className="font-normal text-muted-foreground">
-                          Progress ({assignment.progress}%)
-                        </Label>
-                        <Select
-                          value={assignment.progressStage}
-                          onValueChange={(value) => void updateProgressStage(value as AssignmentProgressStage)}
-                          disabled={isWorkflowSaving}
-                        >
-                          <SelectTrigger id="assignment-view-progress">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {assignmentProgressStages.map((progressStage) => (
-                              <SelectItem key={progressStage.value} value={progressStage.value}>
-                                {progressStage.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </>
-                    ) : (
-                      <>
-                        <Label className="font-normal text-muted-foreground">
-                          Progress ({assignment.progress}%)
-                        </Label>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="outline">
-                            {getAssignmentProgressLabel(assignment.progressStage)}
-                          </Badge>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  {isWorkflowSaving ? <p className="text-sm text-muted-foreground" role="status">Saving assignment progress…</p> : null}
-                  {workflowError ? <p className="text-sm text-danger-foreground" role="alert">The progress change could not be saved. Your last confirmed values are shown.</p> : null}
-                  <div>
-                    <p className="text-sm text-muted-foreground">Priority</p>
-                    <Badge variant={priorityPresentation!.tone} className="mt-1 w-fit">{priorityPresentation!.label}</Badge>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <p className="text-sm text-muted-foreground">Notes</p>
-                  <p className="mt-2 whitespace-pre-wrap leading-7">{assignment.notes || "No notes added."}</p>
-                </div>
-
-                <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-                  <p>Created at {format(parseISO(assignment.createdAt), "MMM d, yyyy h:mm a")}</p>
-                  <p>Last updated {format(parseISO(assignment.updatedAt), "MMM d, yyyy h:mm a")}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Client tracking</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <p className="text-sm text-muted-foreground">Share both private details only with the intended client. The tracking page URL contains no credentials.</p>
-                {trackingCredentials ? <div className="grid gap-3 rounded-md border bg-muted/50 p-4 sm:grid-cols-2">
-                  <div><p className="text-xs uppercase tracking-wide text-muted-foreground">Reference</p><p className="mt-1 font-mono text-sm font-medium">{trackingCredentials.reference}</p></div>
-                  <div><p className="text-xs uppercase tracking-wide text-muted-foreground">Access code</p><p className="mt-1 break-all font-mono text-sm font-medium">{isAccessCodeRevealed ? trackingCredentials.accessCode : "••••••-••••••-••••••"}</p><Button type="button" variant="ghost" size="sm" className="mt-1 px-0" onClick={() => setIsAccessCodeRevealed((value) => !value)}>{isAccessCodeRevealed ? "Hide access code" : "Reveal access code"}</Button><span className="sr-only" aria-live="polite">Access code is {isAccessCodeRevealed ? "visible" : "hidden"}.</span></div>
-                </div> : null}
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => void copyTrackingCredentials()}><Copy className="h-4 w-4" />Copy tracking details</Button>
-                  <Button variant="outline" onClick={() => void copyTrackingLink()}><Copy className="h-4 w-4" />Copy clean tracking link</Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <AssignmentFiles
-              key={`${assignment.id}-${filesVersion}`}
-              assignmentId={assignment.id}
-              user={user}
-              actorName={actorName}
-              onActivityChange={refreshActivities}
-              canUpload={canAccessDropboxFileActions}
-              allowedCategories={canManageAssignment ? undefined : ["final"]}
-              canDownload={canAccessDropboxFileActions}
-              canDelete={canManageAssignment}
-            />
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Activity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {activityError ? (
-                  <StatePanel context="inline" tone="error" title="Could not load activity" description="The assignment is still available." primaryAction={{ label: "Try again", onClick: () => void refreshActivities() }} live="polite" />
-                ) : <div className="grid gap-1">
-                  {activityItems.map((activity) => (
-                    <div
-                      key={`${activity.id}-${activity.createdAt}`}
-                      className="relative border-l pb-5 pl-5 last:pb-0"
-                    >
-                      <span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full border bg-background" />
-                      <p className="text-sm leading-6">{activity.message}</p>
-                      <time
-                        className="mt-1 block text-xs text-muted-foreground"
-                        dateTime={activity.createdAt}
-                      >
-                        {format(parseISO(activity.createdAt), "MMM d, yyyy h:mm a")}
-                      </time>
-                    </div>
-                  ))}
-                </div>}
-              </CardContent>
-            </Card>
-
-            <AssignmentDialog
-              open={isEditing}
-              onOpenChange={setIsEditing}
-              assignment={assignment}
-              teamId={assignment.teamId}
-              teamMembers={members}
-              canAssign={canManageAssignment}
-              onSave={updateAssignment}
-            />
-          </>
-        ) : loadState === "error" ? (
-          <StatePanel context="page" tone="error" title="Could not load this assignment" description="The assignment could not be loaded right now." primaryAction={{ label: "Try again", onClick: () => void loadAssignment() }} secondaryAction={{ label: "Back to dashboard", onClick: () => navigate("/dashboard") }} live="assertive" />
-        ) : (
-          <StatePanel context="page" title="Assignment not found" description="This assignment does not exist or you do not have access to it." primaryAction={{ label: "Back to dashboard", onClick: () => navigate("/dashboard") }} />
-        )}
-        </div>
-      </main>
-    </div>
-  )
+  const canManage = assignment?.currentUserRole === "admin"
+  const tracking = assignment ? splitTrackingCode(assignment.trackingCode) : null
+  const canUseFiles = Boolean(assignment && (canManage || assignment.assigneeUserId === user.id))
+  return <div className="min-h-screen bg-background"><Navbar user={user} onSignOut={onSignOut} activeTeamName={loadState === "loading" ? undefined : assignment?.teamName ?? null} />
+    {loadState === "loading" ? <main className="mx-auto grid max-w-6xl gap-4 px-4 py-6" aria-busy="true"><Skeleton className="h-24" /><Skeleton className="h-96" /></main>
+      : loadState === "error" ? <main className="mx-auto max-w-6xl px-4 py-6"><StatePanel context="page" tone="error" title="Could not load this assignment" description="The assignment could not be loaded right now." primaryAction={{ label: "Try again", onClick: () => void load() }} secondaryAction={{ label: "Back to dashboard", onClick: () => navigate("/dashboard") }} live="assertive" /></main>
+      : loadState === "not-found" || !assignment ? <main className="mx-auto max-w-6xl px-4 py-6"><StatePanel context="page" title="Assignment not found" description="This assignment does not exist or you do not have access to it." primaryAction={{ label: "Back to dashboard", onClick: () => navigate("/dashboard") }} /></main>
+      : <div aria-busy={refreshing || undefined}><DetailPageLayout
+          header={<AssignmentPageHeader assignment={assignment} canManage={canManage} onEdit={() => setEditing(true)} onDelete={deleteAssignment} />}
+          primary={<><AssignmentOverview assignment={assignment} /><AssignmentFiles key={`${assignment.id}-${filesVersion}`} assignmentId={assignment.id} user={user} actorName={name} onActivityChange={refreshActivities} canUpload={canUseFiles} allowedCategories={canManage ? undefined : ["final"]} canDownload={canUseFiles} canDelete={canManage} /><AssignmentActivity items={activityItems(assignment, activities, name)} error={activityError} onRetry={() => void refreshActivities()} /></>}
+          rail={<><AssignmentWorkflowPanel assignment={assignment} canManage={canManage} saving={workflowSaving} error={workflowError} onStatus={(value: AssignmentStatus) => void mutateWorkflow(() => assignmentApi.updateStatus(user.id, id, value, name), value === "completed" ? "Marked as complete" : "Assignment updated")} onProgress={(value: AssignmentProgressStage) => void mutateWorkflow(() => assignmentApi.updateProgressStage(user.id, id, value, name), "Progress updated")} />{tracking ? <AssignmentTrackingPanel assignmentId={assignment.id} reference={tracking.reference} accessCode={tracking.accessCode} onCopyDetails={() => void copyDetails()} onCopyLink={() => void copyLink()} /> : null}<p className="text-xs text-muted-foreground">Created {new Date(assignment.createdAt).toLocaleString()}<br />Updated {new Date(assignment.updatedAt).toLocaleString()}</p></>}
+        /><AssignmentDialog open={editing} onOpenChange={setEditing} assignment={assignment} teamId={assignment.teamId} teamMembers={members} canAssign={canManage} onSave={updateAssignment} /></div>}
+  </div>
 }
