@@ -1,5 +1,11 @@
 # Plan 005: Make the dashboard an attention-first operational workspace
 
+> **STALE — DO NOT EXECUTE**: This plan's recorded verification commit
+> `e128398` is not present in the current repository, and current HEAD
+> `b26563a` fails multiple done criteria below. It is superseded by
+> `plans/013-reconcile-dashboard-workspace.md`, which is self-contained against
+> the current codebase.
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
