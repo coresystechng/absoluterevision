@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import { createMemoryRouter, RouterProvider } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -20,7 +20,7 @@ const getById = vi.mocked(assignmentApi.getById)
 const getActivities = vi.mocked(assignmentApi.getActivities)
 const user: AuthUser = { id: "user-1", email: "user@example.com", displayName: "User" }
 const assignment: Assignment = {
-  id: 42, trackingCode: "AR-902AF8:7A91F2-88C4D0-1B6E35", userId: user.id, teamId: 1, teamName: "Team",
+  id: 42, trackingCode: "AR-111111-222222-333333-902AF8", userId: user.id, teamId: 1, teamName: "Team",
   currentUserRole: "admin", assigneeUserId: user.id, assigneeName: "User", assigneeEmail: user.email,
   title: "Research brief", category: "Assignment", priority: "high", status: "ongoing", progressStage: "humaned",
   dueDate: "2026-09-01", dueTime: "12:00", progress: 30, notes: null,
@@ -73,5 +73,36 @@ describe("AssignmentView load states", () => {
     expect(await screen.findByRole("heading", { name: "Current assignment" })).toBeVisible()
     resolveOld({ ...assignment, title: "Stale assignment" })
     expect(screen.queryByRole("heading", { name: "Stale assignment" })).not.toBeInTheDocument()
+  })
+
+  it("masks, copies, reveals, and hides the private access code", async () => {
+    getById.mockResolvedValue(assignment)
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined)
+    const { user: interaction } = await import("@testing-library/user-event").then(({ default: setup }) => ({ user: setup.setup() }))
+    renderView()
+    await screen.findByRole("heading", { name: "Research brief" })
+    expect(screen.queryByText("111111-222222-333333")).not.toBeInTheDocument()
+    expect(document.body.innerHTML).not.toContain("111111-222222-333333")
+    expect(window.location.href).not.toContain("111111")
+    await interaction.click(screen.getByRole("button", { name: "Copy tracking details" }))
+    expect(writeText).toHaveBeenCalledWith("Reference: AR-902AF8\nAccess code: 111111-222222-333333")
+    await interaction.click(screen.getByRole("button", { name: "Reveal access code" }))
+    expect(screen.getByText("111111-222222-333333")).toBeVisible()
+    await interaction.click(screen.getByRole("button", { name: "Hide access code" }))
+    expect(screen.queryByText("111111-222222-333333")).not.toBeInTheDocument()
+  })
+
+  it("disables both workflow selects while a status mutation is pending", async () => {
+    let resolve!: (value: Assignment | null) => void
+    getById.mockResolvedValue(assignment)
+    vi.mocked(assignmentApi.updateStatus).mockReturnValue(new Promise((done) => { resolve = done }))
+    const { user: interaction } = await import("@testing-library/user-event").then(({ default: setup }) => ({ user: setup.setup() }))
+    renderView(); await screen.findByRole("heading", { name: "Research brief" })
+    screen.getByRole("combobox", { name: "Status" }).focus(); await interaction.keyboard("{Enter}{End}{Enter}")
+    expect(screen.getByRole("combobox", { name: "Status" })).toBeDisabled()
+    expect(screen.getByRole("combobox", { name: /Progress/ })).toBeDisabled()
+    expect(screen.getByRole("status")).toHaveTextContent(/saving assignment progress/i)
+    resolve({ ...assignment, status: "completed", progress: 100 })
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Status" })).toHaveTextContent("Completed"))
   })
 })

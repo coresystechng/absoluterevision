@@ -13,9 +13,10 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 
 import { AssignmentDialog } from "@/components/AssignmentDialog"
+import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -65,7 +66,6 @@ export function AssignmentCard({
   canManage?: boolean
   teamMembers?: TeamMember[]
 }) {
-  const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
   const assignmentType = normalizeAssignmentType(assignment.category)
   const AssignmentTypeIcon = assignmentTypeIcons[assignmentType]
@@ -77,16 +77,9 @@ export function AssignmentCard({
   return (
     <>
       <Card
-        className="h-full cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-md active:border-primary/60"
-        role="button"
-        tabIndex={0}
-        onClick={() => navigate(`/assignments/${assignment.id}`)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            navigate(`/assignments/${assignment.id}`)
-          }
-        }}
+        className="relative h-full transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 active:border-primary/60"
       >
+        <Link to={`/assignments/${assignment.id}`} className="block h-full rounded-lg focus:outline-none" aria-label={`Open ${assignment.title}`}>
         <CardContent className="flex h-full flex-col gap-4 p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -108,37 +101,7 @@ export function AssignmentCard({
                 <span>{deadlinePresentation.label}</span>
               </div>
             </div>
-            {canManage ? (
-              <div
-                className="flex items-center gap-1"
-                onClick={(event) => event.stopPropagation()}
-                onPointerDown={(event) => event.stopPropagation()}
-              >
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="ghost" size="icon" aria-label="More actions">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-                    <DropdownMenuItem onSelect={(event) => { event.preventDefault(); setIsEditing(true) }}>
-                      <Pencil className="h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        void onDelete()
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ) : null}
+            {canManage ? <span className="h-10 w-10 shrink-0" aria-hidden="true" /> : null}
           </div>
 
           {assignment.notes ? (
@@ -182,6 +145,20 @@ export function AssignmentCard({
             </div>
           </div>
         </CardContent>
+        </Link>
+        {canManage ? (
+          <div className="absolute right-3 top-3 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label={`More actions for ${assignment.title}`}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => setIsEditing(true)}><Pencil className="h-4 w-4" />Edit</DropdownMenuItem>
+                <ConfirmDialog title="Delete assignment?" description="This removes the assignment permanently." onConfirm={onDelete}>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(event) => event.preventDefault()}><Trash2 className="h-4 w-4" />Delete</DropdownMenuItem>
+                </ConfirmDialog>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : null}
       </Card>
 
       <AssignmentDialog

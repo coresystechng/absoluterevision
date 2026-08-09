@@ -273,10 +273,11 @@ export function Dashboard({
               Filter and sort team assignments by the work that matters now.
             </p>
           </div>
-          <Button onClick={() => setDialogOpen(true)} disabled={!canManageActiveTeam}>
+          <Button onClick={() => setDialogOpen(true)} disabled={!canManageActiveTeam} aria-describedby={!canManageActiveTeam ? "new-assignment-unavailable" : undefined}>
             <Plus className="h-4 w-4" />
             New assignment
           </Button>
+          {!canManageActiveTeam ? <p id="new-assignment-unavailable" className="text-sm text-muted-foreground sm:max-w-xs">{activeTeam ? "Only team administrators can create assignments." : "Select or create a team before adding assignments."}</p> : null}
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -483,7 +484,7 @@ export function Dashboard({
                 }}
                 onDelete={async () => {
                   await remove(assignment.id)
-                  toast.error("Assignment deleted")
+                  toast.success("Assignment deleted")
                 }}
                 canManage={assignment.currentUserRole === "admin"}
                 teamMembers={members}

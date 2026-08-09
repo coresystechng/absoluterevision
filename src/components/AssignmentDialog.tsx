@@ -262,14 +262,14 @@ export function AssignmentDialog({
           <div className="grid gap-4 sm:grid-cols-3">
             {canAssign ? (
               <div className="grid gap-2 sm:col-span-3">
-                <Label>Assignee</Label>
+                <Label htmlFor="assignment-assignee">Assignee</Label>
                 <Select
                   value={form.assigneeUserId ?? ""}
                   onValueChange={(value) =>
                     setForm((current) => ({ ...current, assigneeUserId: value }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="assignment-assignee">
                     <SelectValue placeholder="Select a team member" />
                   </SelectTrigger>
                   <SelectContent>
@@ -285,12 +285,12 @@ export function AssignmentDialog({
             ) : null}
 
             <div className="grid gap-2">
-              <Label>Priority</Label>
+              <Label htmlFor="assignment-priority">Priority</Label>
               <Select
                 value={form.priority}
                 onValueChange={(value) => setForm((current) => ({ ...current, priority: value as AssignmentPriority }))}
               >
-                <SelectTrigger>
+                <SelectTrigger id="assignment-priority">
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -303,9 +303,9 @@ export function AssignmentDialog({
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label>Status</Label>
+              <Label htmlFor="assignment-status">Status</Label>
               <Select value={form.status} onValueChange={(value) => updateStatus(value as AssignmentStatus)}>
-                <SelectTrigger>
+                <SelectTrigger id="assignment-status">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -319,11 +319,11 @@ export function AssignmentDialog({
             </div>
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-3">
-                <Label>Progress</Label>
+                <Label htmlFor="assignment-progress">Progress</Label>
                 <span className="text-sm font-medium">{form.progress}%</span>
               </div>
               <Select value={form.progressStage} onValueChange={(value) => updateProgressStage(value as AssignmentProgressStage)}>
-                <SelectTrigger>
+                <SelectTrigger id="assignment-progress">
                   <SelectValue placeholder="Select progress" />
                 </SelectTrigger>
                 <SelectContent>

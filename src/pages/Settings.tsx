@@ -163,9 +163,10 @@ export function Settings({
   const deleteAssignments = async () => {
     try {
       await removeAll(user.id)
-      toast.error("Assignments deleted")
-    } catch {
+      toast.success("Assignments deleted")
+    } catch (error) {
       toast.error("Something went wrong. Try again.")
+      throw error
     }
   }
 
@@ -306,6 +307,7 @@ export function Settings({
       toast.success("Member removed")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not remove member.")
+      throw error
     }
   }
 
@@ -511,6 +513,7 @@ export function Settings({
               {teamsError && teams.length === 0 ? (
                 <StatePanel context="inline" tone="error" title="Could not load your teams" description="Workspace settings are temporarily unavailable." primaryAction={{ label: "Try again", onClick: () => void reloadTeams() }} live="assertive" />
               ) : activeTeam ? (
+                <>
                 <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center">
                   <div className="min-w-0">
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Team</p>
@@ -553,6 +556,7 @@ export function Settings({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           disabled={teams.length <= 1}
+                          aria-describedby={teams.length <= 1 ? "delete-workspace-unavailable" : undefined}
                           className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                           onSelect={(event) => {
                             event.preventDefault()
@@ -568,6 +572,8 @@ export function Settings({
                     <span className="hidden sm:block" />
                   )}
                 </div>
+                {canManageActiveTeam && teams.length <= 1 ? <p id="delete-workspace-unavailable" className="text-sm text-muted-foreground">Create another workspace before deleting your only workspace.</p> : null}
+                </>
               ) : (
                 <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
                   {teamsLoading ? "Loading your workspace..." : "Create a team to get started."}
@@ -642,16 +648,9 @@ export function Settings({
                           {member.role === "admin" ? "Admin" : "Member"}
                         </Badge>
                         {canManageActiveTeam && member.role !== "admin" ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => void removeMember(member.userId)}
-                          >
-                            <UserMinus className="h-4 w-4" />
-                            Remove
-                          </Button>
+                          <ConfirmDialog title="Remove team member?" description={`${member.displayName || member.email} will lose access to this workspace.`} confirmLabel="Remove" pendingLabel="Removing..." onConfirm={() => removeMember(member.userId)}>
+                            <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive"><UserMinus className="h-4 w-4" />Remove</Button>
+                          </ConfirmDialog>
                         ) : null}
                       </div>
                     </div>

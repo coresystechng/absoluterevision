@@ -3,6 +3,7 @@ import { LayoutDashboard, LogOut, Settings, UsersRound } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { ThemeToggle } from "@/components/ThemeToggle"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,7 @@ export function Navbar({
         </Link>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle compact />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-10 gap-2 px-2" aria-label="Open user menu">

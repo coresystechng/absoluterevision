@@ -95,6 +95,10 @@ export function AssignmentView({
   const [loadState, setLoadState] = useState<AssignmentLoadState>("loading")
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [activityError, setActivityError] = useState(false)
+  const [isWorkflowSaving, setIsWorkflowSaving] = useState(false)
+  const [workflowError, setWorkflowError] = useState(false)
+  const workflowPending = useRef(false)
+  const [isAccessCodeRevealed, setIsAccessCodeRevealed] = useState(false)
   const requestId = useRef(0)
   const assignmentRef = useRef(assignment)
   assignmentRef.current = assignment
@@ -158,6 +162,11 @@ export function AssignmentView({
     return () => { requestId.current += 1 }
   }, [loadAssignment])
 
+  useEffect(() => {
+    setIsAccessCodeRevealed(false)
+    return () => setIsAccessCodeRevealed(false)
+  }, [assignment?.id])
+
   if (!Number.isFinite(id)) {
     return <Navigate to="/dashboard" replace />
   }
@@ -189,39 +198,45 @@ export function AssignmentView({
     }
   }
 
-  const updateStatus = async (status: AssignmentStatus) => {
+  const runWorkflowMutation = async (request: () => Promise<Assignment | null>, successMessage: string) => {
+    if (workflowPending.current) return
+    workflowPending.current = true
+    setIsWorkflowSaving(true)
+    setWorkflowError(false)
     try {
-      const updated = await assignmentApi.updateStatus(user.id, id, status, actorName)
+      const updated = await request()
       if (updated) {
         setAssignment(updated)
         await refreshActivities()
-        toast.success(status === "completed" ? "Marked as complete" : "Assignment updated")
+        toast.success(successMessage)
+      } else {
+        throw new Error("Assignment mutation was not accepted")
       }
     } catch {
+      setWorkflowError(true)
       toast.error("Something went wrong. Try again.")
+    } finally {
+      workflowPending.current = false
+      setIsWorkflowSaving(false)
     }
   }
 
+  const updateStatus = async (status: AssignmentStatus) => {
+    await runWorkflowMutation(() => assignmentApi.updateStatus(user.id, id, status, actorName), status === "completed" ? "Marked as complete" : "Assignment updated")
+  }
+
   const updateProgressStage = async (progressStage: AssignmentProgressStage) => {
-    try {
-      const updated = await assignmentApi.updateProgressStage(user.id, id, progressStage, actorName)
-      if (updated) {
-        setAssignment(updated)
-        await refreshActivities()
-        toast.success("Progress updated")
-      }
-    } catch {
-      toast.error("Something went wrong. Try again.")
-    }
+    await runWorkflowMutation(() => assignmentApi.updateProgressStage(user.id, id, progressStage, actorName), "Progress updated")
   }
 
   const deleteAssignment = async () => {
     try {
       await assignmentApi.remove(user.id, id)
-      toast.error("Assignment deleted")
+      toast.success("Assignment deleted")
       navigate("/dashboard")
-    } catch {
+    } catch (error) {
       toast.error("Something went wrong. Try again.")
+      throw error
     }
   }
 
@@ -347,13 +362,14 @@ export function AssignmentView({
                     </div>
                   </div>
                   <div className="grid content-start gap-1">
-                    <Label className="font-normal text-muted-foreground">Status</Label>
+                    <Label htmlFor="assignment-view-status" className="font-normal text-muted-foreground">Status</Label>
                     {canManageAssignment ? (
                       <Select
                         value={assignment.status}
                         onValueChange={(value) => void updateStatus(value as AssignmentStatus)}
+                        disabled={isWorkflowSaving}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id="assignment-view-status">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -373,14 +389,15 @@ export function AssignmentView({
                   <div className="grid content-start gap-1">
                     {canManageAssignment ? (
                       <>
-                        <Label className="font-normal text-muted-foreground">
+                        <Label htmlFor="assignment-view-progress" className="font-normal text-muted-foreground">
                           Progress ({assignment.progress}%)
                         </Label>
                         <Select
                           value={assignment.progressStage}
                           onValueChange={(value) => void updateProgressStage(value as AssignmentProgressStage)}
+                          disabled={isWorkflowSaving}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger id="assignment-view-progress">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -405,6 +422,8 @@ export function AssignmentView({
                       </>
                     )}
                   </div>
+                  {isWorkflowSaving ? <p className="text-sm text-muted-foreground" role="status">Saving assignment progress…</p> : null}
+                  {workflowError ? <p className="text-sm text-danger-foreground" role="alert">The progress change could not be saved. Your last confirmed values are shown.</p> : null}
                   <div>
                     <p className="text-sm text-muted-foreground">Priority</p>
                     <Badge variant={priorityPresentation!.tone} className="mt-1 w-fit">{priorityPresentation!.label}</Badge>
@@ -433,7 +452,7 @@ export function AssignmentView({
                 <p className="text-sm text-muted-foreground">Share both private details only with the intended client. The tracking page URL contains no credentials.</p>
                 {trackingCredentials ? <div className="grid gap-3 rounded-md border bg-muted/50 p-4 sm:grid-cols-2">
                   <div><p className="text-xs uppercase tracking-wide text-muted-foreground">Reference</p><p className="mt-1 font-mono text-sm font-medium">{trackingCredentials.reference}</p></div>
-                  <div><p className="text-xs uppercase tracking-wide text-muted-foreground">Access code</p><p className="mt-1 break-all font-mono text-sm font-medium">{trackingCredentials.accessCode}</p></div>
+                  <div><p className="text-xs uppercase tracking-wide text-muted-foreground">Access code</p><p className="mt-1 break-all font-mono text-sm font-medium">{isAccessCodeRevealed ? trackingCredentials.accessCode : "••••••-••••••-••••••"}</p><Button type="button" variant="ghost" size="sm" className="mt-1 px-0" onClick={() => setIsAccessCodeRevealed((value) => !value)}>{isAccessCodeRevealed ? "Hide access code" : "Reveal access code"}</Button><span className="sr-only" aria-live="polite">Access code is {isAccessCodeRevealed ? "visible" : "hidden"}.</span></div>
                 </div> : null}
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" onClick={() => void copyTrackingCredentials()}><Copy className="h-4 w-4" />Copy tracking details</Button>
