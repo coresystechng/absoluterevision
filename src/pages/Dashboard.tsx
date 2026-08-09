@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { BookOpenCheck, Plus, Search, SlidersHorizontal, X } from "lucide-react"
+import { BookOpenCheck, Plus } from "lucide-react"
 
-import { getOrCreateUser } from "@/api/users"
+import { getOrCreateUser, updateActiveTeamSelection } from "@/api/users"
 import { AssignmentCard } from "@/components/AssignmentCard"
 import { AssignmentDialog } from "@/components/AssignmentDialog"
 import { Navbar } from "@/components/Navbar"
 import { StatePanel } from "@/components/StatePanel"
+import { DashboardSummary } from "@/components/DashboardSummary"
+import { DashboardFilters } from "@/components/DashboardFilters"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -21,14 +22,12 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useAssignments } from "@/hooks/useAssignments"
 import { useTeams } from "@/hooks/useTeams"
 import { uploadAssignmentFileSelection } from "@/lib/assignment-file-uploads"
-import { assignmentStatuses, getAssignmentStatusLabel } from "@/lib/assignment-status"
-import { assignmentTypes, normalizeAssignmentType } from "@/lib/assignment-types"
+import { getAssignmentStatusLabel } from "@/lib/assignment-status"
 import { defaultDashboardFilters } from "@/lib/dashboard-preferences"
+import { dashboardCounts, deriveDashboardView, type DashboardQuickView } from "@/lib/dashboard-view"
 import type {
-  Assignment,
   AssignmentFileUpload,
   AssignmentInput,
-  AssignmentPriority,
   AuthUser,
   DashboardFilterPreferences,
 } from "@/types"
@@ -40,91 +39,6 @@ type DashboardFilterKey = keyof DashboardFilterPreferences
 type ActiveFilter = {
   key: DashboardFilterKey
   label: string
-}
-
-const priorityOptions: Array<{ value: AssignmentPriority; label: string }> = [
-  { value: "high", label: "High" },
-  { value: "medium", label: "Medium" },
-  { value: "low", label: "Low" },
-]
-
-const sortFieldOptions: Array<{ value: SortField; label: string }> = [
-  { value: "deadline", label: "Deadline" },
-  { value: "name", label: "Assignment Name" },
-]
-
-const sortDirectionOptions: Array<{ value: SortDirection; label: string }> = [
-  { value: "asc", label: "Ascending" },
-  { value: "desc", label: "Descending" },
-]
-
-function getDeadlineTime(assignment: Assignment) {
-  if (!assignment.dueDate) {
-    return null
-  }
-
-  return new Date(`${assignment.dueDate}T${assignment.dueTime ?? "00:00"}`).getTime()
-}
-
-function matchesFilters(filters: DashboardFilterPreferences, assignment: Assignment) {
-  const assignmentType = normalizeAssignmentType(assignment.category)
-
-  return (
-    (filters.type === "all" || assignmentType === filters.type) &&
-    (filters.priority === "all" || assignment.priority === filters.priority) &&
-    (filters.status === "all" || assignment.status === filters.status)
-  )
-}
-
-function matchesSearch(assignment: Assignment, query: string) {
-  const normalizedQuery = query.trim().toLowerCase()
-  if (!normalizedQuery) return true
-
-  return [
-    assignment.title,
-    normalizeAssignmentType(assignment.category),
-    assignment.priority,
-    getAssignmentStatusLabel(assignment.status),
-    assignment.teamName,
-    assignment.assigneeName,
-    assignment.assigneeEmail,
-    assignment.notes,
-  ]
-    .filter(Boolean)
-    .some((value) => String(value).toLowerCase().includes(normalizedQuery))
-}
-
-function compareAssignments(
-  a: Assignment,
-  b: Assignment,
-  sortField: SortField,
-  sortDirection: SortDirection,
-) {
-  const direction = sortDirection === "asc" ? 1 : -1
-
-  if (sortField === "name") {
-    return a.title.localeCompare(b.title, undefined, { sensitivity: "base" }) * direction
-  }
-
-  const deadlineA = getDeadlineTime(a)
-  const deadlineB = getDeadlineTime(b)
-
-  if (deadlineA === null && deadlineB === null) {
-    return a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
-  }
-  if (deadlineA === null) {
-    return 1
-  }
-  if (deadlineB === null) {
-    return -1
-  }
-
-  const deadlineComparison = deadlineA - deadlineB
-  if (deadlineComparison !== 0) {
-    return deadlineComparison * direction
-  }
-
-  return a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
 }
 
 function getActorName(user: AuthUser) {
@@ -139,7 +53,7 @@ function getActiveFilters(filters: DashboardFilterPreferences): ActiveFilter[] {
   }
 
   if (filters.priority !== "all") {
-    const priorityLabel = priorityOptions.find(({ value }) => value === filters.priority)?.label
+    const priorityLabel = `${filters.priority[0].toUpperCase()}${filters.priority.slice(1)}`
     activeFilters.push({
       key: "priority",
       label: `${priorityLabel ?? filters.priority} priority`,
@@ -167,9 +81,11 @@ export function Dashboard({
   const [sortField, setSortField] = useState<SortField>("deadline")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [searchQuery, setSearchQuery] = useState("")
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [activeTeamId, setActiveTeamId] = useState<number | null>(null)
+  const [isSavingTeam, setIsSavingTeam] = useState(false)
+  const [quickView, setQuickView] = useState<DashboardQuickView>("all")
+  const [completedOpen, setCompletedOpen] = useState(false)
   const actorName = getActorName(user)
   const {
     teams,
@@ -214,18 +130,17 @@ export function Dashboard({
     }
   }, [activeTeamId, teams, teamsLoading])
 
-  const filteredAssignments = useMemo(
-    () =>
-      [...assignments]
-        .filter((assignment) => matchesFilters(filters, assignment) && matchesSearch(assignment, searchQuery))
-        .sort((a, b) => compareAssignments(a, b, sortField, sortDirection)),
-    [assignments, filters, searchQuery, sortDirection, sortField],
-  )
+  const dashboardView = useMemo(() => deriveDashboardView(assignments, { filters, query: searchQuery, quickView, sortField, sortDirection }), [assignments, filters, quickView, searchQuery, sortDirection, sortField])
+  const counts = useMemo(() => dashboardCounts(assignments), [assignments])
+  const filteredAssignments = dashboardView.all
   const activeFilters = getActiveFilters(filters)
   const activeFilterCount = activeFilters.length
 
-  const clearFilter = (key: DashboardFilterKey) => {
-    setFilters((current) => ({ ...current, [key]: "all" }))
+  const changeTeam = async (teamId: number) => {
+    const previous = activeTeamId; setIsSavingTeam(true)
+    try { const profile = await updateActiveTeamSelection(user.id, teamId); setActiveTeamId(profile.activeTeamId); toast.success("Workspace changed") }
+    catch { setActiveTeamId(previous); toast.error("Could not change workspace.") }
+    finally { setIsSavingTeam(false) }
   }
 
   const uploadFiles = async (
@@ -272,6 +187,7 @@ export function Dashboard({
             <p className="mt-1 text-sm text-muted-foreground">
               Filter and sort team assignments by the work that matters now.
             </p>
+            {activeTeam ? <div className="mt-3 flex flex-wrap items-center gap-3 text-sm"><strong>{activeTeam.name}</strong><span className="text-muted-foreground">{activeTeam.role === "admin" ? "Administrator" : "Member"} · {activeTeam.memberCount} {activeTeam.memberCount === 1 ? "member" : "members"}</span>{teams.length > 1 ? <Select value={String(activeTeam.id)} onValueChange={(value) => void changeTeam(Number(value))} disabled={isSavingTeam}><SelectTrigger className="w-52" aria-label="Switch active workspace"><SelectValue /></SelectTrigger><SelectContent>{teams.map((team)=><SelectItem key={team.id} value={String(team.id)}>{team.name}</SelectItem>)}</SelectContent></Select> : null}</div> : null}
           </div>
           <Button onClick={() => setDialogOpen(true)} disabled={!canManageActiveTeam} aria-describedby={!canManageActiveTeam ? "new-assignment-unavailable" : undefined}>
             <Plus className="h-4 w-4" />
@@ -280,174 +196,9 @@ export function Dashboard({
           {!canManageActiveTeam ? <p id="new-assignment-unavailable" className="text-sm text-muted-foreground sm:max-w-xs">{activeTeam ? "Only team administrators can create assignments." : "Select or create a team before adding assignments."}</p> : null}
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search assignments, type, priority, status, or notes"
-              className="h-11 pl-9"
-              aria-label="Search assignments"
-            />
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 justify-center rounded-xl px-4 sm:w-auto"
-            aria-expanded={filtersOpen}
-            aria-controls="dashboard-filters"
-            onClick={() => setFiltersOpen((open) => !open)}
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            Filter
-            {activeFilterCount > 0 ? (
-              <span
-                className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground"
-                aria-label={`${activeFilterCount} active ${activeFilterCount === 1 ? "filter" : "filters"}`}
-              >
-                {activeFilterCount}
-              </span>
-            ) : null}
-          </Button>
-        </div>
+        <DashboardSummary counts={counts} value={quickView} onChange={(value) => { setQuickView(value); if (value === "completed") setCompletedOpen(true) }} />
 
-        {activeFilters.length > 0 ? (
-          <div
-            className="flex flex-wrap items-center gap-2"
-            role="group"
-            aria-label="Active assignment filters"
-          >
-            {activeFilters.map((filter) => (
-              <Button
-                key={filter.key}
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="rounded-md px-3"
-                onClick={() => clearFilter(filter.key)}
-                aria-label={`Remove ${filter.label} filter`}
-              >
-                {filter.label}
-                <X className="h-3.5 w-3.5" aria-hidden="true" />
-              </Button>
-            ))}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="px-2"
-              onClick={() => setFilters({ ...defaultDashboardFilters })}
-            >
-              Clear all
-            </Button>
-          </div>
-        ) : null}
-
-        {filtersOpen ? (
-          <div
-            id="dashboard-filters"
-            className="grid gap-3 rounded-md border bg-card p-3 sm:grid-cols-2 lg:grid-cols-5"
-          >
-          <div className="grid gap-2">
-            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Assignment Type</span>
-            <Select
-              value={filters.type}
-              onValueChange={(value) =>
-                setFilters((current) => ({ ...current, type: value as DashboardFilterPreferences["type"] }))
-              }
-            >
-              <SelectTrigger aria-label="Filter by assignment type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {assignmentTypes.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Priority</span>
-            <Select
-              value={filters.priority}
-              onValueChange={(value) =>
-                setFilters((current) => ({ ...current, priority: value as DashboardFilterPreferences["priority"] }))
-              }
-            >
-              <SelectTrigger aria-label="Filter by priority">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priorities</SelectItem>
-                {priorityOptions.map((priority) => (
-                  <SelectItem key={priority.value} value={priority.value}>
-                    {priority.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Status</span>
-            <Select
-              value={filters.status}
-              onValueChange={(value) =>
-                setFilters((current) => ({ ...current, status: value as DashboardFilterPreferences["status"] }))
-              }
-            >
-              <SelectTrigger aria-label="Filter by status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {assignmentStatuses.map((status) => (
-                  <SelectItem key={status.value} value={status.value}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Sort By</span>
-            <Select value={sortField} onValueChange={(value) => setSortField(value as SortField)}>
-              <SelectTrigger aria-label="Sort assignments by">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sortFieldOptions.map((field) => (
-                  <SelectItem key={field.value} value={field.value}>
-                    {field.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Order</span>
-            <Select value={sortDirection} onValueChange={(value) => setSortDirection(value as SortDirection)}>
-              <SelectTrigger aria-label="Sort direction">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sortDirectionOptions.map((direction) => (
-                  <SelectItem key={direction.value} value={direction.value}>
-                    {direction.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          </div>
-        ) : null}
+        <DashboardFilters filters={filters} onFilters={setFilters} query={searchQuery} onQuery={setSearchQuery} sortField={sortField} onSortField={setSortField} sortDirection={sortDirection} onSortDirection={setSortDirection} />
 
         {teamsLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -469,8 +220,9 @@ export function Dashboard({
         ) : filteredAssignments.length > 0 ? (
           <div className="grid gap-4" aria-busy={isRefreshing || undefined}>
           {error ? <StatePanel context="inline" tone="warning" title="Could not refresh assignments" description="Showing the last available results." primaryAction={{ label: "Try again", onClick: () => void reload() }} live="polite" /> : null}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredAssignments.map((assignment) => (
+          <div className="grid gap-6">
+          <section className="grid gap-3" aria-labelledby="active-work-heading"><h2 id="active-work-heading" className="text-lg font-semibold">Active work ({dashboardView.incomplete.length})</h2><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {dashboardView.incomplete.map((assignment) => (
               <AssignmentCard
                 key={assignment.id}
                 assignment={assignment}
@@ -490,6 +242,8 @@ export function Dashboard({
                 teamMembers={members}
               />
             ))}
+          </div></section>
+          {dashboardView.completed.length > 0 ? <section className="grid gap-3" aria-labelledby="completed-work-heading"><div className="flex items-center justify-between"><h2 id="completed-work-heading" className="text-lg font-semibold">Completed ({dashboardView.completed.length})</h2><Button variant="ghost" size="sm" aria-expanded={completedOpen || filters.status === "completed" || quickView === "completed"} onClick={()=>setCompletedOpen(v=>!v)}>{completedOpen ? "Hide completed" : "Show completed"}</Button></div>{completedOpen || filters.status === "completed" || quickView === "completed" ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{dashboardView.completed.map((assignment)=><AssignmentCard key={assignment.id} assignment={assignment} onUpdate={async(input,files)=>{ await update(assignment.id,{...input,teamId:assignment.teamId,assigneeUserId:input.assigneeUserId??assignment.assigneeUserId}); return {fileUploadFailed:await uploadFiles(assignment.id,files)} }} onDelete={async()=>{await remove(assignment.id);toast.success("Assignment deleted")}} canManage={assignment.currentUserRole === "admin"} teamMembers={members} />)}</div> : null}</section> : null}
           </div>
           </div>
         ) : searchQuery.trim() || activeFilterCount > 0 ? (

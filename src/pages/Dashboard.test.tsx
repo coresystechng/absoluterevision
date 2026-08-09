@@ -1,6 +1,7 @@
 import { screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { DashboardSummary } from "@/components/DashboardSummary"
 import { Dashboard } from "@/pages/Dashboard"
 import { renderWithRouter } from "@/test/render"
 
@@ -41,5 +42,34 @@ describe("Dashboard state precedence", () => {
     expect(screen.queryByRole("heading", { name: /no assignments/i })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Try again" }))
     expect(reloadAssignments).toHaveBeenCalledOnce()
+  })
+})
+
+describe("Dashboard summary", () => {
+  it("shows distinct attention counts and supports reversible quick views", async () => {
+    const onChange = vi.fn()
+    const { user, rerender } = renderWithRouter(
+      <DashboardSummary
+        counts={{ overdue: 2, dueSoon: 3, ongoing: 4, completed: 5 }}
+        value="all"
+        onChange={onChange}
+      />,
+    )
+
+    expect(screen.getByText("Overdue 2")).toBeVisible()
+    expect(screen.getByText("Due soon 3")).toBeVisible()
+    await user.click(screen.getByRole("button", { name: /needs attention/i }))
+    expect(onChange).toHaveBeenCalledWith("attention")
+
+    rerender(
+      <DashboardSummary
+        counts={{ overdue: 2, dueSoon: 3, ongoing: 4, completed: 5 }}
+        value="attention"
+        onChange={onChange}
+      />,
+    )
+    expect(screen.getByRole("button", { name: /needs attention/i })).toHaveAttribute("aria-pressed", "true")
+    await user.click(screen.getByRole("button", { name: "All work" }))
+    expect(onChange).toHaveBeenLastCalledWith("all")
   })
 })

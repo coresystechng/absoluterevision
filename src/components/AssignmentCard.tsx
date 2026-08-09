@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
-import { getDeadlinePresentation, getPriorityPresentation, getProgressPresentation, semanticTextClassNames } from "@/lib/assignment-presentation"
+import { getDeadlinePresentation, getPriorityPresentation, getProgressPresentation, getStatusPresentation, semanticTextClassNames } from "@/lib/assignment-presentation"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
 import { cn } from "@/lib/utils"
 import type {
@@ -44,10 +44,6 @@ const assignmentTypeIcons: Record<AssignmentType, LucideIcon> = {
   Dissertation: GraduationCap,
   Assignment: ClipboardList,
   Presentation,
-}
-
-function priorityInitial(priority: Assignment["priority"]) {
-  return priority.charAt(0).toUpperCase()
 }
 
 export function AssignmentCard({
@@ -73,11 +69,12 @@ export function AssignmentCard({
   const progressPresentation = getProgressPresentation(assignment.status, assignment.progressStage)
   const priorityPresentation = getPriorityPresentation(assignment.priority)
   const deadlinePresentation = getDeadlinePresentation(assignment)
+  const statusPresentation = getStatusPresentation(assignment.status)
 
   return (
     <>
       <Card
-        className="relative h-full transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 active:border-primary/60"
+        className={cn("relative h-full transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 active:border-primary/60", assignment.status === "completed" && "bg-muted/30")}
       >
         <Link to={`/assignments/${assignment.id}`} className="block h-full rounded-lg focus:outline-none" aria-label={`Open ${assignment.title}`}>
         <CardContent className="flex h-full flex-col gap-4 p-4">
@@ -91,14 +88,16 @@ export function AssignmentCard({
                 <h3 className="truncate text-base font-semibold">
                   {assignment.title}
                 </h3>
+                <Badge variant={statusPresentation.tone}>{statusPresentation.label}</Badge>
               </div>
-              <div className={cn("mt-2 flex items-center gap-2 text-sm", semanticTextClassNames[deadlinePresentation.tone])}>
+              <div className={cn("mt-2 flex flex-wrap items-center gap-2 text-sm", semanticTextClassNames[deadlinePresentation.tone])}>
                 {assignment.status === "completed" ? (
                   <CheckCircle2 className="h-4 w-4" />
                 ) : (
                   <CalendarClock className="h-4 w-4" />
                 )}
                 <span>{deadlinePresentation.label}</span>
+                <span className="text-muted-foreground">· {assignmentType}</span>
               </div>
             </div>
             {canManage ? <span className="h-10 w-10 shrink-0" aria-hidden="true" /> : null}
@@ -134,13 +133,11 @@ export function AssignmentCard({
               </div>
               <Badge
                 variant={priorityPresentation.tone}
-                className={cn(
-                  "h-7 w-7 justify-center rounded-full px-0 text-xs font-semibold",
-                )}
+                className="px-2.5"
                 aria-label={`${priorityPresentation.label} priority`}
                 title={priorityPresentation.label}
               >
-                {priorityInitial(assignment.priority)}
+                {priorityPresentation.label} priority
               </Badge>
             </div>
           </div>
