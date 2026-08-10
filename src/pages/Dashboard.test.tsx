@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { Dashboard } from "@/pages/Dashboard"
@@ -41,5 +41,15 @@ describe("Dashboard state precedence", () => {
     expect(screen.queryByRole("heading", { name: /no assignments/i })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Try again" }))
     expect(reloadAssignments).toHaveBeenCalledOnce()
+  })
+
+  it("shows the current team instead of assignment creation controls for members", async () => {
+    teamState.teams = [{ id: 1, name: "Research Team", role: "member", memberCount: 2 }]
+    renderWithRouter(<Dashboard user={{ id: "u1", email: "u@example.com", displayName: null }} onSignOut={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText("Current team")).toBeVisible())
+    expect(screen.getByText("Research Team")).toBeVisible()
+    expect(screen.queryByRole("button", { name: "New assignment" })).not.toBeInTheDocument()
+    expect(screen.queryByText("Only team administrators can create assignments.")).not.toBeInTheDocument()
   })
 })

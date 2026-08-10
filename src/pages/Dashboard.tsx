@@ -273,11 +273,19 @@ export function Dashboard({
               Filter and sort team assignments by the work that matters now.
             </p>
           </div>
-          <Button onClick={() => setDialogOpen(true)} disabled={!canManageActiveTeam} aria-describedby={!canManageActiveTeam ? "new-assignment-unavailable" : undefined}>
-            <Plus className="h-4 w-4" />
-            New assignment
-          </Button>
-          {!canManageActiveTeam ? <p id="new-assignment-unavailable" className="text-sm text-muted-foreground sm:max-w-xs">{activeTeam ? "Only team administrators can create assignments." : "Select or create a team before adding assignments."}</p> : null}
+          {canManageActiveTeam ? (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4" />
+              New assignment
+            </Button>
+          ) : activeTeam ? (
+            <div className="sm:text-right">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Current team
+              </p>
+              <p className="mt-1 font-medium text-foreground">{activeTeam.name}</p>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">

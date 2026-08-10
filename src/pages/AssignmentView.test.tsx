@@ -128,6 +128,8 @@ describe("AssignmentView load states", () => {
     expect(screen.getAllByText("No deadline").length).toBeGreaterThan(0)
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument()
     expect(screen.queryByRole("combobox", { name: "Status" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Client tracking" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Copy tracking details" })).not.toBeInTheDocument()
   })
 
   it.each([
