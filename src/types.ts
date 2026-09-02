@@ -114,9 +114,9 @@ export type UserProfile = {
 }
 
 export type DashboardFilterPreferences = {
-  type: AssignmentType | "all"
-  priority: AssignmentPriority | "all"
-  status: AssignmentStatus | "all"
+  types: AssignmentType[]
+  priorities: AssignmentPriority[]
+  statuses: AssignmentStatus[]
 }
 
 export type Team = {

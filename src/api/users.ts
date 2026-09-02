@@ -10,6 +10,9 @@ type UserRow = {
   email: string
   display_name: string | null
   active_team_id: number | null
+  dashboard_filter_types?: string[]
+  dashboard_filter_priorities?: string[]
+  dashboard_filter_statuses?: string[]
   dashboard_filter_type: string
   dashboard_filter_priority: string
   dashboard_filter_status: string
@@ -27,6 +30,9 @@ function mapUser(row: UserRow): UserProfile {
     displayName: row.display_name,
     activeTeamId: row.active_team_id,
     dashboardFilters: normalizeDashboardFilters({
+      types: row.dashboard_filter_types,
+      priorities: row.dashboard_filter_priorities,
+      statuses: row.dashboard_filter_statuses,
       type: row.dashboard_filter_type,
       priority: row.dashboard_filter_priority,
       status: row.dashboard_filter_status,
@@ -160,12 +166,23 @@ export async function updateDashboardFilters(
     const normalized = normalizeDashboardFilters(filters)
     const rows = await query<UserRow>(
       `UPDATE users
-       SET dashboard_filter_type = $2,
-           dashboard_filter_priority = $3,
-           dashboard_filter_status = $4
+       SET dashboard_filter_types = $2,
+           dashboard_filter_priorities = $3,
+           dashboard_filter_statuses = $4,
+           dashboard_filter_type = $5,
+           dashboard_filter_priority = $6,
+           dashboard_filter_status = $7
        WHERE id = $1
        RETURNING *`,
-      [userId, normalized.type, normalized.priority, normalized.status],
+      [
+        userId,
+        normalized.types,
+        normalized.priorities,
+        normalized.statuses,
+        normalized.types.length === 1 ? normalized.types[0] : "all",
+        normalized.priorities.length === 1 ? normalized.priorities[0] : "all",
+        normalized.statuses.length === 1 ? normalized.statuses[0] : "all",
+      ],
     )
     return mapUser(rows[0])
   } catch (error) {

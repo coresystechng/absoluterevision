@@ -5,6 +5,7 @@ import { BookOpenCheck, Plus, Search, SlidersHorizontal, X } from "lucide-react"
 import { getOrCreateUser } from "@/api/users"
 import { AssignmentCard } from "@/components/AssignmentCard"
 import { AssignmentDialog } from "@/components/AssignmentDialog"
+import { MultiSelectFilter } from "@/components/MultiSelectFilter"
 import { Navbar } from "@/components/Navbar"
 import { StatePanel } from "@/components/StatePanel"
 import { Button } from "@/components/ui/button"
@@ -23,12 +24,14 @@ import { useTeams } from "@/hooks/useTeams"
 import { uploadAssignmentFileSelection } from "@/lib/assignment-file-uploads"
 import { assignmentStatuses, getAssignmentStatusLabel } from "@/lib/assignment-status"
 import { assignmentTypes, normalizeAssignmentType } from "@/lib/assignment-types"
-import { defaultDashboardFilters } from "@/lib/dashboard-preferences"
+import { defaultDashboardFilters, matchesDashboardFilters } from "@/lib/dashboard-preferences"
 import type {
   Assignment,
   AssignmentFileUpload,
   AssignmentInput,
   AssignmentPriority,
+  AssignmentStatus,
+  AssignmentType,
   AuthUser,
   DashboardFilterPreferences,
 } from "@/types"
@@ -38,7 +41,9 @@ type SortDirection = "asc" | "desc"
 type DashboardFilterKey = keyof DashboardFilterPreferences
 
 type ActiveFilter = {
+  id: string
   key: DashboardFilterKey
+  value: AssignmentType | AssignmentPriority | AssignmentStatus
   label: string
 }
 
@@ -64,16 +69,6 @@ function getDeadlineTime(assignment: Assignment) {
   }
 
   return new Date(`${assignment.dueDate}T${assignment.dueTime ?? "00:00"}`).getTime()
-}
-
-function matchesFilters(filters: DashboardFilterPreferences, assignment: Assignment) {
-  const assignmentType = normalizeAssignmentType(assignment.category)
-
-  return (
-    (filters.type === "all" || assignmentType === filters.type) &&
-    (filters.priority === "all" || assignment.priority === filters.priority) &&
-    (filters.status === "all" || assignment.status === filters.status)
-  )
 }
 
 function matchesSearch(assignment: Assignment, query: string) {
@@ -132,28 +127,26 @@ function getActorName(user: AuthUser) {
 }
 
 function getActiveFilters(filters: DashboardFilterPreferences): ActiveFilter[] {
-  const activeFilters: ActiveFilter[] = []
-
-  if (filters.type !== "all") {
-    activeFilters.push({ key: "type", label: filters.type })
-  }
-
-  if (filters.priority !== "all") {
-    const priorityLabel = priorityOptions.find(({ value }) => value === filters.priority)?.label
-    activeFilters.push({
-      key: "priority",
-      label: `${priorityLabel ?? filters.priority} priority`,
-    })
-  }
-
-  if (filters.status !== "all") {
-    activeFilters.push({
-      key: "status",
-      label: getAssignmentStatusLabel(filters.status),
-    })
-  }
-
-  return activeFilters
+  return [
+    ...filters.types.map((type) => ({
+      id: `type-${type}`,
+      key: "types" as const,
+      value: type,
+      label: type,
+    })),
+    ...filters.priorities.map((priority) => ({
+      id: `priority-${priority}`,
+      key: "priorities" as const,
+      value: priority,
+      label: `${priorityOptions.find(({ value }) => value === priority)?.label ?? priority} priority`,
+    })),
+    ...filters.statuses.map((status) => ({
+      id: `status-${status}`,
+      key: "statuses" as const,
+      value: status,
+      label: getAssignmentStatusLabel(status),
+    })),
+  ]
 }
 
 export function Dashboard({
@@ -217,15 +210,18 @@ export function Dashboard({
   const filteredAssignments = useMemo(
     () =>
       [...assignments]
-        .filter((assignment) => matchesFilters(filters, assignment) && matchesSearch(assignment, searchQuery))
+        .filter((assignment) => matchesDashboardFilters(filters, assignment) && matchesSearch(assignment, searchQuery))
         .sort((a, b) => compareAssignments(a, b, sortField, sortDirection)),
     [assignments, filters, searchQuery, sortDirection, sortField],
   )
   const activeFilters = getActiveFilters(filters)
   const activeFilterCount = activeFilters.length
 
-  const clearFilter = (key: DashboardFilterKey) => {
-    setFilters((current) => ({ ...current, [key]: "all" }))
+  const clearFilter = (key: DashboardFilterKey, value: ActiveFilter["value"]) => {
+    setFilters((current) => ({
+      ...current,
+      [key]: current[key].filter((selected) => selected !== value),
+    }))
   }
 
   const uploadFiles = async (
@@ -328,12 +324,12 @@ export function Dashboard({
           >
             {activeFilters.map((filter) => (
               <Button
-                key={filter.key}
+                key={filter.id}
                 type="button"
                 variant="secondary"
                 size="sm"
                 className="rounded-md px-3"
-                onClick={() => clearFilter(filter.key)}
+                onClick={() => clearFilter(filter.key, filter.value)}
                 aria-label={`Remove ${filter.label} filter`}
               >
                 {filter.label}
@@ -359,68 +355,38 @@ export function Dashboard({
           >
           <div className="grid gap-2">
             <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Assignment Type</span>
-            <Select
-              value={filters.type}
-              onValueChange={(value) =>
-                setFilters((current) => ({ ...current, type: value as DashboardFilterPreferences["type"] }))
-              }
-            >
-              <SelectTrigger aria-label="Filter by assignment type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {assignmentTypes.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter
+              value={filters.types}
+              options={assignmentTypes}
+              allLabel="All Types"
+              pluralLabel="types"
+              ariaLabel="Filter by assignment type"
+              onValueChange={(types) => setFilters((current) => ({ ...current, types }))}
+            />
           </div>
 
           <div className="grid gap-2">
             <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Priority</span>
-            <Select
-              value={filters.priority}
-              onValueChange={(value) =>
-                setFilters((current) => ({ ...current, priority: value as DashboardFilterPreferences["priority"] }))
-              }
-            >
-              <SelectTrigger aria-label="Filter by priority">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priorities</SelectItem>
-                {priorityOptions.map((priority) => (
-                  <SelectItem key={priority.value} value={priority.value}>
-                    {priority.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter
+              value={filters.priorities}
+              options={priorityOptions}
+              allLabel="All Priorities"
+              pluralLabel="priorities"
+              ariaLabel="Filter by priority"
+              onValueChange={(priorities) => setFilters((current) => ({ ...current, priorities }))}
+            />
           </div>
 
           <div className="grid gap-2">
             <span className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Status</span>
-            <Select
-              value={filters.status}
-              onValueChange={(value) =>
-                setFilters((current) => ({ ...current, status: value as DashboardFilterPreferences["status"] }))
-              }
-            >
-              <SelectTrigger aria-label="Filter by status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {assignmentStatuses.map((status) => (
-                  <SelectItem key={status.value} value={status.value}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter
+              value={filters.statuses}
+              options={assignmentStatuses}
+              allLabel="All Statuses"
+              pluralLabel="statuses"
+              ariaLabel="Filter by status"
+              onValueChange={(statuses) => setFilters((current) => ({ ...current, statuses }))}
+            />
           </div>
 
           <div className="grid gap-2">

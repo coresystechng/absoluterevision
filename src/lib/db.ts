@@ -37,6 +37,9 @@ export function initDb() {
         dashboard_filter_type TEXT NOT NULL DEFAULT 'all',
         dashboard_filter_priority TEXT NOT NULL DEFAULT 'all',
         dashboard_filter_status TEXT NOT NULL DEFAULT 'all',
+        dashboard_filter_types TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
+        dashboard_filter_priorities TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
+        dashboard_filter_statuses TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `)
@@ -137,6 +140,27 @@ export function initDb() {
     await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_filter_type TEXT NOT NULL DEFAULT 'all'")
     await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_filter_priority TEXT NOT NULL DEFAULT 'all'")
     await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_filter_status TEXT NOT NULL DEFAULT 'all'")
+    await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_filter_types TEXT[] NOT NULL DEFAULT '{}'::TEXT[]")
+    await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_filter_priorities TEXT[] NOT NULL DEFAULT '{}'::TEXT[]")
+    await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_filter_statuses TEXT[] NOT NULL DEFAULT '{}'::TEXT[]")
+    await query(`
+      UPDATE users
+      SET dashboard_filter_types = ARRAY[dashboard_filter_type]
+      WHERE CARDINALITY(dashboard_filter_types) = 0
+        AND dashboard_filter_type <> 'all'
+    `)
+    await query(`
+      UPDATE users
+      SET dashboard_filter_priorities = ARRAY[dashboard_filter_priority]
+      WHERE CARDINALITY(dashboard_filter_priorities) = 0
+        AND dashboard_filter_priority <> 'all'
+    `)
+    await query(`
+      UPDATE users
+      SET dashboard_filter_statuses = ARRAY[dashboard_filter_status]
+      WHERE CARDINALITY(dashboard_filter_statuses) = 0
+        AND dashboard_filter_status <> 'all'
+    `)
     await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS active_team_id INTEGER")
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS due_time TIME")
     await query("ALTER TABLE assignments ADD COLUMN IF NOT EXISTS tracking_code TEXT")

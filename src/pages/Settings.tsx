@@ -10,6 +10,7 @@ import {
   updateProfile,
 } from "@/api/users"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
+import { MultiSelectFilter } from "@/components/MultiSelectFilter"
 import { Navbar } from "@/components/Navbar"
 import { StatePanel } from "@/components/StatePanel"
 import { ThemeToggle } from "@/components/ThemeToggle"
@@ -372,81 +373,42 @@ export function Settings({
               <div>
                 <p className="font-medium">Default dashboard filters</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  These filters are applied whenever you open the dashboard. Select all options to see every assignment.
+                  These filters are applied whenever you open the dashboard. Combine options within each group, or select All to see every assignment.
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="grid gap-2">
                   <Label>Assignment type</Label>
-                  <Select
-                    value={dashboardFilters.type}
-                    onValueChange={(value) =>
-                      setDashboardFilters((current) => ({
-                        ...current,
-                        type: value as DashboardFilterPreferences["type"],
-                      }))
-                    }
-                  >
-                    <SelectTrigger aria-label="Default assignment type filter">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      {assignmentTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <MultiSelectFilter
+                    value={dashboardFilters.types}
+                    options={assignmentTypes}
+                    allLabel="All Types"
+                    pluralLabel="types"
+                    ariaLabel="Default assignment type filter"
+                    onValueChange={(types) => setDashboardFilters((current) => ({ ...current, types }))}
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label>Priority</Label>
-                  <Select
-                    value={dashboardFilters.priority}
-                    onValueChange={(value) =>
-                      setDashboardFilters((current) => ({
-                        ...current,
-                        priority: value as DashboardFilterPreferences["priority"],
-                      }))
-                    }
-                  >
-                    <SelectTrigger aria-label="Default priority filter">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Priorities</SelectItem>
-                      {priorityOptions.map((priority) => (
-                        <SelectItem key={priority.value} value={priority.value}>
-                          {priority.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <MultiSelectFilter
+                    value={dashboardFilters.priorities}
+                    options={priorityOptions}
+                    allLabel="All Priorities"
+                    pluralLabel="priorities"
+                    ariaLabel="Default priority filter"
+                    onValueChange={(priorities) => setDashboardFilters((current) => ({ ...current, priorities }))}
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label>Status</Label>
-                  <Select
-                    value={dashboardFilters.status}
-                    onValueChange={(value) =>
-                      setDashboardFilters((current) => ({
-                        ...current,
-                        status: value as DashboardFilterPreferences["status"],
-                      }))
-                    }
-                  >
-                    <SelectTrigger aria-label="Default status filter">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      {assignmentStatuses.map((status) => (
-                        <SelectItem key={status.value} value={status.value}>
-                          {status.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <MultiSelectFilter
+                    value={dashboardFilters.statuses}
+                    options={assignmentStatuses}
+                    allLabel="All Statuses"
+                    pluralLabel="statuses"
+                    ariaLabel="Default status filter"
+                    onValueChange={(statuses) => setDashboardFilters((current) => ({ ...current, statuses }))}
+                  />
                 </div>
               </div>
               <Button
