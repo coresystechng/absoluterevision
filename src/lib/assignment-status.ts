@@ -1,5 +1,9 @@
-import type { AssignmentProgressStage, AssignmentStatus } from "@/types"
-import { getProgressPresentation, progressStagePresentation, semanticTextClassNames, statusPresentation, type SemanticTone } from "@/lib/assignment-presentation"
+import type { AssignmentProgressStage, AssignmentStatus, AssignmentType } from "@/types"
+import { getProgressPresentation, semanticTextClassNames, statusPresentation, type SemanticTone } from "@/lib/assignment-presentation"
+import {
+  getAssignmentWorkflow,
+  normalizeWorkflowStage,
+} from "@/lib/assignment-workflows"
 
 const progressIndicatorClassNames: Record<SemanticTone, string> = {
   success: "bg-success-foreground",
@@ -11,14 +15,12 @@ const progressIndicatorClassNames: Record<SemanticTone, string> = {
 
 export const assignmentStatuses = (Object.entries(statusPresentation) as Array<[AssignmentStatus, { label: string }]>).map(([value, item]) => ({ value, label: item.label }))
 
-export const assignmentProgressStages: Array<{
-  value: AssignmentProgressStage
-  label: string
-  progress: number
-  tone: "success" | "warning" | "danger" | "info" | "neutral"
-}> = [
-  ...Object.entries(progressStagePresentation).map(([value, item]) => ({ value: value as AssignmentProgressStage, ...item })),
-]
+export function getAssignmentProgressStages(assignmentType: AssignmentType) {
+  return getAssignmentWorkflow(assignmentType).map((stage) => ({
+    ...stage,
+    value: stage.value as AssignmentProgressStage,
+  }))
+}
 
 const legacyStatusMap: Record<string, AssignmentStatus> = {
   "not-started": "not-started",
@@ -35,21 +37,6 @@ const legacyStatusMap: Record<string, AssignmentStatus> = {
   completed: "completed",
 }
 
-const legacyProgressStageMap: Record<string, AssignmentProgressStage> = {
-  "not-started": "ai-draft",
-  "in-progress": "ai-draft",
-  "ai-draft": "ai-draft",
-  humaned: "humaned",
-  "grammar-check": "grammar-check",
-  "ai-plagiarism-check": "plagiarism-check",
-  "plagiarism-check": "plagiarism-check",
-  "text-format": "text-format",
-  review: "final-review",
-  "final-review": "final-review",
-  done: "final-review",
-  completed: "final-review",
-}
-
 export function normalizeAssignmentStatus(status: string): AssignmentStatus {
   if (assignmentStatuses.some((item) => item.value === status)) {
     return status as AssignmentStatus
@@ -64,41 +51,38 @@ export function getAssignmentStatusLabel(status: AssignmentStatus) {
 
 export function normalizeAssignmentProgressStage(
   progressStage: string | null | undefined,
+  assignmentType: AssignmentType,
 ): AssignmentProgressStage {
-  if (
-    progressStage &&
-    assignmentProgressStages.some((item) => item.value === progressStage)
-  ) {
-    return progressStage as AssignmentProgressStage
-  }
-
-  return progressStage ? legacyProgressStageMap[progressStage] ?? "ai-draft" : "ai-draft"
+  return normalizeWorkflowStage(assignmentType, progressStage)
 }
 
-export function getAssignmentProgressLabel(progressStage: AssignmentProgressStage) {
-  return (
-    assignmentProgressStages.find((item) => item.value === progressStage)?.label ??
-    "AI Draft"
-  )
+export function getAssignmentProgressLabel(
+  progressStage: AssignmentProgressStage,
+  assignmentType: AssignmentType,
+) {
+  return getProgressPresentation("ongoing", progressStage, assignmentType).label
 }
 
 export function getAssignmentProgressIndicatorClassName(
   status: AssignmentStatus,
   progressStage: AssignmentProgressStage,
+  assignmentType: AssignmentType,
 ) {
-  return progressIndicatorClassNames[getProgressPresentation(status, progressStage).tone]
+  return progressIndicatorClassNames[getProgressPresentation(status, progressStage, assignmentType).tone]
 }
 
 export function getAssignmentProgressTextClassName(
   status: AssignmentStatus,
   progressStage: AssignmentProgressStage,
+  assignmentType: AssignmentType,
 ) {
-  return semanticTextClassNames[getProgressPresentation(status, progressStage).tone]
+  return semanticTextClassNames[getProgressPresentation(status, progressStage, assignmentType).tone]
 }
 
 export function getAssignmentProgress(
   status: AssignmentStatus,
   progressStage: AssignmentProgressStage,
+  assignmentType: AssignmentType,
 ) {
-  return getProgressPresentation(status, progressStage).progress
+  return getProgressPresentation(status, progressStage, assignmentType).progress
 }

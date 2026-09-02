@@ -1,5 +1,7 @@
 import type { PublicAssignmentStatus } from "@/api/public-assignment-status"
-import type { AssignmentProgressStage, AssignmentStatus } from "@/types"
+import { getAssignmentWorkflow, getWorkflowStage } from "@/lib/assignment-workflows"
+import { normalizeAssignmentType } from "@/lib/assignment-types"
+import type { AssignmentProgressStage, AssignmentStatus, AssignmentType } from "@/types"
 
 export const trackingCodePattern = /^AR-[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$/
 export const trackingReferencePattern = /^AR-[0-9A-F]{6}$/
@@ -36,32 +38,35 @@ export function getPublicStatusLabel(status: AssignmentStatus) {
   return "Received"
 }
 
-const stageDetails: Record<AssignmentProgressStage, { label: string; description: string; progress: number }> = {
-  "ai-draft": { label: "Initial draft", description: "Your work has been received and is being prepared.", progress: 15 },
-  humaned: { label: "Expert editing", description: "An editor is reviewing your manuscript.", progress: 30 },
-  "grammar-check": { label: "Grammar check", description: "Grammar, language, and clarity are being checked.", progress: 45 },
-  "plagiarism-check": { label: "Plagiarism check", description: "Plagiarism and originality checks are in progress.", progress: 60 },
-  "text-format": { label: "Formatting", description: "Formatting is being refined.", progress: 75 },
-  "final-review": { label: "Final quality check", description: "A final quality check is underway.", progress: 90 },
+export function getPublicProgressStages(assignmentType: AssignmentType) {
+  return getAssignmentWorkflow(assignmentType).map((stage) => ({
+    value: stage.value as AssignmentProgressStage,
+    label: stage.publicLabel,
+    description: stage.description,
+    progress: stage.progress,
+  }))
 }
 
-export const publicProgressStages = Object.entries(stageDetails).map(([value, details]) => ({
-  value: value as AssignmentProgressStage,
-  ...details,
-}))
-
-export function getPublicStageDetails(stage: AssignmentProgressStage) {
-  return stageDetails[stage]
+export function getPublicStageDetails(assignmentType: AssignmentType, stage: AssignmentProgressStage) {
+  const details = getWorkflowStage(assignmentType, stage)
+  return { label: details.publicLabel, description: details.description, progress: details.progress }
 }
 
-export function getPublicProgress(status: AssignmentStatus, stage: AssignmentProgressStage) {
+export function getPublicProgress(
+  assignmentType: AssignmentType,
+  status: AssignmentStatus,
+  stage: AssignmentProgressStage,
+) {
   if (status === "not-started") return 0
   if (status === "completed") return 100
-  return stageDetails[stage].progress
+  return getWorkflowStage(assignmentType, stage).progress
 }
 
-export function getPublicMilestones(assignment: Pick<PublicAssignmentStatus, "status" | "progressStage">) {
-  const currentIndex = publicProgressStages.findIndex((stage) => stage.value === assignment.progressStage)
+export function getPublicMilestones(assignment: Pick<PublicAssignmentStatus, "category" | "status" | "progressStage">) {
+  const assignmentType = normalizeAssignmentType(assignment.category)
+  const publicProgressStages = getPublicProgressStages(assignmentType)
+  const currentStage = getWorkflowStage(assignmentType, assignment.progressStage)
+  const currentIndex = publicProgressStages.findIndex((stage) => stage.value === currentStage.value)
   return publicProgressStages.map((stage, index) => ({
     ...stage,
     state: assignment.status === "completed"

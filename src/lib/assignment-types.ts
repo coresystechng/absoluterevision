@@ -1,18 +1,8 @@
-import type { AssignmentType } from "@/types"
+import { assignmentTypeValues, isAssignmentType, type AssignmentType } from "../../shared/assignment-workflows"
 
 export const defaultAssignmentType: AssignmentType = "Assignment"
 
-export const assignmentTypes: Array<{ value: AssignmentType; label: AssignmentType }> = [
-  { value: "Design", label: "Design" },
-  { value: "Copywriting", label: "Copywriting" },
-  { value: "Dissertation", label: "Dissertation" },
-  { value: "Assignment", label: "Assignment" },
-  { value: "Presentation", label: "Presentation" },
-]
-
-const assignmentTypeValues = new Set<AssignmentType>(
-  assignmentTypes.map((type) => type.value),
-)
+export const assignmentTypes: Array<{ value: AssignmentType; label: AssignmentType }> = assignmentTypeValues.map((value) => ({ value, label: value }))
 
 const legacyAssignmentTypes = new Map<string, AssignmentType>([
   ["design", "Design"],
@@ -28,10 +18,6 @@ const legacyAssignmentTypes = new Map<string, AssignmentType>([
   ["science", "Assignment"],
   ["presentation", "Presentation"],
 ])
-
-export function isAssignmentType(value: string | null | undefined): value is AssignmentType {
-  return assignmentTypeValues.has(value as AssignmentType)
-}
 
 export function normalizeAssignmentType(value: string | null | undefined): AssignmentType {
   const trimmed = value?.trim()

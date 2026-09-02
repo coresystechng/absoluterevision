@@ -1,6 +1,7 @@
-import type { AssignmentPriority, AssignmentProgressStage, AssignmentStatus } from "@/types"
+import { getWorkflowStage, type WorkflowTone } from "@/lib/assignment-workflows"
+import type { AssignmentPriority, AssignmentProgressStage, AssignmentStatus, AssignmentType } from "@/types"
 
-export type SemanticTone = "success" | "warning" | "danger" | "info" | "neutral"
+export type SemanticTone = WorkflowTone
 
 export const semanticTextClassNames: Record<SemanticTone, string> = {
   success: "text-success-foreground",
@@ -22,15 +23,6 @@ export const statusPresentation: Record<AssignmentStatus, { label: string; tone:
   completed: { label: "Completed", tone: "success" },
 }
 
-export const progressStagePresentation: Record<AssignmentProgressStage, { label: string; progress: number; tone: SemanticTone }> = {
-  "ai-draft": { label: "AI Draft", progress: 15, tone: "danger" },
-  humaned: { label: "Humaned", progress: 30, tone: "warning" },
-  "grammar-check": { label: "Grammar Check", progress: 45, tone: "warning" },
-  "plagiarism-check": { label: "Plagiarism Check", progress: 60, tone: "info" },
-  "text-format": { label: "Text Format", progress: 75, tone: "info" },
-  "final-review": { label: "Final Review", progress: 90, tone: "success" },
-}
-
 export function getPriorityPresentation(priority: AssignmentPriority) {
   return priorityPresentation[priority]
 }
@@ -39,10 +31,15 @@ export function getStatusPresentation(status: AssignmentStatus) {
   return statusPresentation[status]
 }
 
-export function getProgressPresentation(status: AssignmentStatus, stage: AssignmentProgressStage) {
-  if (status === "not-started") return { ...progressStagePresentation[stage], progress: 0, tone: "neutral" as const }
-  if (status === "completed") return { ...progressStagePresentation[stage], progress: 100, tone: "success" as const }
-  return progressStagePresentation[stage] ?? progressStagePresentation["ai-draft"]
+export function getProgressPresentation(
+  status: AssignmentStatus,
+  stage: AssignmentProgressStage,
+  assignmentType: AssignmentType,
+) {
+  const presentation = getWorkflowStage(assignmentType, stage)
+  if (status === "not-started") return { ...presentation, progress: 0, tone: "neutral" as const }
+  if (status === "completed") return { ...presentation, progress: 100, tone: "success" as const }
+  return presentation
 }
 
 export function getDeadlinePresentation({ status, dueDate, dueTime, now = new Date() }: {

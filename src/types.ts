@@ -1,23 +1,13 @@
+import type { AssignmentProgressStage, AssignmentType } from "../shared/assignment-workflows"
+
+export type { AssignmentProgressStage, AssignmentType } from "../shared/assignment-workflows"
+
 export type AssignmentPriority = "high" | "medium" | "low"
-export type AssignmentType =
-  | "Design"
-  | "Copywriting"
-  | "Dissertation"
-  | "Assignment"
-  | "Presentation"
 
 export type AssignmentStatus =
   | "not-started"
   | "ongoing"
   | "completed"
-
-export type AssignmentProgressStage =
-  | "ai-draft"
-  | "humaned"
-  | "grammar-check"
-  | "plagiarism-check"
-  | "text-format"
-  | "final-review"
 
 export type AssignmentActivityAction = "created" | "updated"
 

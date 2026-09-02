@@ -10,6 +10,12 @@ import {
   normalizeAssignmentStatus,
 } from "@/lib/assignment-status"
 import { normalizeAssignmentType } from "@/lib/assignment-types"
+import {
+  getFinalWorkflowStage,
+  getInitialWorkflowStage,
+  isWorkflowStageForType,
+  mapWorkflowStageByPosition,
+} from "@/lib/assignment-workflows"
 import type {
   Assignment,
   AssignmentActivity,
@@ -18,6 +24,7 @@ import type {
   AssignmentProgressStage,
   AssignmentPriority,
   AssignmentStatus,
+  AssignmentType,
   TeamRole,
 } from "@/types"
 
@@ -58,7 +65,7 @@ type NormalizedAssignmentInput = {
   teamId: number | null
   assigneeUserId: string | null
   title: string
-  category: Assignment["category"]
+  category: AssignmentType
   priority: AssignmentPriority
   status: AssignmentStatus
   progressStage: AssignmentProgressStage
@@ -78,7 +85,8 @@ function getDisplayName(displayName: string | null, email: string | null) {
 
 function mapAssignment(row: AssignmentRow): Assignment {
   const status = normalizeAssignmentStatus(row.status)
-  const progressStage = normalizeAssignmentProgressStage(row.progress_stage ?? row.status)
+  const category = normalizeAssignmentType(row.category)
+  const progressStage = normalizeAssignmentProgressStage(row.progress_stage ?? row.status, category)
 
   return {
     id: row.id,
@@ -91,13 +99,13 @@ function mapAssignment(row: AssignmentRow): Assignment {
     assigneeName: getDisplayName(row.assignee_display_name, row.assignee_email),
     assigneeEmail: row.assignee_email,
     title: row.title,
-    category: normalizeAssignmentType(row.category),
+    category,
     priority: row.priority,
     status,
     progressStage,
     dueDate: toDateInputValue(row.due_date),
     dueTime: toTimeInputValue(row.due_time),
-    progress: getAssignmentProgress(status, progressStage),
+    progress: getAssignmentProgress(status, progressStage, category),
     notes: row.notes,
     createdAt: toIsoDateTime(row.created_at),
     updatedAt: toIsoDateTime(row.updated_at),
@@ -120,16 +128,25 @@ function mapActivity(row: AssignmentActivityRow): AssignmentActivity {
   }
 }
 
-function normalizeInput(input: AssignmentInput): NormalizedAssignmentInput {
+function normalizeInput(
+  input: AssignmentInput,
+  sourceType?: AssignmentType,
+): NormalizedAssignmentInput {
   const status = normalizeAssignmentStatus(input.status ?? "not-started")
-  const progressStage = normalizeInputProgressStage(status, input.progressStage)
-  const progress = getAssignmentProgress(status, progressStage)
+  const category = normalizeAssignmentType(input.category)
+  const progressStage = normalizeInputProgressStage(
+    category,
+    status,
+    input.progressStage,
+    sourceType,
+  )
+  const progress = getAssignmentProgress(status, progressStage, category)
 
   return {
     teamId: Number.isInteger(input.teamId) ? input.teamId ?? null : null,
     assigneeUserId: input.assigneeUserId?.trim() || null,
     title: input.title.trim(),
-    category: normalizeAssignmentType(input.category),
+    category,
     priority: input.priority ?? "medium",
     status,
     progressStage,
@@ -141,18 +158,28 @@ function normalizeInput(input: AssignmentInput): NormalizedAssignmentInput {
 }
 
 function normalizeInputProgressStage(
+  assignmentType: AssignmentType,
   status: AssignmentStatus,
   progressStage?: AssignmentProgressStage,
+  sourceType?: AssignmentType,
 ) {
   if (status === "not-started") {
-    return "ai-draft"
+    return getInitialWorkflowStage(assignmentType)
   }
 
   if (status === "completed") {
-    return "final-review"
+    return getFinalWorkflowStage(assignmentType)
   }
 
-  return normalizeAssignmentProgressStage(progressStage)
+  if (isWorkflowStageForType(assignmentType, progressStage)) {
+    return progressStage
+  }
+
+  if (sourceType) {
+    return mapWorkflowStageByPosition(sourceType, assignmentType, progressStage)
+  }
+
+  return normalizeAssignmentProgressStage(progressStage, assignmentType)
 }
 
 function normalizeActorName(actorName?: string | null) {
@@ -233,8 +260,10 @@ function buildActivityMessages(
   }
 
   if (previous.progressStage !== next.progressStage) {
+    const previousType = normalizeAssignmentType(previous.category)
+    const nextType = normalizeAssignmentType(next.category)
     messages.push(
-      `${actor} updated the progress of the assignment from ${getAssignmentProgressLabel(previous.progressStage)} to ${getAssignmentProgressLabel(next.progressStage)}`,
+      `${actor} updated the progress of the assignment from ${getAssignmentProgressLabel(previous.progressStage, previousType)} to ${getAssignmentProgressLabel(next.progressStage, nextType)}`,
     )
   }
 
@@ -485,7 +514,7 @@ export async function update(userId: string, id: number, input: AssignmentInput,
     }
 
     const previous = mapAssignment(current)
-    const data = normalizeInput(input)
+    const data = normalizeInput(input, normalizeAssignmentType(previous.category))
     const teamId = data.teamId ?? current.team_id
     await requireAdminTeam(userId, teamId)
     const assigneeUserId = data.assigneeUserId ?? current.assignee_user_id
@@ -552,12 +581,14 @@ export async function updateStatus(
     }
 
     const previous = mapAssignment(current)
+    const assignmentType = normalizeAssignmentType(previous.category)
     const nextStatus = normalizeAssignmentStatus(status)
     const progressStage = normalizeInputProgressStage(
+      assignmentType,
       nextStatus,
-      normalizeAssignmentProgressStage(current.progress_stage ?? current.status),
+      normalizeAssignmentProgressStage(current.progress_stage ?? current.status, assignmentType),
     )
-    const progress = getAssignmentProgress(nextStatus, progressStage)
+    const progress = getAssignmentProgress(nextStatus, progressStage, assignmentType)
     const rows = await query<{ id: number }>(
       `UPDATE assignments
        SET status = $2,
@@ -598,9 +629,10 @@ export async function updateProgressStage(
     }
 
     const previous = mapAssignment(current)
-    const nextProgressStage = normalizeAssignmentProgressStage(progressStage)
+    const assignmentType = normalizeAssignmentType(previous.category)
+    const nextProgressStage = normalizeAssignmentProgressStage(progressStage, assignmentType)
     const status: AssignmentStatus = "ongoing"
-    const progress = getAssignmentProgress(status, nextProgressStage)
+    const progress = getAssignmentProgress(status, nextProgressStage, assignmentType)
     const rows = await query<{ id: number }>(
       `UPDATE assignments
        SET status = $2,

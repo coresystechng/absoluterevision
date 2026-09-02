@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { getDeadlinePresentation, getPriorityPresentation, getProgressPresentation, getStatusPresentation, progressStagePresentation } from "@/lib/assignment-presentation"
+import { getDeadlinePresentation, getPriorityPresentation, getProgressPresentation, getStatusPresentation } from "@/lib/assignment-presentation"
+import { getAssignmentWorkflow } from "@/lib/assignment-workflows"
 
 describe("assignment presentation", () => {
   it("maps priorities and statuses to semantic tones", () => {
@@ -12,10 +13,10 @@ describe("assignment presentation", () => {
   })
 
   it("retains all six progress percentages and terminal overrides", () => {
-    expect(Object.values(progressStagePresentation).map(({ progress }) => progress)).toEqual([15, 30, 45, 60, 75, 90])
-    expect(getProgressPresentation("not-started", "final-review").progress).toBe(0)
-    expect(getProgressPresentation("completed", "ai-draft")).toMatchObject({ progress: 100, tone: "success" })
-    expect(getProgressPresentation("ongoing", "ai-draft")).toMatchObject({ progress: 15, tone: "danger" })
+    expect(getAssignmentWorkflow("Assignment").map(({ progress }) => progress)).toEqual([15, 30, 45, 60, 75, 90])
+    expect(getProgressPresentation("not-started", "final-review", "Assignment").progress).toBe(0)
+    expect(getProgressPresentation("completed", "ai-draft", "Assignment")).toMatchObject({ progress: 100, tone: "success" })
+    expect(getProgressPresentation("ongoing", "concept", "Design")).toMatchObject({ label: "Concept", progress: 15, tone: "danger" })
   })
 
   it("classifies deadline urgency with completed and missing fallbacks", () => {

@@ -110,4 +110,27 @@ describe("assignment access control", () => {
       progress: 100,
     })
   })
+
+  it("uses the Design workflow when an admin updates progress", async () => {
+    dbMocks.query
+      .mockResolvedValueOnce([assignmentRow({ category: "Design", progress_stage: "drafts" })])
+      .mockResolvedValueOnce([{ id: 42 }])
+      .mockResolvedValueOnce([
+        assignmentRow({ category: "Design", progress_stage: "feedback", progress: 60 }),
+      ])
+      .mockResolvedValueOnce([])
+
+    const assignment = await updateProgressStage("admin-user", 42, "feedback", "Admin")
+
+    const updateCall = dbMocks.query.mock.calls.find(([sql]) =>
+      /^\s*UPDATE assignments/.test(sql),
+    )
+    expect(updateCall?.[1]).toEqual([42, "ongoing", "feedback", 60])
+    expect(assignment).toMatchObject({
+      category: "Design",
+      status: "ongoing",
+      progressStage: "feedback",
+      progress: 60,
+    })
+  })
 })

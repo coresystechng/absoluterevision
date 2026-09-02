@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { getProgressPresentation, getStatusPresentation } from "@/lib/assignment-presentation"
+import { normalizeAssignmentType } from "@/lib/assignment-types"
 import {
   formatPublicDueDate,
   getPublicMilestones,
@@ -73,9 +74,14 @@ export function AssignmentTracking() {
   }
 
   const milestones = assignment ? getPublicMilestones(assignment) : []
-  const progress = assignment ? getPublicProgress(assignment.status, assignment.progressStage) : 0
+  const assignmentType = assignment ? normalizeAssignmentType(assignment.category) : null
+  const progress = assignment && assignmentType
+    ? getPublicProgress(assignmentType, assignment.status, assignment.progressStage)
+    : 0
   const statusPresentation = assignment ? getStatusPresentation(assignment.status) : null
-  const progressPresentation = assignment ? getProgressPresentation(assignment.status, assignment.progressStage) : null
+  const progressPresentation = assignment && assignmentType
+    ? getProgressPresentation(assignment.status, assignment.progressStage, assignmentType)
+    : null
 
   return (
     <div className="min-h-screen bg-background">
@@ -132,7 +138,7 @@ export function AssignmentTracking() {
                 <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
                   <div className="grid gap-2">
                     <div className="flex justify-between gap-4 text-sm font-medium">
-                      <span>{getPublicStageDetails(assignment.progressStage).label}</span>
+                      <span>{getPublicStageDetails(assignmentType!, assignment.progressStage).label}</span>
                       <span>{progress}%</span>
                     </div>
                     <Progress value={progress} tone={progressPresentation!.tone} aria-label="Assignment progress" />

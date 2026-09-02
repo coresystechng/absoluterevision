@@ -57,6 +57,15 @@ describe("public assignment status", () => {
     await expect(getPublicAssignmentStatus(reference, accessCode)).resolves.toMatchObject({ status: "not-started", progress: 0, progressStage: "ai-draft" })
   })
 
+  it("maps Design stages and percentages by workflow position", async () => {
+    db.query.mockResolvedValue([row({ category: "Design", progress_stage: "grammar-check" })])
+    await expect(getPublicAssignmentStatus(reference, accessCode)).resolves.toMatchObject({
+      category: "Design",
+      progressStage: "main-design",
+      progress: 45,
+    })
+  })
+
   it("serializes date-only values and returns exactly seven safe keys", async () => {
     db.query.mockResolvedValue([row({ category: "unknown", due_date: new Date("2026-08-20T23:00:00.000Z"), updated_at: new Date("2026-08-01T10:00:00.000Z") })])
     const result = await getPublicAssignmentStatus(reference, accessCode)

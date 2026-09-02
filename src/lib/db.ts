@@ -280,6 +280,26 @@ export function initDb() {
       END
       WHERE status NOT IN ('not-started', 'ongoing', 'completed')
     `)
+    await query(`
+      UPDATE assignments
+      SET progress_stage = CASE progress_stage
+        WHEN 'ai-draft' THEN 'concept'
+        WHEN 'humaned' THEN 'drafts'
+        WHEN 'grammar-check' THEN 'main-design'
+        WHEN 'plagiarism-check' THEN 'feedback'
+        WHEN 'text-format' THEN 'clean-up'
+        ELSE 'final-review'
+      END
+      WHERE category = 'Design'
+        AND progress_stage IN (
+          'ai-draft',
+          'humaned',
+          'grammar-check',
+          'plagiarism-check',
+          'text-format',
+          'final-review'
+        )
+    `)
   })()
 
   return initPromise

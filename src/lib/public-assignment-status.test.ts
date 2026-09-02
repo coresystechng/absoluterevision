@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatPublicDueDate, getPublicMilestones, getPublicProgress, getPublicStageDetails, getPublicStatusLabel, normalizeTrackingAccessCode, normalizeTrackingCode, normalizeTrackingReference, publicProgressStages, splitTrackingCode } from "./public-assignment-status"
+import { formatPublicDueDate, getPublicMilestones, getPublicProgress, getPublicProgressStages, getPublicStageDetails, getPublicStatusLabel, normalizeTrackingAccessCode, normalizeTrackingCode, normalizeTrackingReference, splitTrackingCode } from "./public-assignment-status"
 
 describe("public tracking helpers", () => {
   it("validates pasted codes and labels every public status", () => {
@@ -14,19 +14,22 @@ describe("public tracking helpers", () => {
   })
 
   it("exposes the six client-friendly stage labels", () => {
-    expect(publicProgressStages.map((stage) => stage.label)).toEqual([
+    expect(getPublicProgressStages("Assignment").map((stage) => stage.label)).toEqual([
       "Initial draft", "Expert editing", "Grammar check", "Plagiarism check", "Formatting", "Final quality check",
     ])
-    expect(getPublicStageDetails("final-review").progress).toBe(90)
+    expect(getPublicProgressStages("Design").map((stage) => stage.label)).toEqual([
+      "Concept", "Drafts", "Main design", "Feedback", "Clean up", "Final review",
+    ])
+    expect(getPublicStageDetails("Design", "final-review").progress).toBe(90)
   })
 
   it("derives milestone boundaries and calculated progress", () => {
-    expect(getPublicMilestones({ status: "not-started", progressStage: "humaned" }).every((item) => item.state === "upcoming")).toBe(true)
-    expect(getPublicMilestones({ status: "ongoing", progressStage: "ai-draft" })[0].state).toBe("current")
-    expect(getPublicMilestones({ status: "ongoing", progressStage: "humaned" }).slice(0, 2).map((item) => item.state)).toEqual(["complete", "current"])
-    expect(getPublicMilestones({ status: "completed", progressStage: "ai-draft" }).every((item) => item.state === "complete")).toBe(true)
-    expect(getPublicProgress("not-started", "humaned")).toBe(0)
-    expect(getPublicProgress("completed", "humaned")).toBe(100)
+    expect(getPublicMilestones({ category: "Assignment", status: "not-started", progressStage: "humaned" }).every((item) => item.state === "upcoming")).toBe(true)
+    expect(getPublicMilestones({ category: "Assignment", status: "ongoing", progressStage: "ai-draft" })[0].state).toBe("current")
+    expect(getPublicMilestones({ category: "Design", status: "ongoing", progressStage: "drafts" }).slice(0, 2).map((item) => item.state)).toEqual(["complete", "current"])
+    expect(getPublicMilestones({ category: "Assignment", status: "completed", progressStage: "ai-draft" }).every((item) => item.state === "complete")).toBe(true)
+    expect(getPublicProgress("Assignment", "not-started", "humaned")).toBe(0)
+    expect(getPublicProgress("Design", "completed", "feedback")).toBe(100)
   })
 
   it("formats null due dates safely", () => {

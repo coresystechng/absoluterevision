@@ -3,7 +3,18 @@ import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import {
   Dialog,
   DialogContent,
@@ -23,9 +34,10 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  assignmentProgressStages,
   assignmentStatuses,
   getAssignmentProgress,
+  getAssignmentProgressStages,
+  normalizeAssignmentProgressStage,
 } from "@/lib/assignment-status"
 import {
   assignmentFileCategories,
@@ -36,6 +48,11 @@ import {
   defaultAssignmentType,
   normalizeAssignmentType,
 } from "@/lib/assignment-types"
+import {
+  getFinalWorkflowStage,
+  getInitialWorkflowStage,
+  mapWorkflowStageByPosition,
+} from "@/lib/assignment-workflows"
 import type {
   Assignment,
   AssignmentFileCategory,
@@ -54,6 +71,8 @@ const priorityOptions: Array<{ value: AssignmentPriority; label: string }> = [
   { value: "low", label: "Low" },
 ]
 
+const emptyTeamMembers: TeamMember[] = []
+
 type AssignmentForm = Required<Omit<AssignmentInput, "teamId" | "assigneeUserId">> & {
   teamId?: number
   assigneeUserId?: string
@@ -62,22 +81,23 @@ type AssignmentForm = Required<Omit<AssignmentInput, "teamId" | "assigneeUserId"
 function getInitialForm(
   assignment?: Assignment,
   teamId?: number | null,
-  teamMembers: TeamMember[] = [],
+  teamMembers: TeamMember[] = emptyTeamMembers,
 ): AssignmentForm {
   const status = assignment?.status ?? "not-started"
-  const progressStage = assignment?.progressStage ?? "ai-draft"
+  const category = normalizeAssignmentType(assignment?.category)
+  const progressStage = normalizeAssignmentProgressStage(assignment?.progressStage, category)
 
   return {
     teamId: assignment?.teamId ?? teamId ?? undefined,
     assigneeUserId: assignment?.assigneeUserId ?? teamMembers[0]?.userId,
     title: assignment?.title ?? "",
-    category: normalizeAssignmentType(assignment?.category),
+    category,
     priority: assignment?.priority ?? "medium",
     status,
     progressStage,
     dueDate: assignment?.dueDate ?? "",
     dueTime: assignment?.dueTime ?? "",
-    progress: getAssignmentProgress(status, progressStage),
+    progress: getAssignmentProgress(status, progressStage, category),
     notes: assignment?.notes ?? "",
   }
 }
@@ -100,7 +120,7 @@ export function AssignmentDialog({
   onOpenChange,
   assignment,
   teamId,
-  teamMembers = [],
+  teamMembers = emptyTeamMembers,
   canAssign = false,
   onSave,
 }: AssignmentDialogProps) {
@@ -108,43 +128,80 @@ export function AssignmentDialog({
   const [fileCategory, setFileCategory] = useState<AssignmentFileCategory>("brief")
   const [selectedFiles, setSelectedFiles] = useState<AssignmentFileUpload[]>([])
   const [isSaving, setIsSaving] = useState(false)
+  const [pendingAssignmentType, setPendingAssignmentType] = useState<AssignmentType | null>(null)
+
+  const assignmentType = normalizeAssignmentType(form.category)
+  const progressStages = getAssignmentProgressStages(assignmentType)
 
   useEffect(() => {
     if (open) {
       setForm(getInitialForm(assignment, teamId, teamMembers))
       setFileCategory("brief")
       setSelectedFiles([])
+      setPendingAssignmentType(null)
     }
   }, [assignment, open, teamId, teamMembers])
 
   const updateStatus = (status: AssignmentStatus) => {
-    setForm((current) => ({
-      ...current,
-      status,
-      progressStage:
-        status === "completed"
-          ? "final-review"
-          : status === "not-started"
-            ? "ai-draft"
-            : current.progressStage,
-      progress: getAssignmentProgress(
+    setForm((current) => {
+      const currentType = normalizeAssignmentType(current.category)
+      const progressStage = status === "completed"
+        ? getFinalWorkflowStage(currentType)
+        : status === "not-started"
+          ? getInitialWorkflowStage(currentType)
+          : normalizeAssignmentProgressStage(current.progressStage, currentType)
+
+      return {
+        ...current,
         status,
-        status === "completed"
-          ? "final-review"
-          : status === "not-started"
-            ? "ai-draft"
-            : current.progressStage,
-      ),
-    }))
+        progressStage,
+        progress: getAssignmentProgress(status, progressStage, currentType),
+      }
+    })
   }
 
   const updateProgressStage = (progressStage: AssignmentProgressStage) => {
-    setForm((current) => ({
-      ...current,
-      status: "ongoing",
-      progressStage,
-      progress: getAssignmentProgress("ongoing", progressStage),
-    }))
+    setForm((current) => {
+      const currentType = normalizeAssignmentType(current.category)
+      const normalizedStage = normalizeAssignmentProgressStage(progressStage, currentType)
+      return {
+        ...current,
+        status: "ongoing",
+        progressStage: normalizedStage,
+        progress: getAssignmentProgress("ongoing", normalizedStage, currentType),
+      }
+    })
+  }
+
+  const applyAssignmentType = (nextType: AssignmentType, resetWorkflow = false) => {
+    setForm((current) => {
+      const currentType = normalizeAssignmentType(current.category)
+      const mappedStage = resetWorkflow
+        ? getInitialWorkflowStage(nextType)
+        : mapWorkflowStageByPosition(currentType, nextType, current.progressStage)
+      const progressStage = current.status === "not-started"
+        ? getInitialWorkflowStage(nextType)
+        : current.status === "completed"
+          ? getFinalWorkflowStage(nextType)
+          : mappedStage
+
+      return {
+        ...current,
+        category: nextType,
+        progressStage,
+        progress: getAssignmentProgress(current.status, progressStage, nextType),
+      }
+    })
+    setPendingAssignmentType(null)
+  }
+
+  const requestAssignmentTypeChange = (nextType: AssignmentType) => {
+    if (nextType === assignmentType) return
+    if (assignment) {
+      setPendingAssignmentType(nextType)
+      return
+    }
+    applyAssignmentType(nextType)
   }
 
   const addSelectedFiles = (fileList: FileList | null) => {
@@ -197,11 +254,12 @@ export function AssignmentDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-2xl"
-        onPointerDownOutside={(event) => event.preventDefault()}
-      >
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="max-w-2xl"
+          onPointerDownOutside={(event) => event.preventDefault()}
+        >
         <DialogHeader>
           <DialogTitle>{assignment ? "Edit assignment" : "New assignment"}</DialogTitle>
           <DialogDescription>
@@ -225,7 +283,7 @@ export function AssignmentDialog({
               <Label htmlFor="assignment-type">Type</Label>
               <Select
                 value={form.category ?? defaultAssignmentType}
-                onValueChange={(value) => setForm((current) => ({ ...current, category: value as AssignmentType }))}
+                onValueChange={(value) => requestAssignmentTypeChange(value as AssignmentType)}
               >
                 <SelectTrigger id="assignment-type">
                   <SelectValue placeholder="Select type" />
@@ -327,7 +385,7 @@ export function AssignmentDialog({
                   <SelectValue placeholder="Select progress" />
                 </SelectTrigger>
                 <SelectContent>
-                  {assignmentProgressStages.map((option) => (
+                  {progressStages.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -427,7 +485,40 @@ export function AssignmentDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={pendingAssignmentType !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPendingAssignmentType(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change assignment type?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The progress workflow will change to {pendingAssignmentType ?? "the selected type"}.
+              Keep the current step number to preserve progress, or reset the workflow to its first step.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: "outline" })}
+              onClick={() => pendingAssignmentType && applyAssignmentType(pendingAssignmentType, true)}
+            >
+              Reset workflow
+            </AlertDialogAction>
+            <AlertDialogAction
+              className={buttonVariants()}
+              onClick={() => pendingAssignmentType && applyAssignmentType(pendingAssignmentType)}
+            >
+              Keep current step
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

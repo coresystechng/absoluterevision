@@ -70,7 +70,11 @@ export function AssignmentCard({
   const assignmentType = normalizeAssignmentType(assignment.category)
   const AssignmentTypeIcon = assignmentTypeIcons[assignmentType]
   const progress = Math.min(Math.max(assignment.progress, 0), 100)
-  const progressPresentation = getProgressPresentation(assignment.status, assignment.progressStage)
+  const progressPresentation = getProgressPresentation(
+    assignment.status,
+    assignment.progressStage,
+    assignmentType,
+  )
   const priorityPresentation = getPriorityPresentation(assignment.priority)
   const deadlinePresentation = getDeadlinePresentation(assignment)
 
