@@ -58,6 +58,7 @@ function LoginForm() {
   const [accessToken, setAccessToken] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [inviteMessage, setInviteMessage] = useState("")
+  const [pendingEnrollment, setPendingEnrollment] = useState<{ token: string; email: string } | null>(null)
   const requestedDestination = (location.state as { from?: unknown } | null)?.from
   const destination = typeof requestedDestination === "string" && requestedDestination.startsWith("/") && !requestedDestination.startsWith("//")
     ? requestedDestination
@@ -67,7 +68,7 @@ function LoginForm() {
     return <RoutePending label="Checking your session" />
   }
 
-  if (session.data) {
+  if (session.data && !isSubmitting && !pendingEnrollment) {
     return <Navigate to={destination} replace />
   }
 
@@ -76,7 +77,11 @@ function LoginForm() {
     setIsSubmitting(true)
 
     try {
-      if (isSignUp) {
+      if (pendingEnrollment) {
+        const receipt = await reserveSignupInvite(pendingEnrollment.token, pendingEnrollment.email)
+        await redeemSignupInvite(pendingEnrollment.token, pendingEnrollment.email, receipt)
+        setPendingEnrollment(null)
+      } else if (isSignUp) {
         if (!accessToken.trim()) {
           setInviteMessage("Registration is currently private. Ask the Absolute Revision team for a one-time access token, then enter it here to create your account.")
           return
@@ -84,17 +89,19 @@ function LoginForm() {
         const receipt = await reserveSignupInvite(accessToken, email)
         let accountCreated = false
         try {
-          await authClient.signUp.email({
+          const result = await authClient.signUp.email({
             email,
             password,
             name: name.trim() || email.split("@")[0] || "New user",
             callbackURL: destination,
           })
+          if (result.error) throw new Error(result.error.message ?? "Could not create account.")
           accountCreated = true
+          setPendingEnrollment({ token: accessToken, email })
           await redeemSignupInvite(accessToken, email, receipt)
+          setPendingEnrollment(null)
         } catch (error) {
-          if (accountCreated) await authClient.signOut().catch(() => undefined)
-          await releaseSignupInvite(accessToken, email, receipt)
+          if (!accountCreated) await releaseSignupInvite(accessToken, email, receipt)
           throw error
         }
       } else {
@@ -137,6 +144,7 @@ function LoginForm() {
           </CardHeader>
           <CardContent>
             <form className="grid gap-4" onSubmit={submit}>
+              {pendingEnrollment ? <p role="status" className="text-sm text-muted-foreground">Your account is created. Finish joining your invited team below. If it fails, you can retry without creating another account.</p> : null}
               {isSignUp ? (
                 <div className="grid gap-2">
                   <Label htmlFor="name">Name</Label>
@@ -157,6 +165,7 @@ function LoginForm() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   autoComplete="email"
+                  disabled={Boolean(pendingEnrollment)}
                   required
                 />
               </div>
@@ -170,6 +179,7 @@ function LoginForm() {
                     onChange={(event) => setAccessToken(event.target.value)}
                     autoComplete="off"
                     spellCheck={false}
+                    disabled={Boolean(pendingEnrollment)}
                     placeholder="INV-XXXXXX-XXXXXX-XXXXXX"
                   />
                   <p className="text-xs leading-5 text-muted-foreground">Registration is invite-only. Contact our team if you have been approved but have not received a token.</p>
@@ -184,12 +194,13 @@ function LoginForm() {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete={isSignUp ? "new-password" : "current-password"}
-                  required
+                  required={!pendingEnrollment}
+                  disabled={Boolean(pendingEnrollment)}
                 />
               </div>
 
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Please wait..." : isSignUp ? "Create account" : "Sign in"}
+                {isSubmitting ? "Please wait..." : pendingEnrollment ? "Finish joining team" : isSignUp ? "Create account" : "Sign in"}
               </Button>
             </form>
 

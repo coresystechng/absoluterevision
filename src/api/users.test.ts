@@ -7,7 +7,7 @@ const dbMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => dbMocks)
 
-import { updateActiveTeamSelection, updateDashboardFilters } from "@/api/users"
+import { getOrCreateUser, updateActiveTeamSelection, updateDashboardFilters } from "@/api/users"
 
 function userRow(activeTeamId: number) {
   return {
@@ -29,6 +29,13 @@ beforeEach(() => {
   dbMocks.initDb.mockReset()
   dbMocks.initDb.mockResolvedValue(undefined)
   dbMocks.query.mockReset()
+})
+
+it("keeps invited users on their issuing team without creating a personal team or sample assignments", async () => {
+  dbMocks.query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 12 }]).mockResolvedValueOnce([userRow(12)])
+  const profile = await getOrCreateUser({ id: "user-1", email: "writer@example.com", displayName: "Writer" })
+  expect(profile.activeTeamId).toBe(12)
+  expect(dbMocks.query.mock.calls.some(([sql]) => sql.includes("INSERT INTO teams") || sql.includes("INSERT INTO assignments"))).toBe(false)
 })
 
 describe("active team preferences", () => {

@@ -26,6 +26,7 @@ VITE_NEON_AUTH_URL=
 VITE_DROPBOX_OWNER_USER_ID=
 
 NEON_DATABASE_URL=
+NEON_AUTH_URL=
 DROPBOX_OWNER_USER_ID=
 DROPBOX_CLIENT_ID=
 DROPBOX_CLIENT_SECRET=
@@ -69,6 +70,16 @@ VITE_NEON_AUTH_URL=
 The app initializes the `users` and `assignments` tables on first database access and seeds starter assignments for newly created user rows.
 
 The current SPA architecture uses `VITE_NEON_DATABASE_URL`, which exposes the database URL to the browser. For a hardened production architecture, move Neon queries behind serverless API routes or enforce database-side authorization so clients cannot bypass scoped frontend queries.
+
+## Team Signup Invitations
+
+Team admins can use **Settings → Teams → Invite new users** to generate an access token for a recipient's email. The token is single-use, expires after seven days, and automatically adds the new account to the issuing team as a member. Copy the invitation or open an email draft to send it through your email app. Plaintext tokens are shown only when created; generate another invitation if a token is lost. Pending invitations can be revoked in Settings.
+
+Existing registered users can be added to other teams with **Add member**. New invited users begin in their issuing team without receiving a separate personal team or sample assignments.
+
+Configure `NEON_AUTH_URL` on the server to match `VITE_NEON_AUTH_URL` (the server falls back to the latter). Invitation APIs verify the signed Neon Auth session token using that service's `/jwks` endpoint and check team administrator membership. `NEON_DATABASE_URL` must target the same database as the app. Invitation schema columns are added automatically on first server database initialization.
+
+These controls protect invitation management and team enrollment. The existing browser-driven Neon account creation still requires provider-side signup restrictions for strict invite-only account creation; direct database credentials in the SPA remain an independent authorization concern.
 
 ## Dropbox Assignment Files
 

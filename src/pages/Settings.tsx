@@ -10,6 +10,7 @@ import {
   updateProfile,
 } from "@/api/users"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
+import { SignupInvitations } from "@/components/SignupInvitations"
 import { MultiSelectFilter } from "@/components/MultiSelectFilter"
 import { Navbar } from "@/components/Navbar"
 import { StatePanel } from "@/components/StatePanel"
@@ -545,6 +546,8 @@ export function Settings({
 
             <Separator />
 
+            {activeTeam && canManageActiveTeam ? <><SignupInvitations key={activeTeam.id} teamId={activeTeam.id} teamName={activeTeam.name} /><Separator /></> : null}
+
             <section className="grid gap-4" aria-labelledby="members-heading">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -562,7 +565,7 @@ export function Settings({
                   onSubmit={addMember}
                 >
                   <div className="grid gap-2">
-                    <Label htmlFor="member-email">Invite by email</Label>
+                    <Label htmlFor="member-email">Existing user's email</Label>
                     <Input
                       id="member-email"
                       type="email"

@@ -46,6 +46,11 @@ function getDefaultTeamName(user: Pick<AuthUser, "email" | "displayName">) {
 }
 
 async function getOrCreateDefaultTeam(user: AuthUser) {
+  const membership = await query<TeamRow>(
+    `SELECT team_id AS id FROM team_memberships WHERE user_id = $1 ORDER BY id ASC LIMIT 1`,
+    [user.id],
+  )
+  if (membership[0]) return membership[0].id
   const existing = await query<TeamRow>(
     "SELECT id FROM teams WHERE admin_user_id = $1 ORDER BY id ASC LIMIT 1",
     [user.id],

@@ -197,6 +197,7 @@ export function initDb() {
       WHERE NOT EXISTS (
         SELECT 1 FROM teams WHERE teams.admin_user_id = users.id
       )
+      AND NOT EXISTS (SELECT 1 FROM team_memberships WHERE team_memberships.user_id = users.id)
     `)
     await query(`
       INSERT INTO team_memberships (team_id, user_id, role)

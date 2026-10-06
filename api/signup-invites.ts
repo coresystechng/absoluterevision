@@ -2,6 +2,7 @@ import { isFilesDatabaseConfigured } from "../server/api/db.js"
 import { releaseSignupInvite, redeemSignupInvite, reserveSignupInvite } from "../server/api/signup-invites.js"
 import { HttpError, handleApiError, readJsonBody, requireMethod, sendJson, type ApiRequest, type ApiResponse } from "../server/api/http.js"
 import { enforceRateLimit } from "../server/api/rate-limit.js"
+import { requireVerifiedUser } from "../server/api/session.js"
 
 const invalidMessage = "Registration is invite-only. Request a valid access token from Absolute Revision."
 
@@ -25,7 +26,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return
     }
     if (action === "redeem") {
-      if (!await redeemSignupInvite(token, email, receipt)) throw new HttpError(403, invalidMessage)
+      const user = await requireVerifiedUser(req)
+      if (user.email !== email.trim().toLowerCase()) throw new HttpError(403, invalidMessage)
+      if (!await redeemSignupInvite(token, email, receipt, user)) throw new HttpError(403, invalidMessage)
       sendJson(res, 200, { redeemed: true })
       return
     }

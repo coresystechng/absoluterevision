@@ -103,6 +103,9 @@ export function initFilesDb() {
       )
     `)
     await query("ALTER TABLE signup_invites ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ")
+    await query("ALTER TABLE signup_invites ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE")
+    await query("ALTER TABLE signup_invites ADD COLUMN IF NOT EXISTS created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL")
+    await query("ALTER TABLE signup_invites ADD COLUMN IF NOT EXISTS invited_email TEXT")
     await query("CREATE INDEX IF NOT EXISTS signup_invites_available_idx ON signup_invites(token_hash, redeemed_at, revoked_at, expires_at)")
 
     await query(`
@@ -199,6 +202,7 @@ export function initFilesDb() {
       WHERE NOT EXISTS (
         SELECT 1 FROM teams WHERE teams.admin_user_id = users.id
       )
+      AND NOT EXISTS (SELECT 1 FROM team_memberships WHERE team_memberships.user_id = users.id)
     `)
     await query(`
       INSERT INTO team_memberships (team_id, user_id, role)
