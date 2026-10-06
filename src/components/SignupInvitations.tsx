@@ -17,7 +17,7 @@ export function SignupInvitations({ teamId, teamName }: { teamId: number; teamNa
   useEffect(() => {
     let cancelled = false
     listTeamSignupInvites(teamId).then(({ invites: rows }) => { if (!cancelled) setInvites(rows) })
-      .catch(() => { if (!cancelled) setError("Could not load invitations.") })
+      .catch((error: unknown) => { if (!cancelled) setError(error instanceof Error ? error.message : "Could not load invitations.") })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [teamId])
