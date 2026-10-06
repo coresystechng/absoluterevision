@@ -3,9 +3,10 @@ import { getNeonAuthClient } from "@/lib/auth"
 export class SignupInviteError extends Error {}
 
 export async function invitationAuthHeaders() {
-  // Request a fresh signed JWT, rather than relying on a cached session token.
-  const result = await getNeonAuthClient().token()
-  const token = result.data?.token
+  // This SDK exposes the signed JWT on the session, including cached sessions.
+  // Its session cache refreshes when the JWT expires.
+  const result = await getNeonAuthClient().getSession()
+  const token = result.data?.session?.token
   if (!token) throw new SignupInviteError("Sign in to manage invitations.")
   return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
 }

@@ -77,7 +77,7 @@ Team admins can use **Settings → Teams → Invite new users** to generate an a
 
 Existing registered users can be added to other teams with **Add member**. New invited users begin in their issuing team without receiving a separate personal team or sample assignments.
 
-Configure `NEON_AUTH_URL` on the server to match `VITE_NEON_AUTH_URL` (the server falls back to the latter). Invitation APIs request a fresh signed JWT and verify it using that service's `/.well-known/jwks.json` endpoint. The expected issuer and audience are the Auth URL's origin, without its path. The APIs also check team administrator membership. `NEON_DATABASE_URL` must target the same database as the app. Invitation schema columns are added automatically on first server database initialization.
+Configure `NEON_AUTH_URL` on the server to match `VITE_NEON_AUTH_URL` (the server falls back to the latter). Invitation requests use the signed JWT from `getSession().data.session.token`; the installed SDK caches sessions and refreshes them when the JWT expires. The server verifies it using that service's `/.well-known/jwks.json` endpoint. The expected issuer and audience are the Auth URL's origin, without its path. The APIs also check team administrator membership. `NEON_DATABASE_URL` must target the same database as the app. Invitation schema columns are added automatically on first server database initialization.
 
 These controls protect invitation management and team enrollment. The existing browser-driven Neon account creation still requires provider-side signup restrictions for strict invite-only account creation; direct database credentials in the SPA remain an independent authorization concern.
 
