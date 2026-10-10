@@ -8,7 +8,6 @@ import {
   Mail,
   Phone,
   Send,
-  ShieldCheck,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -16,7 +15,6 @@ import {
   submitDocumentUpload,
   type DocumentUploadResult,
 } from "@/api/document-upload"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
