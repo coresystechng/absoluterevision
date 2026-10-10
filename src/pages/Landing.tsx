@@ -11,7 +11,6 @@ import {
   Mail,
   Phone,
   ShieldCheck,
-  Sparkles,
   WalletCards,
 } from "lucide-react"
 
@@ -32,49 +31,37 @@ import privacyPolicyUrl from "../../assets/privacy.md?url"
 import termsUrl from "../../assets/terms.md?url"
 import heroImage from "../../img/hero-students.jpg"
 import logoImage from "../../img/icon.png"
-import partnerLogoOne from "../../img/prt-1.png"
-import partnerLogoTwo from "../../img/prt-2.png"
-import partnerLogoThree from "../../img/prt-3.png"
-import partnerLogoFour from "../../img/prt-4.png"
 import serviceImage from "../../img/slide (1).jpg"
 import aboutImage from "../../img/stx-1.jpg"
 
 const documentUploadUrl = "/document-upload"
 const supportEmail = "support@absoluterevision.com"
-const phoneDisplay = "+1 937 249 0400"
+const phoneDisplay = "+234 902 436 4876"
 const phoneHref = "tel:+19372490400"
 
 const navLinks = [
   { label: "Track assignment", href: "/track-assignment" },
   { label: "About", href: "#about" },
-  { label: "Reviews", href: "#reviews" },
   { label: "Services", href: "#services" },
   { label: "FAQ", href: "#faq" },
   { label: "Contact", href: "#contact" },
 ]
 
-const stats = [
-  { value: "12,000+", label: "clients served globally" },
-  { value: "25,000+", label: "documents edited" },
-  { value: "50M+", label: "words revised" },
-  { value: "4 days", label: "standard turnaround" },
-]
-
 const services = [
   {
-    title: "Essays & Assignments",
+    title: "Assignments",
     description:
       "Our editors help you score better grades by ensuring you submit impressive assignments and essays with polished language, referencing, and formatting.",
     icon: BookOpenCheck,
   },
   {
-    title: "Dissertations, Thesis & Research Papers",
+    title: "Dissertations",
     description:
       "Our skilled editors make sure your thesis and research papers adhere to the highest standards of academic integrity, using ideal academic language, accurate referencing, and perfect formatting.",
     icon: GraduationCap,
   },
   {
-    title: "Articles & Journals",
+    title: "Journals",
     description:
       "Our experienced editors assist you in creating articles that are flawlessly formatted, make an impact, and adhere to major magazines' and journals' requirements.",
     icon: FileText,
@@ -108,29 +95,6 @@ const benefits = [
   },
 ]
 
-const testimonials = [
-  {
-    name: "Shedrack Oche",
-    quote:
-      "I had an amazing experience working with your team. They went above and beyond to make sure I was happy with the final product.",
-  },
-  {
-    name: "Fatima Muhammad",
-    quote:
-      "I was blown away by the quality of work and attention to detail provided by your team. I would highly recommend them to anyone.",
-  },
-  {
-    name: "Francis Chukwuemeka",
-    quote:
-      "Working with your company was an absolute pleasure. Their communication and customer service was top-notch.",
-  },
-  {
-    name: "Emmanuel Ese",
-    quote:
-      "Working with Absolute Revision was a delightful experience. Their communication and customer service were excellent.",
-  },
-]
-
 const faqs = [
   {
     question: "What are your prices?",
@@ -154,7 +118,7 @@ const faqs = [
   {
     question: "What's the turnaround time?",
     answer:
-      "Our standard turnaround time is 4 days. There is an extra cost if you want the work completed in less than 4 days. Editing and proofreading a thesis, book, or novel may take longer, so feel free to discuss your deadline with us.",
+      "Our standard turnaround time is 7 days. There is an extra cost if you want the work completed in less than 7 days. Editing and proofreading a thesis, book, or novel may take longer, so feel free to discuss your deadline with us.",
   },
   {
     question: "Do you edit other documents?",
@@ -172,10 +136,7 @@ const footerLinks = [
   { label: "Track assignment", href: "/track-assignment" },
   { label: "Sign Up", href: "/sign-up" },
   { label: "Back To Top", href: "#top" },
-  { label: "About Us", href: "#about" },
-  { label: "Why Choose Us", href: "#why-choose" },
   { label: "Our Services", href: "#services" },
-  { label: "Pricing", href: "/pricing.html" },
 ]
 
 const socialLinks = [
@@ -183,8 +144,6 @@ const socialLinks = [
   { label: "Telegram", href: "https://t.me/AbsoluteRevision" },
   { label: "Instagram", href: "https://Instagram.com/absoluterevision" },
 ]
-
-const partnerLogos = [partnerLogoOne, partnerLogoTwo, partnerLogoThree, partnerLogoFour]
 
 function submitContactForm(event: FormEvent<HTMLFormElement>) {
   event.preventDefault()
@@ -246,17 +205,12 @@ export function Landing() {
         <div className="absolute inset-0 bg-black/60" />
 
         <div className="relative mx-auto flex min-h-[78svh] max-w-6xl flex-col justify-center px-4 py-12 text-white sm:py-16">
-          <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-md border border-white/25 bg-white/10 px-3 py-1 text-sm text-white/85 backdrop-blur">
-            <ShieldCheck className="h-4 w-4" />
-            Trusted academic editing, proofreading, and formatting
-          </div>
-
           <h1 className="max-w-4xl text-3xl font-semibold tracking-normal text-white sm:text-5xl lg:text-6xl">
-            High-Quality English Editing & Proofreading Services for Academic & Research Papers
+            High-Quality Services for Academic & Research Papers
           </h1>
 
           <p className="mt-6 max-w-2xl text-base leading-7 text-white/82 sm:text-lg sm:leading-8">
-            Are you planning to submit a report, essay, proposal, business document, or publish your article in a reputable journal or magazine? Our expert editors will edit and proofread your manuscript as soon as possible.
+            Are you planning to submit an assessment, assignment, essay, proposal, business document, or a dissertation? Our expert editors will edit and proofread your manuscript.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -293,15 +247,14 @@ export function Landing() {
       </section>
 
       <section className="border-b bg-muted/30 px-4 py-16 lg:py-20" aria-labelledby="tracking-heading">
-        <div className="mx-auto grid max-w-6xl gap-8 rounded-xl border bg-background p-6 shadow-sm sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center lg:p-10">
+        <div className="mx-auto grid max-w-6xl gap-8 rounded-xl border bg-surface-raised p-6 shadow-sm sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center lg:p-10">
           <div className="flex gap-5">
             <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground sm:flex">
               <ListChecks className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Clear progress, whenever you need it</p>
               <h2 id="tracking-heading" className="mt-2 text-3xl font-semibold tracking-normal">Track your assignment from receipt to final review</h2>
-              <p className="mt-4 max-w-3xl leading-7 text-muted-foreground">Use the private reference and access code provided by our team to see the current stage, due date, and overall progress. Your details are submitted securely and never placed in the page URL.</p>
+              <p className="mt-4 max-w-3xl leading-7 text-muted-foreground">We have provided a private way to track the progress of any paper you assign to us. Your details are safe and secure.</p>
             </div>
           </div>
           <Button size="lg" asChild className="w-fit lg:ml-6">
@@ -310,18 +263,7 @@ export function Landing() {
         </div>
       </section>
 
-      <section className="border-y bg-muted/30">
-        <div className="mx-auto grid max-w-6xl gap-4 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
-            <div key={stat.label} className="rounded-lg border bg-card p-5">
-              <p className="text-3xl font-semibold">{stat.value}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="about" className="scroll-mt-24 px-4 py-16 lg:py-24">
+      <section id="about" className="border-b bg-surface-raised scroll-mt-24 px-4 py-16 lg:py-24">
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="overflow-hidden rounded-lg border bg-muted">
             <img
@@ -332,19 +274,15 @@ export function Landing() {
           </div>
 
           <div className="flex flex-col justify-center">
-            <p className="text-sm font-medium uppercase text-muted-foreground">About Us</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
-              Superior editing, proofreading, and formatting for serious manuscripts.
+              About Us
             </h2>
             <div className="mt-6 grid gap-4 text-base leading-7 text-muted-foreground">
               <p>
-                Absolute Revision offers superior editing, proofreading, and formatting services to researchers, authors, students, and businesses. Absolute Revision has several years of experience serving 12,000+ clients globally.
+                Absolute Revision offers superior editing, proofreading, and formatting services to researchers, authors, students, and businesses. Absolute Revision has several years of experience serving 100+ clients globally.
               </p>
               <p>
-                Because we value your manuscript and your confidence in us, we work hard to provide outstanding service every single time. We appoint professionals to revise and proofread your paper's language, and we support you if you require further help at no additional cost.
-              </p>
-              <p>
-                Our expert editors are native English speakers who have earned advanced degrees from prestigious institutions in the UK, US, Australia, and Canada.
+                Because we value your manuscript and your confidence in us, we work hard to provide outstanding service every single time. We appoint professionals to revise and proofread your paper, and we support you if you require further help at no additional cost.
               </p>
             </div>
             <Button asChild className="mt-8 w-fit">
@@ -356,52 +294,11 @@ export function Landing() {
         </div>
       </section>
 
-      <section id="reviews" className="scroll-mt-24 border-y bg-muted/30 px-4 py-16 lg:py-24">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.9fr_1.1fr]">
-          <div>
-            <p className="text-sm font-medium uppercase text-muted-foreground">Our Story</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
-              Trusted and reliable around the world.
-            </h2>
-            <p className="mt-6 text-base leading-7 text-muted-foreground">
-              With several years of experience and a worldwide catalog of clients, our performance and expertise are evident in the completed projects we have delivered so far. With over 25 thousand documents and 50 million words edited, we are trusted by clients around the world.
-            </p>
-
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {partnerLogos.map((asset, index) => (
-                <div key={asset} className="flex h-24 items-center justify-center rounded-lg border bg-card p-4">
-                  <img
-                    src={asset}
-                    alt={`Featured partner mark ${index + 1}`}
-                    className="max-h-14 object-contain"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {testimonials.map((testimonial) => (
-              <Card key={testimonial.name}>
-                <CardContent className="p-6">
-                  <Sparkles className="h-5 w-5 text-muted-foreground" />
-                  <p className="mt-5 text-sm leading-6 text-muted-foreground">
-                    "{testimonial.quote}"
-                  </p>
-                  <p className="mt-5 font-semibold">{testimonial.name}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section id="why-choose" className="scroll-mt-24 px-4 py-16 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <div className="max-w-2xl">
-            <p className="text-sm font-medium uppercase text-muted-foreground">Why Choose Absolute Revision?</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
-              Editorial support built around quality, privacy, and practical deadlines.
+              Why Choose Us?
             </h2>
           </div>
 
@@ -432,7 +329,7 @@ export function Landing() {
             <div>
               <p className="text-sm font-medium uppercase text-muted-foreground">Services</p>
               <h2 className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
-                What service do you need?
+                Our Core Services
               </h2>
               <p className="mt-5 text-base leading-7 text-muted-foreground">
                 Send your essays, research papers, theses, dissertations, articles, journals, and business documents for expert language editing, proofreading, referencing, and formatting.
@@ -572,32 +469,29 @@ export function Landing() {
         </div>
       </section>
 
-      <footer className="px-4 py-12">
+      <footer className="px-4 py-12 bg-primary text-muted">
         <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-4">
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 font-semibold">
               <img src={logoImage} alt="" className="h-8 w-8 object-contain" />
               <span>Absolute Revision</span>
             </div>
-            <p className="mt-5 max-w-xl text-sm leading-6 text-muted-foreground">
-              With several years of experience serving clients worldwide, Absolute Revision provides high-quality editing, proofreading, and formatting services to researchers, authors, students, and businesses.
-            </p>
-            <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
-              Our professional editors are native English speakers with advanced qualifications from top universities in the UK, US, Australia, and Canada.
+            <p className="mt-5 max-w-xl text-sm leading-6 text-muted">
+              Providing high-quality editing, proofreading, and formatting services to researchers, authors, students, and businesses.
             </p>
           </div>
 
           <div>
             <h3 className="font-semibold">Site Navigation</h3>
-            <ul className="mt-4 grid gap-3 text-sm text-muted-foreground">
+            <ul className="mt-4 grid gap-3 text-sm text-muted">
               {footerLinks.map((link) => (
                 <li key={link.href}>
                   {link.href.startsWith("#") ? (
-                    <a href={link.href} className="transition-colors hover:text-foreground">
+                    <a href={link.href} className="transition-colors hover:text-white">
                       {link.label}
                     </a>
                   ) : (
-                    <Link to={link.href} className="transition-colors hover:text-foreground">
+                    <Link to={link.href} className="transition-colors hover:text-white">
                       {link.label}
                     </Link>
                   )}
@@ -608,10 +502,10 @@ export function Landing() {
 
           <div>
             <h3 className="font-semibold">Social Links</h3>
-            <ul className="mt-4 grid gap-3 text-sm text-muted-foreground">
+            <ul className="mt-4 grid gap-3 text-sm text-muted">
               {socialLinks.map((link) => (
                 <li key={link.href}>
-                  <a href={link.href} target="_blank" rel="noreferrer" className="transition-colors hover:text-foreground">
+                  <a href={link.href} target="_blank" rel="noreferrer" className="transition-colors hover:text-white">
                     {link.label}
                   </a>
                 </li>
@@ -620,13 +514,13 @@ export function Landing() {
           </div>
         </div>
 
-        <div className="mx-auto mt-10 flex max-w-6xl flex-col gap-3 border-t pt-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto mt-10 flex max-w-6xl flex-col gap-3 border-t pt-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>Copyright 2026 Absolute Revision. All rights reserved.</p>
           <div className="flex items-center gap-4">
-            <a href={privacyPolicyUrl} target="_blank" rel="noreferrer" className="hover:text-foreground">
+            <a href={privacyPolicyUrl} target="_blank" rel="noreferrer" className="hover:text-white">
               Privacy Policy
             </a>
-            <a href={termsUrl} target="_blank" rel="noreferrer" className="hover:text-foreground">
+            <a href={termsUrl} target="_blank" rel="noreferrer" className="hover:text-white">
               Site Terms
             </a>
           </div>

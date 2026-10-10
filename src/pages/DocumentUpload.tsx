@@ -61,8 +61,8 @@ const acceptedFileTypes = acceptedDocumentExtensions
   .join(",")
 const maxUploadBytes = 250 * 1024 * 1024
 const supportEmail = "support@absoluterevision.com"
-const phoneDisplay = "+1 937 249 0400"
-const phoneHref = "tel:+19372490400"
+const phoneDisplay = "+234 902 436 4876"
+const phoneHref = "tel:+2349024364876"
 
 function formatBytes(sizeBytes: number) {
   if (sizeBytes <= 0) {
@@ -206,15 +206,11 @@ export function DocumentUpload() {
       <section className="border-b bg-muted/30 px-4 py-10 sm:py-14">
         <div className="mx-auto grid max-w-3xl gap-8">
           <div>
-            <Badge variant="secondary" className="w-fit">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Confidential upload
-            </Badge>
             <h1 className="mt-5 text-3xl font-semibold tracking-normal sm:text-5xl">
               Submit your document for editing.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-              Send your manuscript directly to the Absolute Revision team. We will review your file and contact you through the email address provided.
+              We will review your file and contact you through the email address provided.
             </p>
 
             <div className="mt-6 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
