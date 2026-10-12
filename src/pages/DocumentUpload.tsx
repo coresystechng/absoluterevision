@@ -8,11 +8,13 @@ import {
   Mail,
   Phone,
   Send,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
 
 import {
-  submitDocumentUpload,
+  submitDocumentUploads,
+  type DocumentUploadFailure,
   type DocumentUploadResult,
 } from "@/api/document-upload"
 import { Button } from "@/components/ui/button"
@@ -35,29 +37,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
+import {
+  DOCUMENT_UPLOAD_MAX_BYTES,
+  DOCUMENT_UPLOAD_MAX_FILES,
+  documentUploadAccept,
+  getDocumentUploadSelectionError,
+} from "../../shared/document-uploads"
 
 import privacyPolicyUrl from "../../assets/privacy.md?url"
 import termsUrl from "../../assets/terms.md?url"
 import logoImage from "../../img/icon.png"
 
-const acceptedDocumentExtensions = [
-  "csv",
-  "doc",
-  "docx",
-  "odt",
-  "pages",
-  "pdf",
-  "ppt",
-  "pptx",
-  "rtf",
-  "txt",
-  "xls",
-  "xlsx",
-]
-const acceptedFileTypes = acceptedDocumentExtensions
-  .map((extension) => `.${extension}`)
-  .join(",")
-const maxUploadBytes = 250 * 1024 * 1024
 const supportEmail = "support@absoluterevision.com"
 const phoneDisplay = "+234 902 436 4876"
 const phoneHref = "tel:+2349024364876"
@@ -73,19 +63,6 @@ function formatBytes(sizeBytes: number) {
   return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
 }
 
-function getFileExtension(fileName: string) {
-  const extensionStart = fileName.lastIndexOf(".")
-  if (extensionStart <= 0 || extensionStart === fileName.length - 1) {
-    return ""
-  }
-
-  return fileName.slice(extensionStart + 1).toLowerCase()
-}
-
-function isAcceptedFile(file: File) {
-  return acceptedDocumentExtensions.includes(getFileExtension(file.name))
-}
-
 function validateEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
 }
@@ -93,50 +70,47 @@ function validateEmail(email: string) {
 export function DocumentUpload() {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [fileInputKey, setFileInputKey] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [uploadResult, setUploadResult] = useState<DocumentUploadResult | null>(null)
+  const [uploadResults, setUploadResults] = useState<DocumentUploadResult[]>([])
+  const [uploadFailures, setUploadFailures] = useState<DocumentUploadFailure[]>([])
+  const [selectionError, setSelectionError] = useState<string | null>(null)
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false)
 
-  const selectedFileLabel = file
-    ? `${file.name} - ${formatBytes(file.size)}`
-    : "No document selected"
-
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.currentTarget.files?.[0] ?? null
-    setUploadResult(null)
-
-    if (!selectedFile) {
-      setFile(null)
-      return
-    }
-
-    if (selectedFile.size > maxUploadBytes) {
-      toast.error("Files must be 250 MB or smaller.")
+    const selectedFiles = Array.from(event.currentTarget.files ?? [])
+    if (selectedFiles.length === 0) return
+    const error = getDocumentUploadSelectionError(selectedFiles)
+    setSelectionError(error)
+    if (error) {
+      toast.error(error)
       event.currentTarget.value = ""
-      setFile(null)
       return
     }
-
-    if (!isAcceptedFile(selectedFile)) {
-      toast.error("Upload a Word, PDF, RTF, OpenDocument, text, presentation, or spreadsheet file.")
-      event.currentTarget.value = ""
-      setFile(null)
-      return
-    }
-
-    setFile(selectedFile)
+    setFiles(selectedFiles)
+    setUploadResults([])
+    setUploadFailures([])
+    setProgress(0)
   }
 
   const resetForm = () => {
     setFullName("")
     setEmail("")
-    setFile(null)
+    setFiles([])
     setProgress(0)
-    setUploadResult(null)
+    setUploadResults([])
+    setUploadFailures([])
+    setSelectionError(null)
     setIsSuccessDialogOpen(false)
+    setFileInputKey((key) => key + 1)
+  }
+
+  const removeFile = (file: File, index: number) => {
+    setFiles((previous) => previous.filter((_, itemIndex) => itemIndex !== index))
+    setUploadFailures((previous) => previous.filter((failure) => failure.file !== file))
+    setSelectionError(null)
     setFileInputKey((key) => key + 1)
   }
 
@@ -155,27 +129,35 @@ export function DocumentUpload() {
       return
     }
 
-    if (!file) {
-      toast.error("Choose a document to upload.")
+    const error = getDocumentUploadSelectionError(files)
+    if (error) {
+      setSelectionError(error)
+      toast.error(error)
       return
     }
 
     setIsUploading(true)
     setProgress(0)
-    setUploadResult(null)
+    setUploadFailures([])
+    setSelectionError(null)
 
     try {
-      const result = await submitDocumentUpload({
+      const result = await submitDocumentUploads({
         fullName: trimmedName,
         email: trimmedEmail,
-        file,
+        files,
         onProgress: setProgress,
       })
-      setUploadResult(result)
-      setIsSuccessDialogOpen(true)
-      setFile(null)
+      setUploadResults((previous) => [...previous, ...result.uploads])
+      setUploadFailures(result.failures)
+      setFiles(result.failures.map((failure) => failure.file))
       setFileInputKey((key) => key + 1)
-      toast.success("Document submitted.")
+      if (result.failures.length === 0) {
+        setIsSuccessDialogOpen(true)
+        toast.success(result.uploads.length === 1 ? "File submitted." : "Files submitted.")
+      } else {
+        toast.error(`${result.uploads.length} of ${files.length} files submitted. Retry the remaining files.`)
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Upload failed.")
     } finally {
@@ -205,10 +187,10 @@ export function DocumentUpload() {
         <div className="mx-auto grid max-w-3xl gap-8">
           <div>
             <h1 className="mt-5 text-3xl font-semibold tracking-normal sm:text-5xl">
-              Submit your document for editing.
+              Submit your files for editing.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-              We will review your file and contact you through the email address provided.
+              Upload up to three documents or images. We will review your files and contact you through the email address provided.
             </p>
 
             <div className="mt-6 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
@@ -217,7 +199,7 @@ export function DocumentUpload() {
                   <FileText className="h-4 w-4" />
                 </div>
                 <p className="leading-6">
-                  Word, PDF, RTF, OpenDocument, text, presentation, and spreadsheet files are supported.
+                  Word, PDF, RTF, OpenDocument, text, presentations, spreadsheets, and images are supported.
                 </p>
               </div>
               <div className="flex items-start gap-3 rounded-md border bg-background/70 p-4">
@@ -235,7 +217,7 @@ export function DocumentUpload() {
             <CardHeader>
               <CardTitle>Document Upload</CardTitle>
               <CardDescription>
-                Complete the fields below and attach your document.
+                Complete the fields below and attach up to three files.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -270,32 +252,74 @@ export function DocumentUpload() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="document-file">Document</Label>
+                  <Label htmlFor="document-file">Documents or images</Label>
                   <Input
                     key={fileInputKey}
                     id="document-file"
-                    name="document"
+                    name="files"
                     type="file"
-                    accept={acceptedFileTypes}
+                    accept={documentUploadAccept}
+                    multiple
                     onChange={onFileChange}
                     disabled={isUploading}
-                    required
+                    required={files.length === 0}
+                    aria-describedby="file-upload-help"
+                    aria-invalid={Boolean(selectionError)}
+                    aria-errormessage={selectionError ? "file-upload-error" : undefined}
                     className="h-auto cursor-pointer py-2 file:mr-3 file:rounded-md file:border file:px-3 file:py-1.5"
                   />
-                  <p className="text-sm text-muted-foreground">{selectedFileLabel}</p>
+                  <p id="file-upload-help" className="text-sm text-muted-foreground">
+                    Choose up to {DOCUMENT_UPLOAD_MAX_FILES} files, {formatBytes(DOCUMENT_UPLOAD_MAX_BYTES)} each.
+                    Images: JPG, PNG, GIF, WebP, AVIF, BMP, TIFF, and HEIC/HEIF.
+                  </p>
+                  {selectionError ? (
+                    <p id="file-upload-error" role="alert" className="text-sm text-destructive">
+                      {selectionError}
+                    </p>
+                  ) : null}
+                  {files.length > 0 ? (
+                    <ul aria-label="Selected files" className="grid gap-2">
+                      {files.map((file, index) => (
+                        <li key={`${file.name}-${index}`} className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm">
+                          <span className="min-w-0 break-words">{file.name} - {formatBytes(file.size)}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            disabled={isUploading}
+                            aria-label={`Remove ${file.name}`}
+                            onClick={() => removeFile(file, index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p className="text-sm text-muted-foreground">No files selected</p>}
                 </div>
+
+                {uploadFailures.length > 0 ? (
+                  <div role="alert" className="grid gap-2 rounded-md border p-3 text-sm">
+                    <p>{uploadResults.length} files submitted successfully. Submit again to retry only the remaining files.</p>
+                    <ul className="grid gap-1">
+                      {uploadFailures.map(({ file, message }, index) => (
+                        <li key={index} className="break-words text-destructive">{file.name}: {message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
 
                 {isUploading ? (
                   <div className="grid gap-2" aria-live="polite">
                     <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                      <span>Uploading document</span>
+                      <span>Uploading {files.length === 1 ? "file" : `${files.length} files`}</span>
                       <span>{progress}%</span>
                     </div>
                     <Progress value={progress} />
                   </div>
                 ) : null}
 
-                <Button type="submit" disabled={isUploading} size="lg">
+                <Button type="submit" disabled={isUploading || files.length === 0} size="lg">
                   {isUploading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -308,7 +332,7 @@ export function DocumentUpload() {
               <Separator className="my-6" />
 
               <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-                <span>Maximum file size: {formatBytes(maxUploadBytes)}</span>
+                <span>Maximum: {DOCUMENT_UPLOAD_MAX_FILES} files, {formatBytes(DOCUMENT_UPLOAD_MAX_BYTES)} per file</span>
                 <Button type="button" variant="outline" size="sm" onClick={resetForm} disabled={isUploading}>
                   Clear form
                 </Button>
@@ -367,22 +391,24 @@ export function DocumentUpload() {
             </div>
             <DialogTitle>Submission received</DialogTitle>
             <DialogDescription>
-              Thank you. Your document was submitted successfully, and the Absolute Revision team will follow up by email.
+              Thank you. Your {uploadResults.length === 1 ? "file was" : "files were"} submitted successfully, and the Absolute Revision team will follow up by email.
             </DialogDescription>
           </DialogHeader>
 
-          {uploadResult ? (
+          {uploadResults.length > 0 ? (
             <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">Submitted document</p>
-              <p className="mt-1 break-words">
-                {uploadResult.fileName} - {formatBytes(uploadResult.sizeBytes)}
-              </p>
+              <p className="font-medium text-foreground">Submitted files</p>
+              <ul className="mt-1 grid gap-1">
+                {uploadResults.map((result, index) => (
+                  <li key={index} className="break-words">{result.fileName} - {formatBytes(result.sizeBytes)}</li>
+                ))}
+              </ul>
             </div>
           ) : null}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={resetForm}>
-              Submit another document
+              Submit more files
             </Button>
             <Button asChild>
               <Link to="/">Back to home</Link>

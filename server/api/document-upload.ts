@@ -1,4 +1,9 @@
 import { randomBytes } from "node:crypto"
+import {
+  DOCUMENT_UPLOAD_MAX_BYTES,
+  documentUploadExtensions,
+  documentUploadTypeError,
+} from "../../shared/document-uploads.js"
 
 import { normalizeEncodedFileName } from "./files.js"
 import {
@@ -11,22 +16,9 @@ import {
 } from "./http.js"
 
 export const DOCUMENT_UPLOAD_CHUNK_BYTES = 3 * 1024 * 1024
-export const DOCUMENT_UPLOAD_MAX_BYTES = 250 * 1024 * 1024
+export { DOCUMENT_UPLOAD_MAX_BYTES }
 
-const allowedDocumentExtensions = new Set([
-  "csv",
-  "doc",
-  "docx",
-  "odt",
-  "pages",
-  "pdf",
-  "ppt",
-  "pptx",
-  "rtf",
-  "txt",
-  "xls",
-  "xlsx",
-])
+const allowedDocumentExtensions = new Set<string>(documentUploadExtensions)
 
 export type DocumentUploadHeaders = {
   fullName: string
@@ -82,12 +74,12 @@ function normalizeDocumentFileName(value: unknown) {
   const fileName = normalizeEncodedFileName(value)
   const extension = getFileExtension(fileName)
   if (!fileName) {
-    throw new HttpError(400, "Choose a document to upload.")
+    throw new HttpError(400, "Choose a file to upload.")
   }
   if (!allowedDocumentExtensions.has(extension)) {
     throw new HttpError(
       400,
-      "Upload a Word, PDF, RTF, OpenDocument, text, presentation, or spreadsheet file.",
+      documentUploadTypeError,
     )
   }
 
@@ -97,7 +89,7 @@ function normalizeDocumentFileName(value: unknown) {
 function normalizeTotalSize(value: unknown) {
   const totalSize = Number(value)
   if (
-    !Number.isFinite(totalSize) ||
+    !Number.isSafeInteger(totalSize) ||
     totalSize <= 0 ||
     totalSize > DOCUMENT_UPLOAD_MAX_BYTES
   ) {

@@ -1,3 +1,8 @@
+import {
+  getDocumentUploadFileError,
+  getDocumentUploadSelectionError,
+} from "../../shared/document-uploads"
+
 export type DocumentUploadResult = {
   fileName: string
   sizeBytes: number
@@ -53,11 +58,58 @@ function reportProgress(input: DocumentUploadInput, uploadedBytes: number) {
 }
 
 export async function submitDocumentUpload(input: DocumentUploadInput) {
+  const error = getDocumentUploadFileError(input.file)
+  if (error) throw new Error(error)
+
   if (input.file.size <= uploadChunkBytes) {
     return uploadSmallDocument(input)
   }
 
   return uploadChunkedDocument(input)
+}
+
+export type DocumentUploadFailure = { file: File; message: string }
+
+export async function submitDocumentUploads(input: {
+  fullName: string
+  email: string
+  files: File[]
+  onProgress?: (progress: number) => void
+}) {
+  const error = getDocumentUploadSelectionError(input.files)
+  if (error) throw new Error(error)
+
+  const totalBytes = input.files.reduce((total, file) => total + file.size, 0)
+  const fileProgress = input.files.map(() => 0)
+  input.onProgress?.(0)
+  const outcomes = await Promise.all(input.files.map(async (file, index) => {
+    try {
+      const upload = await submitDocumentUpload({
+        fullName: input.fullName,
+        email: input.email,
+        file,
+        onProgress: (progress) => {
+          fileProgress[index] = progress
+          const uploadedBytes = input.files.reduce(
+            (total, item, itemIndex) => total + item.size * fileProgress[itemIndex] / 100,
+            0,
+          )
+          input.onProgress?.(Math.round(uploadedBytes / totalBytes * 100))
+        },
+      })
+      return { upload, failure: null }
+    } catch (error) {
+      return {
+        upload: null,
+        failure: { file, message: error instanceof Error ? error.message : "Upload failed." },
+      }
+    }
+  }))
+
+  return {
+    uploads: outcomes.flatMap(({ upload }) => upload ? [upload] : []),
+    failures: outcomes.flatMap(({ failure }) => failure ? [failure] : []),
+  }
 }
 
 async function uploadSmallDocument(input: DocumentUploadInput) {
