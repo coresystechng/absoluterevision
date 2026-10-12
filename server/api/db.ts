@@ -1,5 +1,7 @@
 import { neon } from "@neondatabase/serverless"
 
+import { migrateLegacySchema } from "./legacy-schema.js"
+
 import type { AssignmentFileCategory } from "./files.js"
 
 const databaseUrl = process.env.NEON_DATABASE_URL ?? process.env.VITE_NEON_DATABASE_URL
@@ -31,6 +33,7 @@ let initPromise: Promise<void> | null = null
 
 export function initFilesDb() {
   initPromise ??= (async () => {
+    await migrateLegacySchema(query)
     await query(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
