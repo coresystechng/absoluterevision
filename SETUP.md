@@ -87,6 +87,8 @@ Uploads made before this feature was enabled remain in Dropbox and are not autom
 
 Verification: `npm test` includes real SQL tests on an isolated in-memory PostgreSQL engine (PGlite), authenticated API tests, public upload/retry tests, and inbox UI tests. These do not connect to your live database or Dropbox.
 
+The deployment uses 12 API functions to fit the Vercel Hobby-plan limit. Assignment upload-session `start`, `append`, and `finish` URLs share one dynamic function; their implementation lives in `server/api/assignment-file-upload-session-*.ts`. The `/client-submissions` and trailing-slash routes both rewrite to the SPA and are marked `noindex`.
+
 ## Team Signup Invitations
 
 Team admins can use **Settings → Teams → Invite new users** to generate an access token for a recipient's email. The token is single-use, expires after seven days, and automatically adds the new account to the issuing team as a member. Copy the invitation or open an email draft to send it through your email app. Plaintext tokens are shown only when created; generate another invitation if a token is lost. Pending invitations can be revoked in Settings.

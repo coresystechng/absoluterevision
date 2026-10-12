@@ -1,10 +1,10 @@
-import { getAccessibleAssignment } from "../../../server/api/db.js"
+import { getAccessibleAssignment } from "./db.js"
 import {
   getOrCreateAssignmentCategoryFolder,
   getOwnerAccessToken,
   startDropboxUploadSession,
-} from "../../../server/api/dropbox.js"
-import { normalizeAssignmentFileCategory, normalizeEncodedFileName } from "../../../server/api/files.js"
+} from "./dropbox.js"
+import { normalizeAssignmentFileCategory, normalizeEncodedFileName } from "./files.js"
 import {
   HttpError,
   getHeader,
@@ -15,8 +15,8 @@ import {
   sendJson,
   type ApiRequest,
   type ApiResponse,
-} from "../../../server/api/http.js"
-import { requireVerifiedUser } from "../../../server/api/session.js"
+} from "./http.js"
+import { requireVerifiedUser } from "./session.js"
 
 const MAX_UPLOAD_BYTES = 250 * 1024 * 1024
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024
