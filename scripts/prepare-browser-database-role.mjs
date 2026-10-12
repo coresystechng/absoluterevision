@@ -34,7 +34,7 @@ try {
     has_schema_privilege(current_user, 'public', 'CREATE') AS creates_schema_objects`, [decodeURIComponent(source.username)])
   if (permissions.inherits_server || permissions.reads_dropbox || permissions.creates_schema_objects) throw new Error("Role privacy verification failed; do not deploy these credentials.")
   for (const table of tables) await browser.query(`SELECT id FROM ${quote(table)} LIMIT 0`)
-  fs.writeFileSync(output, `VITE_NEON_DATABASE_URL=${browserUrl.toString()}\n`, { mode: 0o600 })
+  fs.writeFileSync(output, `VITE_NEON_BROWSER_URL=${browserUrl.toString()}\n`, { mode: 0o600 })
   console.log("Restricted browser role verified. Credentials saved to .git/client-submissions-browser.env; do not commit or paste them into chat.")
 } catch (error) {
   console.error(`Role setup stopped (${error.code || error.name}). No credentials were printed. Inspect database privileges before retrying.`)

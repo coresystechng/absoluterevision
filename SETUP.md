@@ -21,7 +21,7 @@ npm install
 Create `.env.local` for local development:
 
 ```bash
-VITE_NEON_DATABASE_URL=
+VITE_NEON_BROWSER_URL=
 VITE_NEON_AUTH_URL=
 VITE_DROPBOX_OWNER_USER_ID=
 
@@ -69,17 +69,19 @@ VITE_NEON_AUTH_URL=
 
 Server database initialization runs the legacy schema migrations. The browser checks that the schema is ready and seeds starter assignments for newly created user rows; it does not run DDL. On an empty database, initialize it through a server API before using the dashboard.
 
-The current SPA architecture uses `VITE_NEON_DATABASE_URL`, which exposes the database URL to the browser. For a hardened production architecture, move Neon queries behind serverless API routes or enforce database-side authorization so clients cannot bypass scoped frontend queries.
+The current SPA architecture uses `VITE_NEON_BROWSER_URL`, which exposes the database URL to the browser. For a hardened production architecture, move Neon queries behind serverless API routes or enforce database-side authorization so clients cannot bypass scoped frontend queries.
 
 ### Client submissions inbox
 
 Open **Dashboard → Client submissions** (or the user menu) to review public uploads. The Dropbox owner and admins of teams whose `admin_user_id` is that owner can access new submissions. After conversion, team admins see submissions assigned to their team; the owner can see all their submissions. Team members cannot access this inbox.
 
-Before enabling intake, configure `NEON_DATABASE_URL` with a **server-only database role** and `VITE_NEON_DATABASE_URL` with a **different browser role**, both pointing to the same database. The browser role must not be a superuser or inherit the server role. Preserve that browser role's existing access to the legacy app tables; never grant it access to `client_submissions` or `client_submission_files`. The server role must be able to run the existing schema initializer and create/own the new tables. The initializer checks role separation and revokes browser/PUBLIC privileges on these two private tables. Using the same role for both URLs returns HTTP 503 instead of exposing client details or upload credentials.
+Before enabling intake, configure `NEON_DATABASE_URL` with a **server-only database role** and `VITE_NEON_BROWSER_URL` with a **different browser role**, both pointing to the same database. The browser role must not be a superuser or inherit the server role. Preserve that browser role's existing access to the legacy app tables; never grant it access to `client_submissions` or `client_submission_files`. The server role must be able to run the existing schema initializer and create/own the new tables. The initializer checks role separation and revokes browser/PUBLIC privileges on these two private tables. Using the same role for both URLs returns HTTP 503 instead of exposing client details or upload credentials.
 
 For an existing owner-role deployment, run `node scripts/prepare-browser-database-role.mjs` locally with the administrative database connection in `.env`. It creates `absolute_revision_browser` using SQL (not the Neon console's privileged role creation), grants DML on only the seven existing SPA tables and their sequences, and checks that it cannot inherit the server role or read Dropbox credentials. It makes no changes to existing records or table ownership. The browser connection is saved in `.git/client-submissions-browser.env`, never printed or committed. Do not rerun against an existing role; inspect it instead.
 
-Set Vercel **Preview** `VITE_NEON_DATABASE_URL` to that new value, keep `NEON_DATABASE_URL` on the existing owner connection, and redeploy the release branch. Once the inbox and dashboard work, apply the browser value to **Production** before releasing the branch. The existing browser connection exposed the owner's password in past builds: rotate that owner password in Neon and update server `NEON_DATABASE_URL` in Vercel during the production cutover, then redeploy. Update local administrative credentials too. Never put the new owner connection in a `VITE_*` variable. Older deployments using the owner connection will no longer function after its password is rotated; rollback must use rebuilt code with restricted credentials.
+Add `VITE_NEON_BROWSER_URL` as a new Vercel **Config** variable. The old `VITE_NEON_DATABASE_URL` Secret can remain for rollback; this release never reads it in the browser or uses it for the inbox privacy check. Existing Vercel Secrets cannot be changed to Config.
+
+Set Vercel **Preview** `VITE_NEON_BROWSER_URL` to that new value, keep `NEON_DATABASE_URL` on the existing owner connection, and redeploy the release branch. Once the inbox and dashboard work, apply the browser value to **Production** before releasing the branch. The existing browser connection exposed the owner's password in past builds: rotate that owner password in Neon and update server `NEON_DATABASE_URL` in Vercel during the production cutover, then redeploy. Update local administrative credentials too. Never put the new owner connection in a `VITE_*` variable. Older deployments using the owner connection will no longer function after its password is rotated; rollback must use rebuilt code with restricted credentials.
 
 This isolates private inbox and Dropbox tables. The seven legacy SPA tables still use direct browser SQL and require a separate API/authorization migration for full per-user database isolation.
 
@@ -157,7 +159,7 @@ Vite embeds `VITE_*` values at build time, so redeploy after changing:
 
 ```bash
 VITE_NEON_AUTH_URL
-VITE_NEON_DATABASE_URL
+VITE_NEON_BROWSER_URL
 VITE_DROPBOX_OWNER_USER_ID
 ```
 

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 const database = vi.hoisted(() => {
   process.env.NEON_DATABASE_URL = "postgres://postgres:local@localhost/test"
-  process.env.VITE_NEON_DATABASE_URL = "postgres://browser_client:local@localhost/test"
+  process.env.VITE_NEON_BROWSER_URL = "postgres://browser_client:local@localhost/test"
   process.env.DROPBOX_OWNER_USER_ID = "owner"
   return { query: vi.fn() }
 })

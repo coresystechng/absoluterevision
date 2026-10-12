@@ -23,7 +23,7 @@ export function submissionBrowserRole(serverUrl: string | undefined, browserUrl:
 
 export function initClientSubmissionsDb() {
   initPromise ??= (async () => {
-    const browserRole = submissionBrowserRole(process.env.NEON_DATABASE_URL, process.env.VITE_NEON_DATABASE_URL)
+    const browserRole = submissionBrowserRole(process.env.NEON_DATABASE_URL, process.env.VITE_NEON_BROWSER_URL)
     await initFilesDb()
     const permissions = await query<{ unsafe: boolean }>(`SELECT (r.rolsuper OR pg_has_role(r.oid, current_user, 'MEMBER')) AS unsafe
       FROM pg_roles r WHERE r.rolname = $1`, [browserRole])

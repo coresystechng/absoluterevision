@@ -1,9 +1,9 @@
 import { neon } from "@neondatabase/serverless"
 
-const databaseUrl = import.meta.env.VITE_NEON_DATABASE_URL
+const databaseUrl = import.meta.env.VITE_NEON_BROWSER_URL
 
 if (!databaseUrl) {
-  console.warn("Missing VITE_NEON_DATABASE_URL. Database calls will fail until it is configured.")
+  console.warn("Missing VITE_NEON_BROWSER_URL. Database calls will fail until it is configured.")
 }
 
 const sqlClient = databaseUrl
@@ -14,7 +14,7 @@ const sqlClient = databaseUrl
 
 function getSqlClient() {
   if (!sqlClient) {
-    throw new Error("Missing VITE_NEON_DATABASE_URL")
+    throw new Error("Missing VITE_NEON_BROWSER_URL")
   }
   return sqlClient
 }
