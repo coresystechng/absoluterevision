@@ -7,6 +7,7 @@ import { getNeonAuthClient, isNeonAuthConfigured } from "@/lib/auth"
 import { AssignmentView } from "@/pages/AssignmentView"
 import { AssignmentTracking } from "@/pages/AssignmentTracking"
 import { Dashboard } from "@/pages/Dashboard"
+import { ClientSubmissions } from "@/pages/ClientSubmissions"
 import { DocumentUpload } from "@/pages/DocumentUpload"
 import { Landing } from "@/pages/Landing"
 import { Login } from "@/pages/Login"
@@ -82,6 +83,14 @@ export default function App() {
           element={
             <Protected>
               {(user, signOut) => <Dashboard user={user} onSignOut={signOut} />}
+            </Protected>
+          }
+        />
+        <Route
+          path="/client-submissions"
+          element={
+            <Protected>
+              {(user, signOut) => <ClientSubmissions key={user.id} user={user} onSignOut={signOut} />}
             </Protected>
           }
         />

@@ -11,12 +11,12 @@ import {
   getActorName,
   getQueryParam,
   handleApiError,
-  requireUser,
   sendJson,
   type ApiRequest,
   type ApiResponse,
 } from "../server/api/http.js"
 import { mapAssignmentFile } from "../server/api/responses.js"
+import { requireVerifiedUser } from "../server/api/session.js"
 
 async function handleGet(req: ApiRequest, res: ApiResponse, userId: string) {
   const assignmentId = Number(getQueryParam(req, "assignmentId"))
@@ -63,7 +63,7 @@ async function handleDelete(req: ApiRequest, res: ApiResponse, userId: string) {
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
-    const userId = requireUser(req)
+    const { id: userId } = await requireVerifiedUser(req)
 
     if (req.method === "GET") {
       await handleGet(req, res, userId)

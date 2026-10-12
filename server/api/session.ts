@@ -9,7 +9,7 @@ export async function requireVerifiedUser(req: ApiRequest) {
   if (!authUrl) throw new HttpError(503, "Authentication is temporarily unavailable.")
   const issuer = new URL(authUrl).origin
   const token = getHeader(req.headers, "authorization")?.match(/^Bearer (\S+)$/i)?.[1]
-  if (!token) throw new HttpError(401, "Sign in to manage invitations.")
+  if (!token) throw new HttpError(401, "Sign in to continue.")
   let keys = keySets.get(authUrl)
   if (!keys) {
     keys = createRemoteJWKSet(new URL(`${authUrl}/.well-known/jwks.json`), { timeoutDuration: 5_000 })

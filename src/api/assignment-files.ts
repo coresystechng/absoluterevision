@@ -1,4 +1,5 @@
 import type { AssignmentFile, AssignmentFileCategory } from "@/types"
+import { getNeonAuthClient } from "@/lib/auth"
 
 type DropboxStatus = {
   isConfigured: boolean
@@ -8,8 +9,12 @@ type DropboxStatus = {
 
 const uploadChunkBytes = 3 * 1024 * 1024
 
-function authHeaders(userId: string, actorName?: string) {
+async function authHeaders(userId: string, actorName?: string) {
+  const session = await getNeonAuthClient().getSession()
+  const token = session.data?.session?.token
+  if (!token) throw new Error("Sign in to access assignment files.")
   return {
+    Authorization: `Bearer ${token}`,
     "x-absolute-revision-user-id": userId,
     ...(actorName ? { "x-absolute-revision-actor-name": actorName } : {}),
   }
@@ -37,7 +42,7 @@ async function readApiResponse<T>(response: Response): Promise<T> {
 
 export async function getDropboxStatus(userId: string) {
   const response = await fetch("/api/dropbox/status", {
-    headers: authHeaders(userId),
+    headers: await authHeaders(userId),
   })
   return readApiResponse<DropboxStatus>(response)
 }
@@ -47,7 +52,7 @@ export async function getDropboxAuthUrl(userId: string, returnTo: string) {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...authHeaders(userId),
+      ...await authHeaders(userId),
     },
     body: JSON.stringify({ returnTo }),
   })
@@ -57,7 +62,7 @@ export async function getDropboxAuthUrl(userId: string, returnTo: string) {
 export async function getAssignmentFiles(userId: string, assignmentId: number) {
   const params = new URLSearchParams({ assignmentId: String(assignmentId) })
   const response = await fetch(`/api/assignment-files?${params}`, {
-    headers: authHeaders(userId),
+    headers: await authHeaders(userId),
   })
   const data = await readApiResponse<{ files: AssignmentFile[] }>(response)
   return data.files
@@ -99,7 +104,7 @@ async function uploadSmallAssignmentFile(
       "x-file-name": encodeURIComponent(input.file.name),
       "x-file-type": input.file.type || "application/octet-stream",
       "x-file-size": String(input.file.size),
-      ...authHeaders(userId, input.actorName),
+      ...await authHeaders(userId, input.actorName),
     },
     body: input.file,
   })
@@ -127,7 +132,7 @@ async function uploadChunkedAssignmentFile(
       "content-type": "application/octet-stream",
       "x-file-name": encodeURIComponent(input.file.name),
       "x-file-size": String(input.file.size),
-      ...authHeaders(userId, input.actorName),
+      ...await authHeaders(userId, input.actorName),
     },
     body: firstChunk,
   })
@@ -144,7 +149,7 @@ async function uploadChunkedAssignmentFile(
       method: "POST",
       headers: {
         "content-type": "application/octet-stream",
-        ...authHeaders(userId, input.actorName),
+        ...await authHeaders(userId, input.actorName),
       },
       body: appendChunk,
     })
@@ -166,7 +171,7 @@ async function uploadChunkedAssignmentFile(
       "x-file-name": encodeURIComponent(input.file.name),
       "x-file-type": input.file.type || "application/octet-stream",
       "x-file-size": String(input.file.size),
-      ...authHeaders(userId, input.actorName),
+      ...await authHeaders(userId, input.actorName),
     },
     body: finalChunk,
   })
@@ -177,7 +182,7 @@ async function uploadChunkedAssignmentFile(
 export async function getAssignmentFileDownloadUrl(userId: string, fileId: number) {
   const params = new URLSearchParams({ fileId: String(fileId) })
   const response = await fetch(`/api/assignment-files/download?${params}`, {
-    headers: authHeaders(userId),
+    headers: await authHeaders(userId),
   })
   return readApiResponse<{ url: string }>(response)
 }
@@ -190,7 +195,7 @@ export async function removeAssignmentFile(
   const params = new URLSearchParams({ fileId: String(fileId) })
   const response = await fetch(`/api/assignment-files?${params}`, {
     method: "DELETE",
-    headers: authHeaders(userId, actorName),
+    headers: await authHeaders(userId, actorName),
   })
   await readApiResponse<{ ok: true }>(response)
 }

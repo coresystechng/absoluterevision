@@ -5,18 +5,18 @@ import {
   handleApiError,
   readRawBody,
   requireMethod,
-  requireUser,
   sendJson,
   type ApiRequest,
   type ApiResponse,
 } from "../../../server/api/http.js"
+import { requireVerifiedUser } from "../../../server/api/session.js"
 
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     requireMethod(req, "POST")
-    requireUser(req)
+    await requireVerifiedUser(req)
 
     const sessionId = getQueryParam(req, "sessionId")?.trim()
     const offset = Number(getQueryParam(req, "offset"))

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { LayoutDashboard, LogOut, Settings, UsersRound } from "lucide-react"
+import { Inbox, LayoutDashboard, LogOut, Settings, UsersRound } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -30,10 +30,12 @@ export function Navbar({
   user,
   onSignOut,
   activeTeamName,
+  canViewSubmissions = false,
 }: {
   user: AuthUser
   onSignOut: () => void | Promise<void>
   activeTeamName?: string | null
+  canViewSubmissions?: boolean
 }) {
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
@@ -72,6 +74,11 @@ export function Navbar({
                   Settings
                 </Link>
               </DropdownMenuItem>
+              {canViewSubmissions ? (
+                <DropdownMenuItem asChild>
+                  <Link to="/client-submissions"><Inbox className="h-4 w-4" />Client submissions</Link>
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="flex items-center gap-3 px-2 py-2 font-normal">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">

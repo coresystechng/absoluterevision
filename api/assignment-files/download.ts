@@ -6,16 +6,16 @@ import {
   getQueryParam,
   handleApiError,
   requireMethod,
-  requireUser,
   sendJson,
   type ApiRequest,
   type ApiResponse,
 } from "../../server/api/http.js"
+import { requireVerifiedUser } from "../../server/api/session.js"
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     requireMethod(req, "GET")
-    const userId = requireUser(req)
+    const { id: userId } = await requireVerifiedUser(req)
     const fileId = Number(getQueryParam(req, "fileId"))
 
     if (!Number.isInteger(fileId)) {

@@ -71,6 +71,22 @@ The app initializes the `users` and `assignments` tables on first database acces
 
 The current SPA architecture uses `VITE_NEON_DATABASE_URL`, which exposes the database URL to the browser. For a hardened production architecture, move Neon queries behind serverless API routes or enforce database-side authorization so clients cannot bypass scoped frontend queries.
 
+### Client submissions inbox
+
+Open **Dashboard → Client submissions** (or the user menu) to review public uploads. The Dropbox owner and admins of teams whose `admin_user_id` is that owner can access new submissions. After conversion, team admins see submissions assigned to their team; the owner can see all their submissions. Team members cannot access this inbox.
+
+Before enabling intake, configure `NEON_DATABASE_URL` with a **server-only database role** and `VITE_NEON_DATABASE_URL` with a **different browser role**, both pointing to the same database. The browser role must not be a superuser or inherit the server role. Preserve that browser role's existing access to the legacy app tables; never grant it access to `client_submissions` or `client_submission_files`. The server role must be able to run the existing schema initializer and create/own the new tables. The initializer checks role separation and revokes browser/PUBLIC privileges on these two private tables. Using the same role for both URLs returns HTTP 503 instead of exposing client details or upload credentials.
+
+Set server `DROPBOX_OWNER_USER_ID` and browser `VITE_DROPBOX_OWNER_USER_ID` to the same owner ID. `NEON_AUTH_URL` must match the Neon Auth service used by the app. Inbox, download, conversion, and assignment-file requests verify signed Neon session JWTs and then check team permissions on the server. Existing assignment-file clients must be redeployed together with these APIs because a user-ID header alone is no longer accepted.
+
+The new tables and inbox index are created automatically on first intake/inbox request. No existing assignment data is changed by their creation. Client selection creates one intake record for 1–3 files, with hashed upload credentials that expire after 24 hours. Successful files appear together in the inbox and in one Dropbox client folder. Failed-file retries retain their original submission and file positions. Finalizing a partial upload marks its unfinished files as failed so an admin can convert the successfully uploaded files.
+
+**Create assignment** lets an admin choose their team, assignee, title, type, priority, deadline, and notes. Conversion commits the assignment, client contact notes, uploaded files as Brief attachments, activity entry, and conversion marker in one PostgreSQL statement. Repeated conversion requests return the existing assignment. Files stay in Dropbox; the assignee uses the normal assignment Files section to download them. No email is sent automatically.
+
+Uploads made before this feature was enabled remain in Dropbox and are not automatically imported. The empty inbox explains this. If reverting the feature, keep the two tables and their records to preserve client metadata; they can remain unused until the feature is restored.
+
+Verification: `npm test` includes real SQL tests on an isolated in-memory PostgreSQL engine (PGlite), authenticated API tests, public upload/retry tests, and inbox UI tests. These do not connect to your live database or Dropbox.
+
 ## Team Signup Invitations
 
 Team admins can use **Settings → Teams → Invite new users** to generate an access token for a recipient's email. The token is single-use, expires after seven days, and automatically adds the new account to the issuing team as a member. Copy the invitation or open an email draft to send it through your email app. Plaintext tokens are shown only when created; generate another invitation if a token is lost. Pending invitations can be revoked in Settings.

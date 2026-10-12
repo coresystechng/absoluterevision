@@ -1,9 +1,9 @@
 import {
-  createDocumentUploadId,
   createDocumentUploadMetadataFile,
   handleDocumentUploadApiError,
   readDocumentUploadHeaders,
 } from "../server/api/document-upload.js"
+import { authorizeSubmissionUpload, recordSubmissionUpload } from "../server/api/client-submissions.js"
 import {
   getOrCreateDocumentUploadFolder,
   getOwnerAccessToken,
@@ -22,13 +22,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     requireMethod(req, "POST")
     const headers = readDocumentUploadHeaders(req)
+    const submission = await authorizeSubmissionUpload(req, headers)
+    if (submission.file.status === "ready") {
+      sendJson(res, 200, { upload: { fileName: submission.file.uploaded_name ?? headers.fileName, sizeBytes: headers.totalSize, submittedAt: submission.submittedAt } })
+      return
+    }
     const fileBytes = await readRawBody(req)
     if (fileBytes.byteLength !== headers.totalSize) {
       throw new HttpError(400, "Uploaded file size does not match the request metadata.")
     }
 
-    const submittedAt = new Date().toISOString()
-    const uploadId = createDocumentUploadId(submittedAt)
+    const submittedAt = submission.submittedAt
+    const uploadId = submission.submissionId
     const accessToken = await getOwnerAccessToken()
     const folderPath = await getOrCreateDocumentUploadFolder({
       accessToken,
@@ -44,10 +49,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       fileBytes,
     })
 
+    await recordSubmissionUpload(req, { providerFileId: uploadedFile.id, folderPath, name: uploadedFile.name, sizeBytes: uploadedFile.size ?? headers.totalSize })
+
     await uploadDropboxFile({
       accessToken,
       folderPath,
-      fileName: "submission-details.json",
+      fileName: `submission-details-${submission.fileIndex + 1}.json`,
       fileBytes: createDocumentUploadMetadataFile({
         fullName: headers.fullName,
         email: headers.email,
@@ -58,7 +65,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         submittedAt,
         providerFileId: uploadedFile.id,
       }),
-    })
+    }).catch(() => console.warn("submission_metadata_backup_failed"))
 
     sendJson(res, 200, {
       upload: {

@@ -2,6 +2,7 @@ import {
   getDocumentUploadFileError,
   getDocumentUploadSelectionError,
 } from "../../shared/document-uploads"
+import type { SubmissionUploadAccess } from "../../shared/client-submissions"
 
 export type DocumentUploadResult = {
   fileName: string
@@ -14,6 +15,7 @@ type DocumentUploadInput = {
   email: string
   file: File
   onProgress?: (progress: number) => void
+  uploadAccess?: SubmissionUploadAccess
 }
 
 const uploadChunkBytes = 3 * 1024 * 1024
@@ -30,7 +32,31 @@ function documentUploadHeaders(input: DocumentUploadInput) {
     "x-file-name": encodeHeader(input.file.name),
     "x-file-type": input.file.type || "application/octet-stream",
     "x-file-size": String(input.file.size),
+    ...submissionUploadHeaders(input.uploadAccess),
   }
+}
+
+function submissionUploadHeaders(access?: SubmissionUploadAccess): Record<string, string> {
+  return access ? {
+    "x-submission-id": access.submissionId,
+    "x-submission-token": access.token,
+    "x-submission-file-index": String(access.fileIndex),
+  } : {}
+}
+
+async function intakeRequest<T>(body: Record<string, unknown>) {
+  return readApiResponse<T>(await fetch("/api/client-submissions/intake", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  }))
+}
+
+async function createIntake(fullName: string, email: string, files: File[]) {
+  return intakeRequest<{ submissionId: string; token: string }>({
+    action: "create", fullName, email,
+    files: files.map((file) => ({ name: file.name, size: file.size, mimeType: file.type || "application/octet-stream" })),
+  })
 }
 
 async function readApiResponse<T>(response: Response): Promise<T> {
@@ -57,9 +83,15 @@ function reportProgress(input: DocumentUploadInput, uploadedBytes: number) {
   input.onProgress?.(Math.min(100, Math.round((uploadedBytes / input.file.size) * 100)))
 }
 
-export async function submitDocumentUpload(input: DocumentUploadInput) {
+export async function submitDocumentUpload(input: DocumentUploadInput): Promise<DocumentUploadResult> {
   const error = getDocumentUploadFileError(input.file)
   if (error) throw new Error(error)
+
+  if (!input.uploadAccess) {
+    const result = await submitDocumentUploads({ fullName: input.fullName, email: input.email, files: [input.file], onProgress: input.onProgress })
+    if (!result.uploads[0]) throw new Error(result.failures[0]?.message ?? "Upload failed.")
+    return result.uploads[0]
+  }
 
   if (input.file.size <= uploadChunkBytes) {
     return uploadSmallDocument(input)
@@ -68,16 +100,27 @@ export async function submitDocumentUpload(input: DocumentUploadInput) {
   return uploadChunkedDocument(input)
 }
 
-export type DocumentUploadFailure = { file: File; message: string }
+export type DocumentUploadFailure = { file: File; message: string; uploadAccess?: SubmissionUploadAccess }
 
 export async function submitDocumentUploads(input: {
   fullName: string
   email: string
   files: File[]
   onProgress?: (progress: number) => void
-}) {
+  retryFailures?: DocumentUploadFailure[]
+}): Promise<{ uploads: DocumentUploadResult[]; failures: DocumentUploadFailure[]; finalizationError?: string }> {
   const error = getDocumentUploadSelectionError(input.files)
   if (error) throw new Error(error)
+
+  const retryAccess = input.files.map((file) => input.retryFailures?.find((failure) => failure.file === file)?.uploadAccess)
+  let accesses: SubmissionUploadAccess[]
+  if (retryAccess.every((access) => Boolean(access))) {
+    accesses = retryAccess as SubmissionUploadAccess[]
+    await intakeRequest({ action: "retry", submissionId: accesses[0].submissionId, token: accesses[0].token })
+  } else {
+    const intake = await createIntake(input.fullName, input.email, input.files)
+    accesses = input.files.map((_, fileIndex) => ({ ...intake, fileIndex }))
+  }
 
   const totalBytes = input.files.reduce((total, file) => total + file.size, 0)
   const fileProgress = input.files.map(() => 0)
@@ -88,6 +131,7 @@ export async function submitDocumentUploads(input: {
         fullName: input.fullName,
         email: input.email,
         file,
+        uploadAccess: accesses[index],
         onProgress: (progress) => {
           fileProgress[index] = progress
           const uploadedBytes = input.files.reduce(
@@ -101,14 +145,21 @@ export async function submitDocumentUploads(input: {
     } catch (error) {
       return {
         upload: null,
-        failure: { file, message: error instanceof Error ? error.message : "Upload failed." },
+        failure: { file, message: error instanceof Error ? error.message : "Upload failed.", uploadAccess: accesses[index] },
       }
     }
   }))
 
+  let finalizationError: string | undefined
+  try {
+    await intakeRequest({ action: "finalize", submissionId: accesses[0].submissionId, token: accesses[0].token })
+  } catch {
+    finalizationError = "Your uploaded files were saved, but submission processing is delayed. Please contact support if a file failed to upload."
+  }
   return {
     uploads: outcomes.flatMap(({ upload }) => upload ? [upload] : []),
     failures: outcomes.flatMap(({ failure }) => failure ? [failure] : []),
+    finalizationError,
   }
 }
 
@@ -131,12 +182,17 @@ async function uploadChunkedDocument(input: DocumentUploadInput) {
     headers: documentUploadHeaders(input),
     body: firstChunk,
   })
-  const session = await readApiResponse<{
+  const startResult = await readApiResponse<{ upload: DocumentUploadResult } | {
     sessionId: string
     offset: number
     uploadId: string
     submittedAt: string
   }>(startResponse)
+  if ("upload" in startResult) {
+    input.onProgress?.(100)
+    return startResult.upload
+  }
+  const session = startResult
   let offset = session.offset
   reportProgress(input, offset)
 
@@ -150,7 +206,7 @@ async function uploadChunkedDocument(input: DocumentUploadInput) {
       `/api/document-upload/upload-session/append?${appendParams}`,
       {
         method: "POST",
-        headers: { "content-type": "application/octet-stream" },
+        headers: { "content-type": "application/octet-stream", ...submissionUploadHeaders(input.uploadAccess) },
         body: appendChunk,
       },
     )

@@ -138,7 +138,6 @@ export function DocumentUpload() {
 
     setIsUploading(true)
     setProgress(0)
-    setUploadFailures([])
     setSelectionError(null)
 
     try {
@@ -146,12 +145,14 @@ export function DocumentUpload() {
         fullName: trimmedName,
         email: trimmedEmail,
         files,
+        retryFailures: uploadFailures,
         onProgress: setProgress,
       })
       setUploadResults((previous) => [...previous, ...result.uploads])
       setUploadFailures(result.failures)
       setFiles(result.failures.map((failure) => failure.file))
       setFileInputKey((key) => key + 1)
+      if (result.finalizationError) toast.error(result.finalizationError)
       if (result.failures.length === 0) {
         setIsSuccessDialogOpen(true)
         toast.success(result.uploads.length === 1 ? "File submitted." : "Files submitted.")
@@ -231,7 +232,7 @@ export function DocumentUpload() {
                     onChange={(event) => setFullName(event.currentTarget.value)}
                     autoComplete="name"
                     placeholder="Enter your full name"
-                    disabled={isUploading}
+                    disabled={isUploading || uploadFailures.some((failure) => failure.uploadAccess)}
                     required
                   />
                 </div>
@@ -246,7 +247,7 @@ export function DocumentUpload() {
                     onChange={(event) => setEmail(event.currentTarget.value)}
                     autoComplete="email"
                     placeholder="Enter your email address"
-                    disabled={isUploading}
+                    disabled={isUploading || uploadFailures.some((failure) => failure.uploadAccess)}
                     required
                   />
                 </div>

@@ -13,12 +13,12 @@ import {
   handleApiError,
   readRawBody,
   requireMethod,
-  requireUser,
   sendJson,
   type ApiRequest,
   type ApiResponse,
 } from "../../../server/api/http.js"
 import { mapAssignmentFile } from "../../../server/api/responses.js"
+import { requireVerifiedUser } from "../../../server/api/session.js"
 
 const MAX_UPLOAD_BYTES = 250 * 1024 * 1024
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024
@@ -35,7 +35,7 @@ function canUploadCategory(input: {
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     requireMethod(req, "POST")
-    const userId = requireUser(req)
+    const { id: userId } = await requireVerifiedUser(req)
     const assignmentId = Number(getQueryParam(req, "assignmentId"))
     const category = normalizeAssignmentFileCategory(getQueryParam(req, "category"))
     const sessionId = getQueryParam(req, "sessionId")?.trim()

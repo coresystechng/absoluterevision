@@ -11,6 +11,7 @@ The app is built with React, TypeScript, Vite, Tailwind CSS, Neon Auth, Neon Pos
 - Protected assignment dashboard with user-scoped assignment data
 - Assignment creation, editing, status tracking, priorities, deadlines, and progress metadata
 - File upload, download, and management flows backed by Dropbox through serverless API routes
+- Admin client submissions inbox with grouped uploads, client contact details, search, downloads, and assignment conversion
 - Theme controls and shadcn-style UI primitives
 - Vercel-ready SPA routing and API function structure
 

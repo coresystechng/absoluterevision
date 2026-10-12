@@ -33,6 +33,14 @@
       "destination": "/index.html"
     },
     {
+      "source": "/client-submissions",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/client-submissions/",
+      "destination": "/index.html"
+    },
+    {
       "source": "/settings",
       "destination": "/index.html"
     },
@@ -42,6 +50,14 @@
     }
   ],
   "headers": [
+    {
+      "source": "/client-submissions",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/client-submissions/",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
     {
       "source": "/track-assignment",
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
