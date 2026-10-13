@@ -363,16 +363,9 @@ export async function getOrCreateDocumentUploadFolder(input: {
   email: string
   submittedAt: string
 }) {
-  const submittedDate = input.submittedAt.slice(0, 10)
-  const emailName = input.email.split("@")[0] ?? ""
-  const submitterSegment =
-    slugifyFolderSegment(`${input.fullName}-${emailName}`) || "client"
+  const uploadFolderPath = getDocumentUploadFolderPath(input)
   const uploadsRootPath = combineDropboxPath(getRootPath(), "Document Uploads")
-  const dateFolderPath = combineDropboxPath(uploadsRootPath, submittedDate)
-  const uploadFolderPath = combineDropboxPath(
-    dateFolderPath,
-    `${input.uploadId}-${submitterSegment}`,
-  )
+  const dateFolderPath = combineDropboxPath(uploadsRootPath, input.submittedAt.slice(0, 10))
 
   await ensureFolder(input.accessToken, getRootPath())
   await ensureFolder(input.accessToken, uploadsRootPath)
@@ -492,4 +485,29 @@ export async function getDropboxTemporaryLink(accessToken: string, fileId: strin
     { path: fileId },
   )
   return result.link
+}
+
+
+export function getDocumentUploadFolderPath(input: { uploadId: string; fullName: string; email: string; submittedAt: string }) {
+  const submittedDate = input.submittedAt.slice(0, 10)
+  const emailName = input.email.split("@")[0] ?? ""
+  const submitterSegment =
+    slugifyFolderSegment(`${input.fullName}-${emailName}`) || "client"
+  const uploadsRootPath = combineDropboxPath(getRootPath(), "Document Uploads")
+  const dateFolderPath = combineDropboxPath(uploadsRootPath, submittedDate)
+  return combineDropboxPath(
+    dateFolderPath,
+    `${input.uploadId}-${submitterSegment}`,
+  )
+
+}
+
+export async function deleteDocumentUploadFolder(accessToken: string, folderPath: string) {
+  try {
+    await deleteDropboxFile(accessToken, folderPath)
+  } catch (error) {
+    // A prior cleanup may have deleted the folder before its database commit.
+    if (error instanceof HttpError && error.statusCode === 409 && /^path_lookup\/not_found(?:\/|$)/.test(error.message)) return
+    throw error
+  }
 }

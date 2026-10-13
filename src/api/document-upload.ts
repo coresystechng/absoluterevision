@@ -16,6 +16,7 @@ type DocumentUploadInput = {
   file: File
   onProgress?: (progress: number) => void
   uploadAccess?: SubmissionUploadAccess
+  verificationToken?: string
 }
 
 const uploadChunkBytes = 3 * 1024 * 1024
@@ -52,9 +53,9 @@ async function intakeRequest<T>(body: Record<string, unknown>) {
   }))
 }
 
-async function createIntake(fullName: string, email: string, files: File[]) {
+async function createIntake(fullName: string, email: string, files: File[], verificationToken?: string) {
   return intakeRequest<{ submissionId: string; token: string }>({
-    action: "create", fullName, email,
+    action: "create", fullName, email, verificationToken,
     files: files.map((file) => ({ name: file.name, size: file.size, mimeType: file.type || "application/octet-stream" })),
   })
 }
@@ -88,7 +89,7 @@ export async function submitDocumentUpload(input: DocumentUploadInput): Promise<
   if (error) throw new Error(error)
 
   if (!input.uploadAccess) {
-    const result = await submitDocumentUploads({ fullName: input.fullName, email: input.email, files: [input.file], onProgress: input.onProgress })
+    const result = await submitDocumentUploads({ fullName: input.fullName, email: input.email, files: [input.file], verificationToken: input.verificationToken, onProgress: input.onProgress })
     if (!result.uploads[0]) throw new Error(result.failures[0]?.message ?? "Upload failed.")
     return result.uploads[0]
   }
@@ -108,6 +109,7 @@ export async function submitDocumentUploads(input: {
   files: File[]
   onProgress?: (progress: number) => void
   retryFailures?: DocumentUploadFailure[]
+  verificationToken?: string
 }): Promise<{ uploads: DocumentUploadResult[]; failures: DocumentUploadFailure[]; finalizationError?: string }> {
   const error = getDocumentUploadSelectionError(input.files)
   if (error) throw new Error(error)
@@ -118,7 +120,7 @@ export async function submitDocumentUploads(input: {
     accesses = retryAccess as SubmissionUploadAccess[]
     await intakeRequest({ action: "retry", submissionId: accesses[0].submissionId, token: accesses[0].token })
   } else {
-    const intake = await createIntake(input.fullName, input.email, input.files)
+    const intake = await createIntake(input.fullName, input.email, input.files, input.verificationToken)
     accesses = input.files.map((_, fileIndex) => ({ ...intake, fileIndex }))
   }
 
@@ -233,4 +235,17 @@ async function uploadChunkedDocument(input: DocumentUploadInput) {
   const result = await readApiResponse<{ upload: DocumentUploadResult }>(finishResponse)
   input.onProgress?.(100)
   return result.upload
+}
+
+
+export async function requestSubmissionEmailCode(email: string) {
+  return readApiResponse<{ challengeId: string; expiresIn: number }>(await fetch("/api/client-submissions/verify-email", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "send", email }),
+  }))
+}
+
+export async function verifySubmissionEmailCode(email: string, challengeId: string, code: string) {
+  return readApiResponse<{ verificationToken: string; expiresIn: number }>(await fetch("/api/client-submissions/verify-email", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "verify", email, challengeId, code }),
+  }))
 }

@@ -14,6 +14,8 @@ import { toast } from "sonner"
 
 import {
   submitDocumentUploads,
+  requestSubmissionEmailCode,
+  verifySubmissionEmailCode,
   type DocumentUploadFailure,
   type DocumentUploadResult,
 } from "@/api/document-upload"
@@ -65,6 +67,41 @@ function validateEmail(email: string) {
 export function DocumentUpload() {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
+  const [challengeId, setChallengeId] = useState("")
+  const [verificationCode, setVerificationCode] = useState("")
+  const [emailProof, setEmailProof] = useState<{ email: string; token: string; expiresAt: number } | null>(null)
+  const [verificationBusy, setVerificationBusy] = useState(false)
+  const [verificationError, setVerificationError] = useState<string | null>(null)
+  const [resendAt, setResendAt] = useState(0)
+  const normalizedEmail = email.trim().toLowerCase()
+  const hasVerifiedEmail = emailProof?.email === normalizedEmail && emailProof.expiresAt > Date.now()
+
+  const sendCode = async () => {
+    if (!validateEmail(email.trim())) { setVerificationError("Enter a valid Email Address."); return }
+    if (Date.now() < resendAt) { setVerificationError("Please wait one minute before requesting another code."); return }
+    setVerificationBusy(true)
+    setVerificationError(null)
+    try {
+      const result = await requestSubmissionEmailCode(normalizedEmail)
+      setChallengeId(result.challengeId)
+      setVerificationCode("")
+      setEmailProof(null)
+      setResendAt(Date.now() + 60_000)
+    } catch (error) { setVerificationError(error instanceof Error ? error.message : "Could not send the code.") }
+    finally { setVerificationBusy(false) }
+  }
+
+  const verifyCode = async () => {
+    setVerificationBusy(true)
+    setVerificationError(null)
+    try {
+      const result = await verifySubmissionEmailCode(normalizedEmail, challengeId, verificationCode)
+      setEmailProof({ email: normalizedEmail, token: result.verificationToken, expiresAt: Date.now() + result.expiresIn * 1000 })
+      setVerificationCode("")
+    } catch (error) { setVerificationError(error instanceof Error ? error.message : "Could not verify the code.") }
+    finally { setVerificationBusy(false) }
+  }
+
   const [files, setFiles] = useState<File[]>([])
   const [fileInputKey, setFileInputKey] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
@@ -73,6 +110,7 @@ export function DocumentUpload() {
   const [uploadFailures, setUploadFailures] = useState<DocumentUploadFailure[]>([])
   const [selectionError, setSelectionError] = useState<string | null>(null)
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false)
+  const canRetry = files.length > 0 && files.every((file) => uploadFailures.some((failure) => failure.file === file && failure.uploadAccess))
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.currentTarget.files ?? [])
@@ -93,6 +131,11 @@ export function DocumentUpload() {
   const resetForm = () => {
     setFullName("")
     setEmail("")
+    setEmailProof(null)
+    setChallengeId("")
+    setVerificationCode("")
+    setVerificationError(null)
+    setResendAt(0)
     setFiles([])
     setProgress(0)
     setUploadResults([])
@@ -131,6 +174,11 @@ export function DocumentUpload() {
       return
     }
 
+    if (!canRetry && (!emailProof || emailProof.email !== normalizedEmail || emailProof.expiresAt <= Date.now())) {
+      setEmailProof(null)
+      setVerificationError("Verify your email before submitting files.")
+      return
+    }
     setIsUploading(true)
     setProgress(0)
     setSelectionError(null)
@@ -141,8 +189,10 @@ export function DocumentUpload() {
         email: trimmedEmail,
         files,
         retryFailures: uploadFailures,
+        verificationToken: emailProof?.token,
         onProgress: setProgress,
       })
+      setEmailProof(null)
       setUploadResults((previous) => [...previous, ...result.uploads])
       setUploadFailures(result.failures)
       setFiles(result.failures.map((failure) => failure.file))
@@ -155,6 +205,7 @@ export function DocumentUpload() {
         toast.error(`${result.uploads.length} of ${files.length} files submitted. Retry the remaining files.`)
       }
     } catch (error) {
+      setEmailProof(null)
       toast.error(error instanceof Error ? error.message : "Upload failed.")
     } finally {
       setIsUploading(false)
@@ -227,7 +278,7 @@ export function DocumentUpload() {
                     onChange={(event) => setFullName(event.currentTarget.value)}
                     autoComplete="name"
                     placeholder="Enter your full name"
-                    disabled={isUploading || uploadFailures.some((failure) => failure.uploadAccess)}
+                    disabled={isUploading || verificationBusy || uploadFailures.some((failure) => failure.uploadAccess)}
                     required
                   />
                 </div>
@@ -239,12 +290,33 @@ export function DocumentUpload() {
                     name="email"
                     type="email"
                     value={email}
-                    onChange={(event) => setEmail(event.currentTarget.value)}
+                    onChange={(event) => { setEmail(event.currentTarget.value); setChallengeId(""); setEmailProof(null); setVerificationError(null) }}
                     autoComplete="email"
                     placeholder="Enter your email address"
                     disabled={isUploading || uploadFailures.some((failure) => failure.uploadAccess)}
                     required
                   />
+                </div>
+
+                <div className="grid gap-3 rounded-md border bg-muted/30 p-4">
+                  <p className="text-sm text-muted-foreground">Verify your email to upload files. No account or password is required.</p>
+                  {hasVerifiedEmail || canRetry ? <p role="status" className="text-sm font-medium">Email verified</p> : (
+                    <>
+                      <Button type="button" variant="outline" onClick={() => void sendCode()} disabled={verificationBusy || isUploading} className="w-fit">
+                        {verificationBusy ? "Please wait…" : challengeId ? "Resend code" : "Send verification code"}
+                      </Button>
+                      {challengeId ? (
+                        <div className="grid gap-3">
+                          <p role="status" className="text-sm text-muted-foreground">Check your email for a code. It expires in 10 minutes.</p>
+                          <Label htmlFor="verification-code">Verification code</Label>
+                          <Input id="verification-code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={verificationCode}
+                            onChange={(event) => setVerificationCode(event.currentTarget.value.replace(/\D/g, ""))} disabled={verificationBusy || isUploading} placeholder="Six-digit code" />
+                          <Button type="button" onClick={() => void verifyCode()} disabled={verificationBusy || verificationCode.length !== 6 || isUploading} className="w-fit">Verify email</Button>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                  {verificationError ? <p role="alert" className="text-sm text-destructive">{verificationError}</p> : null}
                 </div>
 
                 <div className="grid gap-2">
@@ -315,7 +387,7 @@ export function DocumentUpload() {
                   </div>
                 ) : null}
 
-                <Button type="submit" disabled={isUploading || files.length === 0} size="lg">
+                <Button type="submit" disabled={isUploading || verificationBusy || files.length === 0 || (!hasVerifiedEmail && !canRetry)} size="lg">
                   {isUploading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -338,6 +410,7 @@ export function DocumentUpload() {
         </div>
       </section>
 
+      <p className="mx-auto max-w-6xl px-4 pb-8 text-sm text-muted-foreground">Submissions that are not converted to assignments expire after 14 days and are removed with their files during scheduled cleanup.</p>
       <PublicFooter />
 
       <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>

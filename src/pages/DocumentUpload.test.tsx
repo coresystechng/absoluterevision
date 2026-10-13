@@ -1,10 +1,10 @@
 import { fireEvent, screen, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { submitDocumentUploads } from "@/api/document-upload"
+import { requestSubmissionEmailCode, verifySubmissionEmailCode, submitDocumentUploads } from "@/api/document-upload"
 import { DocumentUpload } from "./DocumentUpload"
 import { renderWithRouter } from "@/test/render"
 
-vi.mock("@/api/document-upload", () => ({ submitDocumentUploads: vi.fn() }))
+vi.mock("@/api/document-upload", () => ({ submitDocumentUploads: vi.fn(), requestSubmissionEmailCode: vi.fn(), verifySubmissionEmailCode: vi.fn() }))
 const submitMock = vi.mocked(submitDocumentUploads)
 const makeFile = (name: string) => new File(["content"], name)
 const makeResult = (file: File) => ({ fileName: file.name, sizeBytes: file.size, submittedAt: "2026-10-12T10:00:00Z" })
@@ -12,10 +12,18 @@ const makeResult = (file: File) => ({ fileName: file.name, sizeBytes: file.size,
 async function fillContactDetails(user: ReturnType<typeof renderWithRouter>["user"]) {
   await user.type(screen.getByLabelText("Full Name"), "Test Client")
   await user.type(screen.getByLabelText("Email Address"), "client@example.com")
+  await user.click(screen.getByRole("button", { name: "Send verification code" }))
+  await user.type(await screen.findByLabelText("Verification code"), "123456")
+  await user.click(screen.getByRole("button", { name: /^Verify email$/ }))
+  await screen.findByText("Email verified")
 }
 
 describe("client submission form", () => {
-  beforeEach(() => submitMock.mockReset())
+  beforeEach(() => {
+    submitMock.mockReset()
+    vi.mocked(requestSubmissionEmailCode).mockResolvedValue({ challengeId: "challenge", expiresIn: 600 })
+    vi.mocked(verifySubmissionEmailCode).mockResolvedValue({ verificationToken: "a".repeat(64), expiresIn: 1800 })
+  })
 
   it("rejects a selection over three files and lets clients remove a selected file", async () => {
     const { user } = renderWithRouter(<DocumentUpload />)
@@ -40,12 +48,13 @@ describe("client submission form", () => {
     const dialog = await screen.findByRole("dialog")
     for (const file of files) expect(within(dialog).getByText(new RegExp(file.name))).toBeVisible()
     expect(submitMock.mock.calls[0][0].files).toEqual(files)
+    expect(submitMock.mock.calls[0][0].verificationToken).toBe("a".repeat(64))
   })
 
   it("retries only failed files after a partial upload", async () => {
     const files = [makeFile("draft.pdf"), makeFile("photo.png")]
     submitMock
-      .mockResolvedValueOnce({ uploads: [makeResult(files[0])], failures: [{ file: files[1], message: "Connection lost" }] })
+      .mockResolvedValueOnce({ uploads: [makeResult(files[0])], failures: [{ file: files[1], message: "Connection lost", uploadAccess: { submissionId: "test-submission", token: "test-token", fileIndex: 1 } }] })
       .mockResolvedValueOnce({ uploads: [makeResult(files[1])], failures: [] })
     const { user } = renderWithRouter(<DocumentUpload />)
     await fillContactDetails(user)

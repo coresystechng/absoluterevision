@@ -1,3 +1,4 @@
+import { enforceVerificationLimit } from "./submission-verification.js"
 import { createHash, randomBytes, randomUUID } from "node:crypto"
 
 import type { ClientSubmission, ClientSubmissionsPage, SubmissionAssignmentInput, SubmissionTeam } from "../../shared/client-submissions.js"
@@ -52,12 +53,25 @@ export function initClientSubmissionsDb() {
       session_id TEXT,
       PRIMARY KEY (submission_id, file_index)
     )`)
+    await query(`CREATE TABLE IF NOT EXISTS submission_email_verifications (
+      id UUID PRIMARY KEY, email TEXT NOT NULL, code_hash TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      attempts INTEGER NOT NULL DEFAULT 0, verified_at TIMESTAMPTZ, proof_hash TEXT UNIQUE, used_at TIMESTAMPTZ
+    )`)
+    await query(`CREATE TABLE IF NOT EXISTS submission_verification_limits (
+      key TEXT PRIMARY KEY, attempts INTEGER NOT NULL, started_at TIMESTAMPTZ NOT NULL
+    )`)
+    await query("CREATE INDEX IF NOT EXISTS submission_verifications_expiry_idx ON submission_email_verifications(expires_at)")
+    await query("ALTER TABLE client_submissions ADD COLUMN IF NOT EXISTS cleanup_started_at TIMESTAMPTZ")
+    await query("CREATE INDEX IF NOT EXISTS client_submissions_expiry_idx ON client_submissions(submitted_at) WHERE converted_at IS NULL")
     await query("CREATE INDEX IF NOT EXISTS client_submissions_inbox_idx ON client_submissions(owner_user_id, submitted_at DESC, id DESC)")
     const quotedRole = '"' + browserRole.replaceAll('"', '""') + '"'
-    await query(`REVOKE ALL ON client_submissions, client_submission_files FROM PUBLIC, ${quotedRole}`)
+    await query(`REVOKE ALL ON client_submissions, client_submission_files, submission_email_verifications, submission_verification_limits FROM PUBLIC, ${quotedRole}`)
     const access = await query<{ unsafe: boolean }>(`SELECT
       has_table_privilege($1, 'client_submissions', 'SELECT, INSERT, UPDATE, DELETE') OR
-      has_table_privilege($1, 'client_submission_files', 'SELECT, INSERT, UPDATE, DELETE') AS unsafe`, [browserRole])
+      has_table_privilege($1, 'client_submission_files', 'SELECT, INSERT, UPDATE, DELETE') OR
+      has_table_privilege($1, 'submission_email_verifications', 'SELECT, INSERT, UPDATE, DELETE') OR
+      has_table_privilege($1, 'submission_verification_limits', 'SELECT, INSERT, UPDATE, DELETE') AS unsafe`, [browserRole])
     if (access[0]?.unsafe) throw new HttpError(503, "Remove inherited access to private submission tables from the browser database role.")
   })().catch((error) => { initPromise = null; throw error })
   return initPromise
@@ -109,16 +123,26 @@ export async function createSubmissionIntake(body: Record<string, unknown>) {
   const input = normalizeSubmissionIntake(body)
   const owner = ownerUserId()
   await initClientSubmissionsDb()
+  const proof = typeof body.verificationToken === "string" ? body.verificationToken : ""
+  if (!/^[a-f0-9]{64}$/.test(proof)) throw new HttpError(403, "Verify your email before submitting files.")
+  const valid = await query("SELECT id FROM submission_email_verifications WHERE email = $1 AND proof_hash = $2 AND verified_at IS NOT NULL AND used_at IS NULL AND expires_at > NOW()", [input.email, hashToken(proof)])
+  if (!valid.length) throw new HttpError(403, "Email verification has expired or already been used. Verify your email again.")
+  await enforceVerificationLimit(`submit-email:${input.email}`, 3, 86_400_000)
   const submissionId = randomUUID()
   const token = randomBytes(32).toString("hex")
-  await query(`WITH submission AS (
+  const created = await query(`WITH verified AS (
+    UPDATE submission_email_verifications SET used_at = NOW()
+    WHERE email = $5 AND proof_hash = $7 AND verified_at IS NOT NULL AND used_at IS NULL AND expires_at > NOW()
+    RETURNING id
+  ), submission AS (
     INSERT INTO client_submissions (id, owner_user_id, token_hash, full_name, email)
-    VALUES ($1, $2, $3, $4, $5) RETURNING id
+    SELECT $1, $2, $3, $4, $5 FROM verified RETURNING id
   ) INSERT INTO client_submission_files (submission_id, file_index, name, mime_type, size_bytes)
     SELECT submission.id, file.index, file.name, file."mimeType", file.size
     FROM submission CROSS JOIN jsonb_to_recordset($6::jsonb)
-    AS file(index smallint, name text, "mimeType" text, size bigint)`,
-  [submissionId, owner, hashToken(token), input.fullName, input.email, JSON.stringify(input.files)])
+    AS file(index smallint, name text, "mimeType" text, size bigint) RETURNING file_index`,
+  [submissionId, owner, hashToken(token), input.fullName, input.email, JSON.stringify(input.files), hashToken(proof)])
+  if (!created.length) throw new HttpError(403, "Email verification has expired or already been used. Verify your email again.")
   return { submissionId, token }
 }
 
@@ -202,7 +226,7 @@ export async function retrySubmissionIntake(body: Record<string, unknown>) {
   if (!rows.length) throw new HttpError(403, "This submission has expired or has already been assigned. Please contact support.")
 }
 
-const visibleSubmission = `s.owner_user_id = $2 AND (s.converted_at IS NULL OR $1 = $2 OR EXISTS (
+const visibleSubmission = `s.owner_user_id = $2 AND s.cleanup_started_at IS NULL AND (s.converted_at IS NOT NULL OR s.submitted_at > NOW() - INTERVAL '14 days') AND (s.converted_at IS NULL OR $1 = $2 OR EXISTS (
   SELECT 1 FROM team_memberships WHERE team_id = s.team_id AND user_id = $1 AND role = 'admin'
 ))`
 
@@ -290,7 +314,7 @@ export async function convertClientSubmission(user: { id: string; email: string;
   // conversion marker, and activity together. Repeated clicks cannot duplicate work.
   const rows = await query<{ assignment_id: number }>(`WITH source AS (
     SELECT s.* FROM client_submissions s WHERE s.id = $1 AND ${visibleSubmission.replaceAll("$1", "$3")}
-    AND s.converted_at IS NULL FOR UPDATE
+    AND s.converted_at IS NULL AND s.cleanup_started_at IS NULL AND s.submitted_at > NOW() - INTERVAL '14 days' FOR UPDATE
   ), created AS (
     INSERT INTO assignments (user_id, team_id, assignee_user_id, title, category, priority, status, progress_stage, progress, due_date, notes)
     SELECT $3, $4, $5, $6, $7, $8, 'not-started', $9, 0, $10::date,
@@ -320,4 +344,14 @@ export async function convertClientSubmission(user: { id: string; email: string;
   )
   if (existing[0]?.assignment_id && existing[0].converted_at) return existing[0].assignment_id
   throw new HttpError(409, "Wait for uploads to finish before converting this submission.")
+}
+
+
+export async function countNewClientSubmissions(userId: string): Promise<number> {
+  const owner = await requireSubmissionsAdmin(userId)
+  const rows = await query<{ count: number }>(
+    "SELECT COUNT(*)::int AS count FROM client_submissions WHERE owner_user_id = $1 AND converted_at IS NULL AND cleanup_started_at IS NULL AND submitted_at > NOW() - INTERVAL '14 days'",
+    [owner],
+  )
+  return rows[0]?.count ?? 0
 }

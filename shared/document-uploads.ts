@@ -1,5 +1,5 @@
 export const DOCUMENT_UPLOAD_MAX_FILES = 3
-export const DOCUMENT_UPLOAD_MAX_BYTES = 250 * 1024 * 1024
+export const DOCUMENT_UPLOAD_MAX_BYTES = 25 * 1024 * 1024
 
 export const documentUploadExtensions = [
   "csv", "doc", "docx", "odt", "pages", "pdf", "ppt", "pptx", "rtf", "txt", "xls", "xlsx",
@@ -22,7 +22,7 @@ export function getDocumentUploadFileError(file: UploadFile): string | null {
     return documentUploadTypeError
   }
   if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > DOCUMENT_UPLOAD_MAX_BYTES) {
-    return "Each file must be between 1 byte and 250 MB."
+    return "Each file must be between 1 byte and 25 MB."
   }
   return null
 }

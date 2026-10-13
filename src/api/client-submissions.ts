@@ -34,3 +34,8 @@ export function getClientSubmissionDownloadUrl(submissionId: string, fileIndex: 
 export function convertClientSubmission(input: SubmissionAssignmentInput) {
   return request<{ assignmentId: number }>("/api/client-submissions", { method: "POST", body: JSON.stringify(input) })
 }
+
+
+export function getNewClientSubmissionsCount(signal?: AbortSignal) {
+  return request<{ count: number }>("/api/client-submissions?action=count", { signal })
+}

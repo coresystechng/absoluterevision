@@ -149,7 +149,7 @@ DROPBOX_CLIENT_SECRET=
 - `DROPBOX_TOKEN_ENCRYPTION_KEY` should be a strong random value, preferably 32 bytes of base64.
 - `DROPBOX_REDIRECT_URI` must match the Dropbox OAuth callback URL.
 - `DROPBOX_ROOT_PATH` is optional and defaults to `/Absolute Revision`.
-- Uploads are sent in 3 MB backend chunks to protect the Dropbox token while supporting files up to 250 MB.
+- Uploads are sent in 3 MB backend chunks to protect the Dropbox token while supporting public submission files up to 25 MB.
 
 ## Vercel Production Setup
 
@@ -218,3 +218,19 @@ VITE_DROPBOX_OWNER_USER_ID
 5. If the Files panel shows **Connect Dropbox**, complete the Dropbox OAuth flow once.
 6. After Dropbox is connected, signed-in team members should see the upload controls on their assignment pages.
 7. If `/api/dropbox/status` still returns a server error, check Vercel function logs for the exact database or Dropbox API error.
+
+
+### Public submission retention
+
+Public upload validation accepts at most three files of 25 MB each. Unconverted submissions expire after 14 days and disappear from the inbox, count, download API, and conversion API at that cutoff. Converted submissions and assignment attachments are excluded.
+
+The authenticated `/api/cron/submission-retention` job runs daily at 01:00 UTC (02:00 Lagos) on Vercel. Set a strong server-only `CRON_SECRET` in the deployment environment; Vercel sends it as a Bearer token. Cleanup claims up to 50 expired submissions per run, deletes each entire Dropbox submission folder (including backup metadata and orphaned partial files), then removes the intake record and cascaded file records. Missing folders are safe to retry; failed deletions keep the record for retry and return an error status. Claims older than 15 minutes can be retried after interrupted runs. Monitor job failures and backlog; increase frequency/batch capacity if volume exceeds 50 expired submissions per day. Changing `DROPBOX_ROOT_PATH` after intake requires migrating existing folders before cleanup. Existing unconverted records older than 14 days will expire on deployment.
+
+
+### Account-free email verification
+
+Clients request a six-digit code sent from coresystechng@gmail.com and enter it on the upload page; no account, password, or sign-in is required. Set server-only GMAIL_SMTP_APP_PASSWORD (a Google app password with 2-Step Verification enabled) and SUBMISSION_EMAIL_SECRET (a random 32-byte value) in Vercel and local development. Do not use the normal Gmail password or expose either value through a VITE_ variable. Gmail SMTP uses smtp.gmail.com:465 with TLS and bounded connection timeouts. The website can remain on absoluterevision.vercel.app; no custom sending domain is required for Gmail.
+
+Email codes expire after ten minutes with five guesses maximum. A verified proof expires after 30 minutes and is atomically consumed when creating one submission, bound to the same email address. Upload retries reuse the existing submission credentials. Private database-backed counters apply across server instances: five code requests per IP per hour, three per email per hour, one-minute resend cooldown, 90 total verification emails per day, and three new submissions per verified email per day. Code hashes use the server secret; proof tokens are stored only as SHA-256 hashes. No verification codes or mail credentials are logged. Expired verification records and counters are swept by the retention job. Verification does not scan files or replace malware/content checks.
+
+The app refuses new intakes until the email proof is valid. Configure and test SMTP before deploying these changes, otherwise public submissions will remain blocked. Test using the upload page with an inbox you control, then verify the saved intake and files in Client submissions. Google may limit or block SMTP from new hosts; monitor delivery failures and app-password revocation.

@@ -1,4 +1,4 @@
-import { convertClientSubmission, getSubmissionDownloadFile, listClientSubmissions } from "../server/api/client-submissions.js"
+import { countNewClientSubmissions, convertClientSubmission, getSubmissionDownloadFile, listClientSubmissions } from "../server/api/client-submissions.js"
 import { getDropboxTemporaryLink, getOwnerAccessToken } from "../server/api/dropbox.js"
 import { HttpError, getQueryParam, handleApiError, readJsonBody, sendJson, type ApiRequest, type ApiResponse } from "../server/api/http.js"
 import { requireVerifiedUser } from "../server/api/session.js"
@@ -11,6 +11,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     if (req.method === "POST") {
       const body = await readJsonBody<Record<string, unknown>>(req)
       sendJson(res, 200, { assignmentId: await convertClientSubmission(user, body) })
+    } else if (getQueryParam(req, "action") === "count") {
+      sendJson(res, 200, { count: await countNewClientSubmissions(user.id) })
     } else if (getQueryParam(req, "action") === "download") {
       const providerFileId = await getSubmissionDownloadFile(user.id, getQueryParam(req, "submissionId"), getQueryParam(req, "fileIndex"))
       const accessToken = await getOwnerAccessToken()

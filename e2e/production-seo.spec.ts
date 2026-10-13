@@ -174,3 +174,42 @@ test("sign-in and sign-up pages exclude the public footer", async ({ page, produ
     await expect(page.locator("footer")).toHaveCount(0)
   }
 })
+
+
+test("clients verify email without an account before uploading", async ({ page, productionUrl }) => {
+  const intakes: Record<string, unknown>[] = []
+  await page.route("**/api/client-submissions/verify-email", async (route) => {
+    const body = route.request().postDataJSON()
+    if (body.action === "send") return route.fulfill({ json: { challengeId: "test-challenge", expiresIn: 600 } })
+    return body.code === "123456"
+      ? route.fulfill({ json: { verificationToken: "a".repeat(64), expiresIn: 1800 } })
+      : route.fulfill({ status: 400, json: { error: "The code is invalid or expired." } })
+  })
+  await page.route("**/api/client-submissions/intake", async (route) => {
+    const body = route.request().postDataJSON()
+    if (body.action === "create") {
+      intakes.push(body)
+      expect(body.verificationToken).toBe("a".repeat(64))
+      return route.fulfill({ json: { submissionId: "test-submission", token: "b".repeat(64) } })
+    }
+    return route.fulfill({ json: { finalized: true } })
+  })
+  await page.route("**/api/document-upload", (route) => route.fulfill({ json: { upload: { fileName: "draft.pdf", sizeBytes: 7, submittedAt: new Date().toISOString() } } }))
+  await page.goto(productionUrl + "/document-upload")
+  await page.getByLabel("Full Name", { exact: true }).fill("Test Client")
+  await page.getByLabel("Email Address", { exact: true }).fill("client@example.com")
+  await page.getByLabel("Documents or images").setInputFiles({ name: "draft.pdf", mimeType: "application/pdf", buffer: Buffer.from("content") })
+  await expect(page.getByRole("button", { name: "Submit", exact: true })).toBeDisabled()
+  await page.getByRole("button", { name: "Send verification code" }).click()
+  await page.getByLabel("Verification code").fill("000000")
+  await page.getByRole("button", { name: "Verify email", exact: true }).click()
+  await expect(page.getByRole("alert")).toContainText("invalid or expired")
+  await page.getByLabel("Verification code").fill("123456")
+  await page.getByRole("button", { name: "Verify email", exact: true }).click()
+  await expect(page.getByText("Email verified", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Submit", exact: true }).click()
+  await expect(page.getByRole("dialog")).toContainText("Submission received")
+  expect(intakes).toHaveLength(1)
+  await expect(page.getByText(/not converted to assignments expire after 14 days/)).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false)
+})

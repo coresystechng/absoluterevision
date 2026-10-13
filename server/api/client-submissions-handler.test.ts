@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { HttpError } from "./http.js"
 
-const mocks = vi.hoisted(() => ({ requireVerifiedUser: vi.fn(), listClientSubmissions: vi.fn(), convertClientSubmission: vi.fn(), getSubmissionDownloadFile: vi.fn(), getOwnerAccessToken: vi.fn(), getDropboxTemporaryLink: vi.fn() }))
+const mocks = vi.hoisted(() => ({ countNewClientSubmissions: vi.fn(), requireVerifiedUser: vi.fn(), listClientSubmissions: vi.fn(), convertClientSubmission: vi.fn(), getSubmissionDownloadFile: vi.fn(), getOwnerAccessToken: vi.fn(), getDropboxTemporaryLink: vi.fn() }))
 vi.mock("./session.js", () => ({ requireVerifiedUser: mocks.requireVerifiedUser }))
 vi.mock("./client-submissions.js", () => mocks)
 vi.mock("./dropbox.js", () => mocks)
@@ -14,6 +14,14 @@ beforeEach(() => {
 })
 
 describe("authenticated inbox API", () => {
+  it("returns the unconverted count using verified identity", async () => {
+    mocks.countNewClientSubmissions.mockResolvedValue(27)
+    const res = response()
+    await handler({ method: "GET", headers: {}, query: { action: "count" } } as never, res as never)
+    expect(mocks.countNewClientSubmissions).toHaveBeenCalledWith("verified-admin")
+    expect(res.json).toHaveBeenCalledWith({ count: 27 })
+  })
+
   it("uses verified identity, ignores forged user IDs, and disables caching", async () => {
     mocks.listClientSubmissions.mockResolvedValue({ submissions: [], teams: [], nextCursor: null })
     const res = response()

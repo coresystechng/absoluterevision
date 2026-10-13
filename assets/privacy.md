@@ -17,3 +17,5 @@ Changes to Privacy Policy: Absolute Revision reserves the right to change this P
 Contact Us: If you have any questions or concerns about our Privacy Policy, please contact us at coresystechng@gmail.com.
 
 By using our Services, you agree to be bound by this Privacy Policy. We take your privacy seriously and will make every effort to protect your personal information."
+
+Submission retention: Public submissions that have not been converted to assignments expire 14 days after receipt. Expired submissions are removed from the inbox immediately; their uploaded documents, backup submission details, and intake records are removed during scheduled daily cleanup. Files already attached to assignments are retained under the assignment service policy.

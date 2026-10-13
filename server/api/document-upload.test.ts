@@ -21,11 +21,11 @@ describe("public upload validation", () => {
     expect(() => readDocumentUploadHeaders(request(name))).toThrow("supported image")
   })
 
-  it.each(["0", "-1", "1.5", "NaN", String(250 * 1024 * 1024 + 1)])("rejects invalid size %s", (size) => {
-    expect(() => readDocumentUploadHeaders(request("image.png", size))).toThrow("250 MB")
+  it.each(["0", "-1", "1.5", "NaN", String(25 * 1024 * 1024 + 1)])("rejects invalid size %s", (size) => {
+    expect(() => readDocumentUploadHeaders(request("image.png", size))).toThrow("25 MB")
   })
 
   it("accepts the maximum file size", () => {
-    expect(readDocumentUploadHeaders(request("image.png", String(250 * 1024 * 1024))).totalSize).toBe(250 * 1024 * 1024)
+    expect(readDocumentUploadHeaders(request("image.png", String(25 * 1024 * 1024))).totalSize).toBe(25 * 1024 * 1024)
   })
 })

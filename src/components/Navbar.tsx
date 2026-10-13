@@ -1,3 +1,4 @@
+import { SubmissionsCount } from "@/components/SubmissionsCount"
 import { Link } from "react-router-dom"
 import { Inbox, LayoutDashboard, LogOut, Settings, UsersRound } from "lucide-react"
 
@@ -31,18 +32,20 @@ export function Navbar({
   onSignOut,
   activeTeamName,
   canViewSubmissions = false,
+  newSubmissionsCount,
 }: {
   user: AuthUser
   onSignOut: () => void | Promise<void>
   activeTeamName?: string | null
   canViewSubmissions?: boolean
+  newSubmissionsCount?: number | null
 }) {
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link to="/dashboard" className="flex items-center gap-2 font-semibold">
+        <Link to="/dashboard" className="flex items-center gap-2 font-semibold" aria-label="Absolute Revision dashboard">
           <img src={logoImage} alt="" className="h-8 w-8 object-contain" />
-          <span>Absolute Revision</span>
+          <span className="hidden sm:inline">Absolute Revision</span>
         </Link>
 
         <div className="flex items-center gap-2">
@@ -76,7 +79,7 @@ export function Navbar({
               </DropdownMenuItem>
               {canViewSubmissions ? (
                 <DropdownMenuItem asChild>
-                  <Link to="/client-submissions"><Inbox className="h-4 w-4" />Client submissions</Link>
+                  <Link to="/client-submissions"><Inbox className="h-4 w-4" />Client submissions<SubmissionsCount count={newSubmissionsCount} /></Link>
                 </DropdownMenuItem>
               ) : null}
               <DropdownMenuSeparator />

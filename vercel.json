@@ -131,5 +131,16 @@
         }
       ]
     }
-  ]
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/submission-retention",
+      "schedule": "0 1 * * *"
+    }
+  ],
+  "functions": {
+    "api/cron/submission-retention.ts": {
+      "maxDuration": 300
+    }
+  }
 }

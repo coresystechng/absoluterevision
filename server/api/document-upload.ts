@@ -93,7 +93,7 @@ function normalizeTotalSize(value: unknown) {
     totalSize <= 0 ||
     totalSize > DOCUMENT_UPLOAD_MAX_BYTES
   ) {
-    throw new HttpError(400, "Files must be between 1 byte and 250 MB.")
+    throw new HttpError(400, "Files must be between 1 byte and 25 MB.")
   }
 
   return totalSize

@@ -1,3 +1,5 @@
+import { SubmissionsCount } from "@/components/SubmissionsCount"
+import { useNewSubmissionsCount } from "@/hooks/useNewSubmissionsCount"
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
@@ -179,6 +181,7 @@ export function Dashboard({
   const canManageActiveTeam = activeTeam?.role === "admin"
   const ownerUserId = import.meta.env.VITE_DROPBOX_OWNER_USER_ID as string | undefined
   const canViewSubmissions = Boolean(ownerUserId && (user.id === ownerUserId || teams.some((team) => team.adminUserId === ownerUserId && team.role === "admin")))
+  const newSubmissionsCount = useNewSubmissionsCount(user.id, canViewSubmissions)
   const { assignments, isLoading, isRefreshing, error, reload, create, update, remove } = useAssignments(
     user.id,
     actorName,
@@ -264,6 +267,7 @@ export function Dashboard({
         onSignOut={onSignOut}
         activeTeamName={teamsLoading ? undefined : activeTeam?.name ?? null}
         canViewSubmissions={canViewSubmissions}
+        newSubmissionsCount={newSubmissionsCount}
       />
       <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -290,7 +294,7 @@ export function Dashboard({
 
         <div className="flex flex-col gap-3 sm:flex-row">
           {canViewSubmissions ? (
-            <Button asChild variant="outline" className="h-11"><Link to="/client-submissions"><Inbox className="h-4 w-4" />Client submissions</Link></Button>
+            <Button asChild variant="outline" className="h-11"><Link to="/client-submissions"><Inbox className="h-4 w-4" />Client submissions<SubmissionsCount count={newSubmissionsCount} /></Link></Button>
           ) : null}
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
