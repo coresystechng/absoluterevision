@@ -47,7 +47,7 @@ export function StatePanel({
     >
       {Icon ? <Icon className={cn("mb-3 h-6 w-6", context !== "inline" && "mx-auto")} aria-hidden="true" /> : null}
       <h2 className={cn("font-semibold", context === "page" ? "text-xl" : "text-base")}>{title}</h2>
-      {description ? <p className="mt-2 max-w-prose text-sm leading-6 text-muted-foreground">{description}</p> : null}
+      {description ? <p className={cn("mt-2 max-w-prose text-sm leading-6 text-muted-foreground", context !== "inline" && "mx-auto")}>{description}</p> : null}
       {primaryAction || secondaryAction ? (
         <div className={cn("mt-4 flex flex-wrap gap-2", context !== "inline" && "justify-center")}>
           {primaryAction ? <Button onClick={primaryAction.onClick} disabled={primaryAction.disabled}>{primaryAction.label}</Button> : null}
