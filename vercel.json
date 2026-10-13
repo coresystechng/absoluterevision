@@ -140,7 +140,7 @@
   ],
   "functions": {
     "api/cron/submission-retention.ts": {
-      "maxDuration": 300
+      "maxDuration": 60
     }
   }
 }

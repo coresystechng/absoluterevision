@@ -76,6 +76,16 @@ async function readyIntake() {
 }
 
 describe("client submissions on PostgreSQL", () => {
+  it("releases unprocessed cleanup claims when the function work budget is exhausted", async () => {
+    const intake = await readyIntake()
+    await pg.query("UPDATE client_submissions SET submitted_at = NOW() - INTERVAL '15 days' WHERE id = $1", [intake.submissionId])
+    const clock = vi.spyOn(Date, "now").mockReturnValueOnce(0).mockReturnValue(40_001)
+    try { await expect(cleanupExpiredSubmissions()).resolves.toEqual({ deleted: 0, failed: 0 }) }
+    finally { clock.mockRestore() }
+    expect(storage.deleteDocumentUploadFolder).not.toHaveBeenCalled()
+    expect((await pg.query("SELECT cleanup_started_at FROM client_submissions WHERE id = $1", [intake.submissionId])).rows[0]).toEqual({ cleanup_started_at: null })
+  })
+
   it("verifies email without creating accounts and consumes the proof once for its matching email", async () => {
     const challenge = await sendSubmissionEmailCode({ headers: {}, socket: { remoteAddress: "email-test" } } as never, "CLIENT@example.com")
     const code = delivery.send.mock.calls[0][0].text.match(/code is (\d{6})/)[1]

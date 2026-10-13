@@ -5,6 +5,7 @@ import { deleteDocumentUploadFolder, getDocumentUploadFolderPath, getOwnerAccess
 
 /** Claim before deleting storage so concurrent conversions cannot retain missing files. */
 export async function cleanupExpiredSubmissions() {
+  const deadline = Date.now() + 40_000
   const owner = process.env.DROPBOX_OWNER_USER_ID
   if (!owner) throw new HttpError(503, "Submission storage is not configured.")
   await initClientSubmissionsDb()
@@ -26,7 +27,13 @@ export async function cleanupExpiredSubmissions() {
   const token = await getOwnerAccessToken()
   let deleted = 0
   let failed = 0
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
+    if (Date.now() >= deadline) {
+      const deferred = rows.slice(index).map((item) => item.id)
+      await query("UPDATE client_submissions SET cleanup_started_at = NULL WHERE id = ANY($1::uuid[]) AND converted_at IS NULL", [deferred])
+      console.warn("submission_retention_cleanup_deferred", { count: deferred.length })
+      break
+    }
     try {
       const folder = getDocumentUploadFolderPath({ uploadId: row.id, fullName: row.full_name,
         email: row.email, submittedAt: new Date(row.submitted_at).toISOString() })
