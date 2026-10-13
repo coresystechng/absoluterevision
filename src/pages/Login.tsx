@@ -12,13 +12,10 @@ import { getNeonAuthClient, isNeonAuthConfigured } from "@/lib/auth"
 import { RoutePending } from "@/components/RoutePending"
 
 import logoImage from "../../img/icon.png"
+import { businessContact } from "@/lib/public-business"
 
 export function Login() {
-  if (!isNeonAuthConfigured) {
-    return <LoginConfigurationMissing />
-  }
-
-  return <LoginForm />
+  return isNeonAuthConfigured ? <LoginForm /> : <LoginConfigurationMissing />
 }
 
 function LoginConfigurationMissing() {
@@ -216,7 +213,7 @@ function LoginForm() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Close</AlertDialogCancel>
-            <Button asChild><a href="mailto:support@absoluterevision.com?subject=Private%20account%20access">Request access</a></Button>
+            <Button asChild><a href={`mailto:${businessContact.email}?subject=Private%20account%20access`}>Request access</a></Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

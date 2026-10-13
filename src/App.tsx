@@ -1,117 +1,82 @@
-import { Navigate, Route, Routes, useLocation } from "react-router-dom"
+import { lazy, Suspense } from "react"
+import { Route, Routes, useLocation } from "react-router-dom"
 import { Toaster } from "sonner"
 
 import { ThemeProvider } from "@/hooks/useTheme"
 import { RoutePending } from "@/components/RoutePending"
-import { getNeonAuthClient, isNeonAuthConfigured } from "@/lib/auth"
-import { AssignmentView } from "@/pages/AssignmentView"
-import { AssignmentTracking } from "@/pages/AssignmentTracking"
-import { Dashboard } from "@/pages/Dashboard"
-import { ClientSubmissions } from "@/pages/ClientSubmissions"
-import { DocumentUpload } from "@/pages/DocumentUpload"
+import { RouteMetadata } from "@/components/RouteMetadata"
 import { Landing } from "@/pages/Landing"
-import { Login } from "@/pages/Login"
-import { Settings } from "@/pages/Settings"
-import type { AuthUser } from "@/types"
+import { Pricing } from "@/pages/Pricing"
+import { NotFound } from "@/pages/NotFound"
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary"
 
-type NeonSessionUser = {
-  id: string
-  email: string
-  name?: string | null
-}
+const AssignmentView = lazy(() => import("@/pages/AssignmentView").then((module) => ({ default: module.AssignmentView })))
 
-function toAuthUser(user: NeonSessionUser): AuthUser {
-  return {
-    id: user.id,
-    email: user.email,
-    displayName: user.name ?? null,
-  }
-}
+const AssignmentTracking = lazy(() => import("@/pages/AssignmentTracking").then((module) => ({ default: module.AssignmentTracking })))
 
-function Protected({
-  children,
-}: {
-  children: (user: AuthUser, signOut: () => Promise<void>) => React.ReactNode
-}) {
-  const location = useLocation()
-  const from = `${location.pathname}${location.search}${location.hash}`
-  if (!isNeonAuthConfigured) {
-    return <Navigate to="/login" replace state={{ from }} />
-  }
+const Dashboard = lazy(() => import("@/pages/Dashboard").then((module) => ({ default: module.Dashboard })))
 
-  return <ProtectedWithAuth>{children}</ProtectedWithAuth>
-}
+const ClientSubmissions = lazy(() => import("@/pages/ClientSubmissions").then((module) => ({ default: module.ClientSubmissions })))
 
-function ProtectedWithAuth({
-  children,
-}: {
-  children: (user: AuthUser, signOut: () => Promise<void>) => React.ReactNode
-}) {
-  const location = useLocation()
-  const authClient = getNeonAuthClient()
-  const session = authClient.useSession()
+const DocumentUpload = lazy(() => import("@/pages/DocumentUpload").then((module) => ({ default: module.DocumentUpload })))
 
-  if (session.isPending) {
-    return <RoutePending />
-  }
+const Login = lazy(() => import("@/pages/Login").then((module) => ({ default: module.Login })))
 
-  if (!session.data) {
-    return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}${location.hash}` }} />
-  }
+const Settings = lazy(() => import("@/pages/Settings").then((module) => ({ default: module.Settings })))
 
-  const authUser = toAuthUser(session.data.user)
-  const signOut = async () => {
-    await authClient.signOut()
-    window.location.assign("/")
-  }
-
-  return <>{children(authUser, signOut)}</>
-}
+const Protected = lazy(() => import("@/components/ProtectedRoute").then((module) => ({ default: module.ProtectedRoute })))
 
 export default function App() {
+  const { pathname } = useLocation()
   return (
     <ThemeProvider>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/document-upload" element={<DocumentUpload />} />
-        <Route path="/track-assignment" element={<AssignmentTracking />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/sign-in" element={<Login />} />
-        <Route path="/sign-up" element={<Login />} />
-        <Route
-          path="/dashboard"
-          element={
-            <Protected>
-              {(user, signOut) => <Dashboard user={user} onSignOut={signOut} />}
-            </Protected>
-          }
-        />
-        <Route
-          path="/client-submissions"
-          element={
-            <Protected>
-              {(user, signOut) => <ClientSubmissions key={user.id} user={user} onSignOut={signOut} />}
-            </Protected>
-          }
-        />
-        <Route
-          path="/assignments/:id"
-          element={
-            <Protected>
-              {(user, signOut) => <AssignmentView user={user} onSignOut={signOut} />}
-            </Protected>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <Protected>
-              {(user, signOut) => <Settings user={user} onSignOut={signOut} />}
-            </Protected>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <RouteMetadata />
+      <RouteErrorBoundary key={pathname}>
+        <Suspense fallback={<RoutePending />}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/document-upload" element={<DocumentUpload />} />
+            <Route path="/track-assignment" element={<AssignmentTracking />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/sign-in" element={<Login />} />
+            <Route path="/sign-up" element={<Login />} />
+            <Route
+              path="/dashboard"
+              element={
+                <Protected>
+                  {(user, signOut) => <Dashboard user={user} onSignOut={signOut} />}
+                </Protected>
+              }
+            />
+            <Route
+              path="/client-submissions"
+              element={
+                <Protected>
+                  {(user, signOut) => <ClientSubmissions key={user.id} user={user} onSignOut={signOut} />}
+                </Protected>
+              }
+            />
+            <Route
+              path="/assignments/:id"
+              element={
+                <Protected>
+                  {(user, signOut) => <AssignmentView user={user} onSignOut={signOut} />}
+                </Protected>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <Protected>
+                  {(user, signOut) => <Settings user={user} onSignOut={signOut} />}
+                </Protected>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </RouteErrorBoundary>
       <Toaster richColors closeButton />
     </ThemeProvider>
   )

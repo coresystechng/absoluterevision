@@ -1,3 +1,4 @@
+import { PublicFooter } from "@/components/PublicFooter"
 import { type ChangeEvent, type FormEvent, useState } from "react"
 import { Link } from "react-router-dom"
 import {
@@ -6,7 +7,6 @@ import {
   FileText,
   Loader2,
   Mail,
-  Phone,
   Send,
   X,
 } from "lucide-react"
@@ -44,13 +44,8 @@ import {
   getDocumentUploadSelectionError,
 } from "../../shared/document-uploads"
 
-import privacyPolicyUrl from "../../assets/privacy.md?url"
-import termsUrl from "../../assets/terms.md?url"
 import logoImage from "../../img/icon.png"
 
-const supportEmail = "support@absoluterevision.com"
-const phoneDisplay = "+234 902 436 4876"
-const phoneHref = "tel:+2349024364876"
 
 function formatBytes(sizeBytes: number) {
   if (sizeBytes <= 0) {
@@ -167,8 +162,8 @@ export function DocumentUpload() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="border-b bg-background/95 backdrop-blur">
+    <main id="top" className="min-h-screen bg-background text-foreground">
+      <header className="border-b bg-surface-raised">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link to="/" className="flex min-w-0 items-center gap-2 font-semibold">
             <img src={logoImage} alt="" className="h-8 w-8 shrink-0 object-contain" />
@@ -343,46 +338,7 @@ export function DocumentUpload() {
         </div>
       </section>
 
-      <footer className="px-4 py-10">
-        <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[1fr_auto_auto] md:items-start">
-          <div>
-            <div className="flex items-center gap-2 font-semibold">
-              <img src={logoImage} alt="" className="h-8 w-8 object-contain" />
-              <span>Absolute Revision</span>
-            </div>
-            <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
-              High-quality editing, proofreading, and formatting services for researchers, authors, students, and businesses.
-            </p>
-          </div>
-
-          <div className="grid gap-3 text-sm text-muted-foreground">
-            <a href={phoneHref} className="inline-flex items-center gap-2 transition-colors hover:text-foreground">
-              <Phone className="h-4 w-4" />
-              {phoneDisplay}
-            </a>
-            <a
-              href={`mailto:${supportEmail}`}
-              className="inline-flex items-center gap-2 transition-colors hover:text-foreground"
-            >
-              <Mail className="h-4 w-4" />
-              {supportEmail}
-            </a>
-          </div>
-
-          <div className="flex gap-4 text-sm text-muted-foreground md:justify-end">
-            <a href={privacyPolicyUrl} target="_blank" rel="noreferrer" className="hover:text-foreground">
-              Privacy Policy
-            </a>
-            <a href={termsUrl} target="_blank" rel="noreferrer" className="hover:text-foreground">
-              Site Terms
-            </a>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-8 max-w-6xl border-t pt-6 text-sm text-muted-foreground">
-          <p>Copyright 2026 Absolute Revision. All rights reserved.</p>
-        </div>
-      </footer>
+      <PublicFooter />
 
       <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
         <DialogContent>

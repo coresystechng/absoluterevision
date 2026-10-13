@@ -27,26 +27,33 @@ describe("App authentication states", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Loading your workspace")
   })
 
-  it("redirects an unauthenticated deep link to login", () => {
+  it("redirects an unauthenticated deep link to login", async () => {
     render(<MemoryRouter initialEntries={["/assignments/42?view=activity"]}><App /></MemoryRouter>)
-    expect(screen.getByRole("heading", { name: "Sign in" })).toBeVisible()
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeVisible()
   })
 
-  it("renders authenticated protected content", () => {
+  it("renders authenticated protected content", async () => {
     session.data = { user: { id: "user-1", email: "user@example.com", name: "User" } }
     render(<MemoryRouter initialEntries={["/dashboard"]}><App /></MemoryRouter>)
-    expect(screen.getByRole("heading", { name: "Dashboard route" })).toBeVisible()
+    expect(await screen.findByRole("heading", { name: "Dashboard route" })).toBeVisible()
   })
 
-  it("returns authenticated users to a safe internal destination", () => {
+  it("returns authenticated users to a safe internal destination", async () => {
     session.data = { user: { id: "user-1", email: "user@example.com", name: "User" } }
     render(<MemoryRouter initialEntries={[{ pathname: "/login", state: { from: "/assignments/42" } }]}><App /></MemoryRouter>)
-    expect(screen.getByRole("heading", { name: "Assignment route" })).toBeVisible()
+    expect(await screen.findByRole("heading", { name: "Assignment route" })).toBeVisible()
   })
 
-  it("falls back to dashboard for a protocol-relative destination", () => {
+  it("falls back to dashboard for a protocol-relative destination", async () => {
     session.data = { user: { id: "user-1", email: "user@example.com", name: "User" } }
     render(<MemoryRouter initialEntries={[{ pathname: "/login", state: { from: "//evil.example" } }]}><App /></MemoryRouter>)
-    expect(screen.getByRole("heading", { name: "Dashboard route" })).toBeVisible()
+    expect(await screen.findByRole("heading", { name: "Dashboard route" })).toBeVisible()
+  })
+
+  it("renders a not-found page rather than redirecting an unknown URL home", () => {
+    render(<MemoryRouter initialEntries={["/missing-page"]}><App /></MemoryRouter>)
+    expect(screen.getByRole("heading", { name: "We couldn't find that page." })).toBeVisible()
+    expect(screen.getByRole("link", { name: "Return home" })).toHaveAttribute("href", "/")
+    expect(document.querySelector('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow")
   })
 })

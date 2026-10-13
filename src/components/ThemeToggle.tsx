@@ -10,7 +10,7 @@ const options: Array<{ value: ThemePreference; label: string; icon: React.Compon
   { value: "system", label: "System", icon: Monitor },
 ]
 
-export function ThemeToggle({ compact = false }: { compact?: boolean }) {
+export function ThemeToggle({ compact = false, iconsOnly = false }: { compact?: boolean; iconsOnly?: boolean }) {
   const { theme, setTheme } = useTheme()
 
   if (compact) {
@@ -38,13 +38,16 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
           <Button
             key={option.value}
             type="button"
-            size="sm"
+            size={iconsOnly ? "icon" : "sm"}
+            className={iconsOnly ? "h-8 w-8" : undefined}
             variant={theme === option.value ? "secondary" : "ghost"}
             onClick={() => setTheme(option.value)}
+            aria-label={iconsOnly ? option.label : undefined}
+            title={iconsOnly ? option.label : undefined}
             aria-pressed={theme === option.value}
           >
             <Icon className="h-4 w-4" />
-            {option.label}
+            {!iconsOnly && option.label}
           </Button>
         )
       })}

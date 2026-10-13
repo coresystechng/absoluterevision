@@ -1,4 +1,4 @@
-import type { FormEvent } from "react"
+import { WhatsAppIcon } from "@/components/WhatsAppIcon"
 import { Link } from "react-router-dom"
 import {
   Award,
@@ -9,40 +9,28 @@ import {
   GraduationCap,
   ListChecks,
   Mail,
-  Phone,
   ShieldCheck,
   WalletCards,
 } from "lucide-react"
 
+import { PublicFooter } from "@/components/PublicFooter"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
+import { businessContact } from "@/lib/public-business"
 
-import privacyPolicyUrl from "../../assets/privacy.md?url"
-import termsUrl from "../../assets/terms.md?url"
-import heroImage from "../../img/hero-students.jpg"
 import logoImage from "../../img/icon.png"
-import serviceImage from "../../img/slide (1).jpg"
-import aboutImage from "../../img/stx-1.jpg"
 
 const documentUploadUrl = "/document-upload"
-const supportEmail = "support@absoluterevision.com"
-const phoneDisplay = "+234 902 436 4876"
-const phoneHref = "tel:+19372490400"
+const { email: supportEmail, phoneDisplay, whatsappHref } = businessContact
 
 const navLinks = [
-  { label: "Track assignment", href: "/track-assignment" },
-  { label: "About", href: "#about" },
   { label: "Services", href: "#services" },
+  { label: "Pricing", href: "/pricing" },
   { label: "FAQ", href: "#faq" },
   { label: "Contact", href: "#contact" },
 ]
@@ -99,7 +87,7 @@ const faqs = [
   {
     question: "What are your prices?",
     answer:
-      "We have flat-rate pricing based on the word range of a document. View the pricing page for current pricing information.",
+      <>We offer fixed service fees for assignments, essays, and BSc. and MSc. dissertations, with custom quotes for journals and magazines. <Link to="/pricing" className="underline underline-offset-4">View our service prices, excluding VAT and transfer fees.</Link></>,
   },
   {
     question: "What file type is accepted?",
@@ -131,33 +119,6 @@ const faqs = [
       "Yes. We offer translation and formatting services. To place your order, please contact us.",
   },
 ]
-
-const footerLinks = [
-  { label: "Track assignment", href: "/track-assignment" },
-  { label: "Sign Up", href: "/sign-up" },
-  { label: "Back To Top", href: "#top" },
-  { label: "Our Services", href: "#services" },
-]
-
-const socialLinks = [
-  { label: "LinkedIn", href: "https://www.linkedin.com/company/absolute-revision/" },
-  { label: "Telegram", href: "https://t.me/AbsoluteRevision" },
-  { label: "Instagram", href: "https://Instagram.com/absoluterevision" },
-]
-
-function submitContactForm(event: FormEvent<HTMLFormElement>) {
-  event.preventDefault()
-
-  const formData = new FormData(event.currentTarget)
-  const name = String(formData.get("name") ?? "").trim()
-  const email = String(formData.get("email") ?? "").trim()
-  const message = String(formData.get("message") ?? "").trim()
-  const body = encodeURIComponent(
-    [`Name: ${name}`, `Email: ${email}`, "", message].join("\n"),
-  )
-
-  window.location.href = `mailto:${supportEmail}?subject=Absolute%20Revision%20enquiry&body=${body}`
-}
 
 export function Landing() {
   return (
@@ -198,7 +159,12 @@ export function Landing() {
 
       <section className="relative min-h-[78svh] overflow-hidden border-b">
         <img
-          src={heroImage}
+          src="/media/hero-students-1280.webp"
+          srcSet="/media/hero-students-640.webp 640w, /media/hero-students-1280.webp 1280w, /media/hero-students-1920.webp 1920w"
+          sizes="100vw"
+          width={1920}
+          height={1440}
+          {...{ fetchpriority: "high" }}
           alt="Students reviewing academic papers together"
           className="absolute inset-0 h-full w-full object-cover"
         />
@@ -206,7 +172,7 @@ export function Landing() {
 
         <div className="relative mx-auto flex min-h-[78svh] max-w-6xl flex-col justify-center px-4 py-12 text-white sm:py-16">
           <h1 className="max-w-4xl text-3xl font-semibold tracking-normal text-white sm:text-5xl lg:text-6xl">
-            High-Quality Services for Academic & Research Papers
+            Academic Editing & Proofreading for Your Research Papers
           </h1>
 
           <p className="mt-6 max-w-2xl text-base leading-7 text-white/82 sm:text-lg sm:leading-8">
@@ -223,16 +189,16 @@ export function Landing() {
               size="lg"
               variant="outline"
               asChild
-              className="border-white/35 bg-transparent text-white hover:bg-white/10 hover:text-white"
+              className="border-white/35 bg-transparent text-white hover:bg-white/10 hover:underline"
             >
               <a href="#contact">Contact us</a>
             </Button>
           </div>
 
           <div className="mt-8 flex flex-col gap-3 text-sm text-white/78 sm:flex-row sm:items-center">
-            <a href={phoneHref} className="inline-flex items-center gap-2 transition-colors hover:text-white">
-              <Phone className="h-4 w-4" />
-              Call {phoneDisplay}
+            <a href={whatsappHref} className="inline-flex items-center gap-2 transition-colors hover:text-white">
+              <WhatsAppIcon className="h-4 w-4" />
+              {phoneDisplay}
             </a>
             <span className="hidden h-1 w-1 rounded-full bg-white/60 sm:block" />
             <a
@@ -267,7 +233,13 @@ export function Landing() {
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="overflow-hidden rounded-lg border bg-muted">
             <img
-              src={aboutImage}
+              src="/media/editing-workspace-800.webp"
+              srcSet="/media/editing-workspace-480.webp 480w, /media/editing-workspace-800.webp 800w"
+              sizes="(min-width: 1024px) 560px, (min-width: 640px) 80vw, 100vw"
+              width={800}
+              height={535}
+              loading="lazy"
+              decoding="async"
               alt="Academic editing workspace"
               className="h-full min-h-[320px] w-full object-cover"
             />
@@ -338,7 +310,13 @@ export function Landing() {
 
             <div className="overflow-hidden rounded-lg border bg-muted">
               <img
-                src={serviceImage}
+                src="/media/editing-notes-960.webp"
+                srcSet="/media/editing-notes-480.webp 480w, /media/editing-notes-960.webp 960w"
+                sizes="(min-width: 1024px) 460px, (min-width: 640px) 80vw, 100vw"
+                width={1242}
+                height={581}
+                loading="lazy"
+                decoding="async"
                 alt="Editing notes on a printed document"
                 className="h-[320px] w-full object-cover"
               />
@@ -371,161 +349,49 @@ export function Landing() {
         </div>
       </section>
 
-      <section id="faq" className="scroll-mt-24 px-4 py-16 lg:py-24">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.05fr_0.95fr]">
-          <div>
+      <section id="faq" aria-labelledby="faq-heading" className="scroll-mt-24 px-4 py-16 lg:py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="max-w-2xl">
             <p className="text-sm font-medium uppercase text-muted-foreground">Frequently Asked Questions</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
+            <h2 id="faq-heading" className="mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
               Clear answers before you submit.
             </h2>
-
-            <div className="mt-8 divide-y rounded-lg border bg-card">
-              {faqs.map((faq) => (
-                <details key={faq.question} className="group">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-left font-medium [&::-webkit-details-marker]:hidden">
-                    <span>{faq.question}</span>
-                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
-                  </summary>
-                  <div className="px-5 pb-5 text-sm leading-6 text-muted-foreground">
-                    {faq.answer}
-                  </div>
-                </details>
-              ))}
-            </div>
+            <p className="mt-4 leading-7 text-muted-foreground">Find answers about your document, pricing, delivery, and how we protect your work.</p>
           </div>
-
-          <Card id="contact" className="scroll-mt-24 self-start">
-            <CardHeader>
-              <div className="flex h-11 w-11 items-center justify-center rounded-md border bg-muted">
-                <Mail className="h-5 w-5" />
-              </div>
-              <CardTitle className="pt-3">Contact Us</CardTitle>
-              <CardDescription>
-                Send a message by email or call us directly to discuss your document, deadline, and formatting requirements.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form className="grid gap-4" onSubmit={submitContactForm}>
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input id="name" name="name" placeholder="Enter your name" autoComplete="name" required />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    autoComplete="email"
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="message">Message</Label>
-                  <Textarea id="message" name="message" placeholder="Enter your message" required />
-                </div>
-                <Button type="submit">Send</Button>
-              </form>
-
-              <Separator className="my-6" />
-
-              <div className="grid gap-3 text-sm text-muted-foreground">
-                <a href={phoneHref} className="inline-flex items-center gap-2 transition-colors hover:text-foreground">
-                  <Phone className="h-4 w-4" />
-                  {phoneDisplay}
-                </a>
-                <a
-                  href={`mailto:${supportEmail}`}
-                  className="inline-flex items-center gap-2 transition-colors hover:text-foreground"
-                >
-                  <Mail className="h-4 w-4" />
-                  {supportEmail}
-                </a>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="mt-8 divide-y overflow-hidden rounded-lg border bg-card">
+            {faqs.map((faq) => (
+              <details key={faq.question} className="group">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-left font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                  <span>{faq.question}</span>
+                  <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                </summary>
+                <div className="px-5 pb-5 text-sm leading-6 text-muted-foreground">{faq.answer}</div>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="border-y bg-muted/30 px-4 py-14">
+      <section id="contact" aria-labelledby="contact-heading" className="scroll-mt-24 border-t bg-muted/30 px-4 py-12">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-medium uppercase text-muted-foreground">Ready to start?</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-normal">
-              Get expert revision for your next submission.
-            </h2>
+          <div className="max-w-xl">
+            <h2 id="contact-heading" className="text-2xl font-semibold">Have another question?</h2>
+            <p className="mt-3 leading-7 text-muted-foreground">Email or message us to discuss your document, deadline, and formatting requirements.</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button size="lg" asChild>
-              <Link to={documentUploadUrl}>
-                Submit manuscript
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <a href={phoneHref}>Call us</a>
-            </Button>
+          <div className="flex flex-col items-start gap-4">
+            <a href={whatsappHref} className="inline-flex items-center gap-2 underline-offset-4 hover:underline">
+              <WhatsAppIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
+              {phoneDisplay}
+            </a>
+            <a href={`mailto:${supportEmail}`} className="inline-flex items-center gap-2 break-all underline-offset-4 hover:underline">
+              <Mail aria-hidden="true" className="h-4 w-4 shrink-0" />
+              {supportEmail}
+            </a>
           </div>
         </div>
       </section>
 
-      <footer className="px-4 py-12 bg-primary text-muted">
-        <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-4">
-          <div className="md:col-span-2">
-            <div className="flex items-center gap-2 font-semibold">
-              <img src={logoImage} alt="" className="h-8 w-8 object-contain" />
-              <span>Absolute Revision</span>
-            </div>
-            <p className="mt-5 max-w-xl text-sm leading-6 text-muted">
-              Providing high-quality editing, proofreading, and formatting services to researchers, authors, students, and businesses.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-semibold">Site Navigation</h3>
-            <ul className="mt-4 grid gap-3 text-sm text-muted">
-              {footerLinks.map((link) => (
-                <li key={link.href}>
-                  {link.href.startsWith("#") ? (
-                    <a href={link.href} className="transition-colors hover:text-white">
-                      {link.label}
-                    </a>
-                  ) : (
-                    <Link to={link.href} className="transition-colors hover:text-white">
-                      {link.label}
-                    </Link>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-semibold">Social Links</h3>
-            <ul className="mt-4 grid gap-3 text-sm text-muted">
-              {socialLinks.map((link) => (
-                <li key={link.href}>
-                  <a href={link.href} target="_blank" rel="noreferrer" className="transition-colors hover:text-white">
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-10 flex max-w-6xl flex-col gap-3 border-t pt-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-          <p>Copyright 2026 Absolute Revision. All rights reserved.</p>
-          <div className="flex items-center gap-4">
-            <a href={privacyPolicyUrl} target="_blank" rel="noreferrer" className="hover:text-white">
-              Privacy Policy
-            </a>
-            <a href={termsUrl} target="_blank" rel="noreferrer" className="hover:text-white">
-              Site Terms
-            </a>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </main>
   )
 }

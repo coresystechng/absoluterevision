@@ -95,6 +95,10 @@ test("visual foundations remain distinct and unclipped across themes and public 
       await page.evaluate((preference) => window.localStorage.setItem("absolute-revision-theme", preference), theme)
       await page.reload({ waitUntil: "domcontentloaded" })
 
+      // The tracking route now loads on demand. Wait for its actual content,
+      // rather than measuring the temporary loading skeleton.
+      await expect(page.getByRole("heading", { name: "Check your assignment progress" })).toBeVisible()
+
       const root = page.locator("html")
       if (theme === "dark") await expect(root).toHaveClass(/dark/)
       else await expect(root).not.toHaveClass(/dark/)

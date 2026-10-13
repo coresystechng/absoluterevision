@@ -1,3 +1,4 @@
+import { ThemeProvider } from "@/hooks/useTheme"
 import type { ReactElement } from "react"
 import { render, type RenderOptions } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -13,7 +14,7 @@ export function renderWithRouter(
 ) {
   const user = userEvent.setup()
   const result = render(
-    <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>,
+    <MemoryRouter initialEntries={initialEntries}><ThemeProvider>{ui}</ThemeProvider></MemoryRouter>,
     renderOptions,
   )
 

@@ -177,7 +177,25 @@ Neon Auth allows localhost automatically for development, but production domains
 
 ## Production Routing
 
-The app uses React Router in SPA mode. `vercel.json` rewrites authenticated app routes such as `/login`, `/dashboard`, `/settings`, and `/assignments/:id` to `index.html` while leaving `/api/*` available for serverless functions.
+The app uses React Router with statically rendered public pages and a client-rendered workspace. The metadata plugin in `build/site-metadata.ts` emits route-specific utility HTML shells under `dist/_pages/`, reusing the same application assets. It also generates `pricing.html` and `404.html`. Before the service worker is generated, `build/prerender.ts` builds an isolated public renderer in the ignored `node_modules/.cache/absolute-revision-prerender` directory and renders the homepage, pricing page, and not-found page into their HTML. These pages are readable without JavaScript and hydrate in the browser. Private pages are never rendered at build time.
+
+`vercel.json` rewrites known app routes to their HTML shells while leaving `/api/*` available for serverless functions. Unknown URLs use Vercel's static `404.html` convention with a 404 response; the client router also shows a not-found page instead of redirecting home. Local Vite development and preview middleware mirror known page routing and 404 status behavior. The service worker's navigation allowlist excludes unknown URLs so it cannot turn them into successful homepage responses.
+
+### SEO and social previews
+
+The canonical origin is `https://absoluterevision.com`. Vercel permanently redirects `www.absoluterevision.com` to that host, `/index.html` to `/`, `/sign-in` to `/login`, and the legacy `/pricing.html` URL to `/pricing`, and normalizes trailing slashes. Keep both domains connected to the Vercel project with valid TLS. If a dashboard-level domain redirect exists, it must agree with this configuration to avoid redirect loops.
+
+Shared metadata lives in `src/lib/site-metadata.ts`. The Vite plugin writes initial HTML metadata, including Organization/WebSite/WebPage JSON-LD on public marketing routes, and `RouteMetadata` updates it during client navigation. Utility routes (including upload and tracking) and private app pages have both HTML `noindex` rules and Vercel `X-Robots-Tag` headers. The shared private-assignment shell uses generic metadata without assignment IDs, client information, or a fabricated canonical URL. Never include query parameters, access codes, or session data in SEO metadata.
+
+`public/robots.txt` allows crawling so search engines can read the utility pages' `noindex` rules. `public/sitemap.xml` lists the canonical homepage and pricing page. Add future public marketing pages only when they return successful responses and are intended to be indexed; do not add app routes. If the canonical origin changes, update the shared metadata, crawler files, Vercel host redirect, and social artwork together.
+
+Public contact information is centralized in `src/lib/public-business.ts`; visible WhatsApp links, enquiry emails, and JSON-LD use the same details. The public number is for WhatsApp messaging; use `businessContact.whatsappHref` rather than telephone call links. Approved service fees live in `src/lib/public-pricing.ts`: $40 for assignments/essays, $113 for BSc. dissertations, and $150 for MSc. dissertations, excluding VAT and transfer fees. The naira fees remain ₦50,000, ₦150,000, and ₦200,000 respectively; journals and magazines require a custom quote. Dollar amounts are explicitly approved prices rather than live conversions. Confirm any applicable VAT and transfer fees with the client before payment.
+
+Marketing photographs use responsive WebP variants in `public/media`. Regenerate them with `npm run assets:images` after changing the JPEG sources. Inter and Playfair Display Latin variable WOFF2 fonts are hosted in `public/fonts` with their SIL Open Font licenses. `npm run assets:fonts` refreshes them from Google Fonts and retrieves the licenses. Asset regeneration requires network access for fonts; ordinary builds use committed files. Heavy utility/workspace pages and the auth boundary load on demand. The service worker precaches only the public JavaScript dependency graph and caches additional chunks when visited, preventing background precaching from undoing route splitting.
+
+The committed social PNG is 1200 × 630. Edit `public/social/absolute-revision.svg`, then regenerate it with `node scripts/generate-social-image.mjs` (uses Playwright with Microsoft Edge on Windows or its installed Chromium elsewhere). Production builds use the committed PNG and do not require a browser for image generation.
+
+Before release, run `npm run lint`, `npm test`, and `npm run test:e2e` (which builds production artifacts first). The browser suite exercises both Vite development and the built production preview, including no-JavaScript content, hydration, pricing, generic private metadata, chunk loading, and real 404 responses. Inspect deployed Vercel utility response headers, host redirects, and unknown-URL status codes as a final deployment check: local preview middleware mirrors routing but cannot confirm Vercel's live configuration. Preserve Vercel's default preview-deployment `noindex` behavior.
 
 ## Dropbox Troubleshooting
 

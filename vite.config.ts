@@ -4,6 +4,8 @@ import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig, loadEnv, type Plugin } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
+import { siteMetadataPlugin } from "./build/site-metadata"
+import { getPublicScriptDependencies } from "./build/prerender"
 
 type LocalApiRoute = {
   file: string
@@ -173,10 +175,12 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    appType: "mpa",
     plugins: [
       localApiRoutes(),
       react(),
       tailwindcss(),
+      siteMetadataPlugin(),
       VitePWA({
         registerType: "autoUpdate",
         includeAssets: ["icons/apple-touch-icon.png"],
@@ -213,7 +217,21 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           navigateFallbackDenylist: [/^\/api\//],
+          navigateFallbackAllowlist: [/^\/$/, /^\/(?:pricing|login|sign-in|sign-up|document-upload|track-assignment|dashboard|client-submissions|settings)\/?$/, /^\/assignments\/[^/]+\/?$/],
           cleanupOutdatedCaches: true,
+          // Do not undo route splitting by downloading every private chunk when
+          // a visitor installs the homepage's service worker.
+          manifestTransforms: [async (entries) => {
+            const publicScripts = await getPublicScriptDependencies(path.resolve(__dirname, "dist"))
+            // Workbox rejects non-2xx precache responses. The error document is
+            // served with 404 locally and is never a navigation fallback.
+            return { manifest: entries.filter((entry) => entry.url !== "404.html" && (!entry.url.endsWith(".js") || entry.url === "registerSW.js" || publicScripts.has(entry.url))), warnings: [] }
+          }],
+          runtimeCaching: [{
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/assets/") && url.pathname.endsWith(".js"),
+            handler: "CacheFirst",
+            options: { cacheName: "application-chunks", expiration: { maxEntries: 64, maxAgeSeconds: 30 * 24 * 60 * 60 }, cacheableResponse: { statuses: [200] } },
+          }],
         },
       }),
     ],

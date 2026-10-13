@@ -1,70 +1,135 @@
 {
-  "rewrites": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "trailingSlash": false,
+  "redirects": [
     {
-      "source": "/login",
-      "destination": "/index.html"
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.absoluterevision.com"
+        }
+      ],
+      "destination": "https://absoluterevision.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": true
     },
     {
       "source": "/sign-in",
-      "destination": "/index.html"
+      "destination": "/login",
+      "permanent": true
+    },
+    {
+      "source": "/pricing.html",
+      "destination": "/pricing",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/pricing",
+      "destination": "/pricing.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/_pages/login.html"
     },
     {
       "source": "/sign-up",
-      "destination": "/index.html"
+      "destination": "/_pages/sign-up.html"
     },
     {
       "source": "/document-upload",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/document-upload/",
-      "destination": "/index.html"
+      "destination": "/_pages/document-upload.html"
     },
     {
       "source": "/track-assignment",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/track-assignment/",
-      "destination": "/index.html"
+      "destination": "/_pages/track-assignment.html"
     },
     {
       "source": "/dashboard",
-      "destination": "/index.html"
+      "destination": "/_pages/dashboard.html"
     },
     {
       "source": "/client-submissions",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/client-submissions/",
-      "destination": "/index.html"
+      "destination": "/_pages/client-submissions.html"
     },
     {
       "source": "/settings",
-      "destination": "/index.html"
+      "destination": "/_pages/settings.html"
     },
     {
       "source": "/assignments/:id",
-      "destination": "/index.html"
+      "destination": "/_pages/assignment.html"
     }
   ],
   "headers": [
     {
-      "source": "/client-submissions",
-      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+      "source": "/:page(login|sign-in|sign-up|document-upload|track-assignment|dashboard|client-submissions|settings)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     },
     {
-      "source": "/client-submissions/",
-      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+      "source": "/:page(login|sign-in|sign-up|document-upload|track-assignment|dashboard|client-submissions|settings)/",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     },
     {
-      "source": "/track-assignment",
-      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+      "source": "/assignments/:path*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     },
     {
-      "source": "/track-assignment/",
-      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+      "source": "/_pages/:path*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/sitemap.xml",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/xml; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/404.html",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     }
   ]
 }

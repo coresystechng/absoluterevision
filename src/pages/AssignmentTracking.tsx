@@ -1,6 +1,9 @@
+import { PublicFooter } from "@/components/PublicFooter"
+import { WhatsAppIcon } from "@/components/WhatsAppIcon"
+import { businessContact } from "@/lib/public-business"
 import { type FormEvent, useRef, useState } from "react"
 import { Link } from "react-router-dom"
-import { CheckCircle2, Circle, Loader2, Mail, Phone } from "lucide-react"
+import { CheckCircle2, Circle, Loader2, Mail } from "lucide-react"
 
 import { getPublicAssignmentStatus, PublicAssignmentStatusError, type PublicAssignmentStatus } from "@/api/public-assignment-status"
 import { Badge } from "@/components/ui/badge"
@@ -25,9 +28,7 @@ import {
 
 import logoImage from "../../img/icon.png"
 
-const supportEmail = "support@absoluterevision.com"
-const phoneDisplay = "+1 937 249 0400"
-const phoneHref = "tel:+19372490400"
+const { email: supportEmail, phoneDisplay, whatsappHref } = businessContact
 
 type ViewState = "initial" | "loading" | "success" | "not-found" | "rate-limited" | "error"
 
@@ -84,7 +85,7 @@ export function AssignmentTracking() {
     : null
 
   return (
-    <div className="min-h-screen bg-background">
+    <div id="top" className="min-h-screen bg-background">
       <header className="border-b bg-background">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
           <Link to="/" className="flex min-w-0 items-center gap-2 font-semibold"><img src={logoImage} alt="" className="h-8 w-8 shrink-0 object-contain" /><span className="truncate">Absolute Revision</span></Link>
@@ -173,8 +174,9 @@ export function AssignmentTracking() {
           ) : null}
         </div>
 
-        <Card><CardContent className="grid gap-3 p-6 text-sm text-muted-foreground sm:grid-cols-2"><a className="flex items-center gap-2 hover:text-foreground" href={`mailto:${supportEmail}`}><Mail className="h-4 w-4" />{supportEmail}</a><a className="flex items-center gap-2 hover:text-foreground" href={phoneHref}><Phone className="h-4 w-4" />{phoneDisplay}</a></CardContent></Card>
+        <Card><CardContent className="grid gap-3 p-6 text-sm text-muted-foreground sm:grid-cols-2"><a className="flex items-center gap-2 hover:text-foreground" href={`mailto:${supportEmail}`}><Mail className="h-4 w-4" />{supportEmail}</a><a className="flex items-center gap-2 hover:text-foreground" href={whatsappHref}><WhatsAppIcon className="h-4 w-4" />{phoneDisplay}</a></CardContent></Card>
       </main>
+      <PublicFooter />
     </div>
   )
 }

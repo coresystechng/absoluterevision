@@ -14,6 +14,6 @@ Cookies: Our Website uses cookies to improve your experience and to collect info
 
 Changes to Privacy Policy: Absolute Revision reserves the right to change this Privacy Policy at any time. Your continued use of our Services after any changes to this Privacy Policy constitutes your acceptance of the new terms.
 
-Contact Us: If you have any questions or concerns about our Privacy Policy, please contact us at support@absoluterevision.com.
+Contact Us: If you have any questions or concerns about our Privacy Policy, please contact us at coresystechng@gmail.com.
 
 By using our Services, you agree to be bound by this Privacy Policy. We take your privacy seriously and will make every effort to protect your personal information."

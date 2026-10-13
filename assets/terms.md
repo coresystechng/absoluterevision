@@ -22,4 +22,4 @@ Governing Law: These Terms of Use shall be governed by and construed in accordan
 
 Dispute Resolution: Any disputes arising from or in connection with these Terms of Use or our Services shall be resolved through arbitration in accordance with the rules of the American Arbitration Association.
 
-By using our Services, you agree to be bound by these Terms of Use. If you have any questions or concerns, please contact us at support@absoluterevision.com.
+By using our Services, you agree to be bound by these Terms of Use. If you have any questions or concerns, please contact us at coresystechng@gmail.com.
