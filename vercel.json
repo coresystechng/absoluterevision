@@ -31,6 +31,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/client-submissions/intake",
+      "destination": "/api/client-submissions?subroute=intake"
+    },
+    {
+      "source": "/api/client-submissions/verify-email",
+      "destination": "/api/client-submissions?subroute=verify-email"
+    },
+    {
       "source": "/pricing",
       "destination": "/pricing.html"
     },

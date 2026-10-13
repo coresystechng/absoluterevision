@@ -1,6 +1,6 @@
-import { sendSubmissionEmailCode, verifySubmissionEmailCode } from "../../server/api/submission-email.js"
-import { handleApiError, HttpError, readJsonBody, requireMethod, sendJson, type ApiRequest, type ApiResponse } from "../../server/api/http.js"
-import { enforceRateLimit } from "../../server/api/rate-limit.js"
+import { sendSubmissionEmailCode, verifySubmissionEmailCode } from "../../api/submission-email.js"
+import { handleApiError, HttpError, readJsonBody, requireMethod, sendJson, type ApiRequest, type ApiResponse } from "../../api/http.js"
+import { enforceRateLimit } from "../../api/rate-limit.js"
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader("Cache-Control", "no-store")

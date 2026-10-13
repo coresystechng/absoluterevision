@@ -1,6 +1,6 @@
-import { createSubmissionIntake, finalizeSubmissionIntake, retrySubmissionIntake } from "../../server/api/client-submissions.js"
-import { handleApiError, readJsonBody, requireMethod, sendJson, type ApiRequest, type ApiResponse } from "../../server/api/http.js"
-import { enforceRateLimit } from "../../server/api/rate-limit.js"
+import { createSubmissionIntake, finalizeSubmissionIntake, retrySubmissionIntake } from "../../api/client-submissions.js"
+import { handleApiError, readJsonBody, requireMethod, sendJson, type ApiRequest, type ApiResponse } from "../../api/http.js"
+import { enforceRateLimit } from "../../api/rate-limit.js"
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader("Cache-Control", "no-store, max-age=0")

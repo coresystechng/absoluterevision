@@ -43,6 +43,9 @@ function appendQueryParam(
 }
 
 function resolveLocalApiRoute(apiRoot: string, routePath: string): LocalApiRoute | null {
+  if (routePath === "client-submissions/intake" || routePath === "client-submissions/verify-email") {
+    return { file: path.resolve(apiRoot, "client-submissions.ts"), params: { subroute: routePath.split("/")[1] } }
+  }
   const exactRouteFile = path.resolve(apiRoot, `${routePath}.ts`)
   if (exactRouteFile.startsWith(apiRoot + path.sep) && fs.existsSync(exactRouteFile)) {
     return { file: exactRouteFile, params: {} }

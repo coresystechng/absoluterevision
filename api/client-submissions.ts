@@ -6,6 +6,17 @@ import { requireVerifiedUser } from "../server/api/session.js"
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader("Cache-Control", "no-store, max-age=0")
   try {
+    const subroute = getQueryParam(req, "subroute")
+    if (subroute === "intake") {
+      const { default: intake } = await import("../server/routes/client-submissions/intake.js")
+      await intake(req, res)
+      return
+    }
+    if (subroute === "verify-email") {
+      const { default: verifyEmail } = await import("../server/routes/client-submissions/verify-email.js")
+      await verifyEmail(req, res)
+      return
+    }
     if (req.method !== "GET" && req.method !== "POST") throw new HttpError(405, "Use GET or POST for this endpoint.")
     const user = await requireVerifiedUser(req)
     if (req.method === "POST") {

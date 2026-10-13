@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { HttpError } from "./http.js"
 
+const publicRoutes = vi.hoisted(() => ({ intake: vi.fn(), verifyEmail: vi.fn() }))
+vi.mock("../routes/client-submissions/intake.js", () => ({ default: publicRoutes.intake }))
+vi.mock("../routes/client-submissions/verify-email.js", () => ({ default: publicRoutes.verifyEmail }))
 const mocks = vi.hoisted(() => ({ countNewClientSubmissions: vi.fn(), requireVerifiedUser: vi.fn(), listClientSubmissions: vi.fn(), convertClientSubmission: vi.fn(), getSubmissionDownloadFile: vi.fn(), getOwnerAccessToken: vi.fn(), getDropboxTemporaryLink: vi.fn() }))
 vi.mock("./session.js", () => ({ requireVerifiedUser: mocks.requireVerifiedUser }))
 vi.mock("./client-submissions.js", () => mocks)
@@ -14,6 +17,17 @@ beforeEach(() => {
 })
 
 describe("authenticated inbox API", () => {
+  it("dispatches public intake and verification without granting inbox access", async () => {
+    for (const subroute of ["intake", "verify-email"]) {
+      const req = { method: "POST", headers: {}, query: { subroute } }
+      const res = response()
+      await handler(req as never, res as never)
+      expect(subroute === "intake" ? publicRoutes.intake : publicRoutes.verifyEmail).toHaveBeenCalledWith(req, res)
+    }
+    expect(mocks.requireVerifiedUser).not.toHaveBeenCalled()
+    expect(mocks.listClientSubmissions).not.toHaveBeenCalled()
+  })
+
   it("returns the unconverted count using verified identity", async () => {
     mocks.countNewClientSubmissions.mockResolvedValue(27)
     const res = response()
