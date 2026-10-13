@@ -53,20 +53,24 @@ export function initClientSubmissionsDb() {
       session_id TEXT,
       PRIMARY KEY (submission_id, file_index)
     )`)
-    await query(`CREATE TABLE IF NOT EXISTS submission_email_verifications (
-      id UUID PRIMARY KEY, email TEXT NOT NULL, code_hash TEXT NOT NULL,
-      expires_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      attempts INTEGER NOT NULL DEFAULT 0, verified_at TIMESTAMPTZ, proof_hash TEXT UNIQUE, used_at TIMESTAMPTZ
-    )`)
-    await query(`CREATE TABLE IF NOT EXISTS submission_verification_limits (
-      key TEXT PRIMARY KEY, attempts INTEGER NOT NULL, started_at TIMESTAMPTZ NOT NULL
-    )`)
-    await query("CREATE INDEX IF NOT EXISTS submission_verifications_expiry_idx ON submission_email_verifications(expires_at)")
-    await query("ALTER TABLE client_submissions ADD COLUMN IF NOT EXISTS cleanup_started_at TIMESTAMPTZ")
-    await query("CREATE INDEX IF NOT EXISTS client_submissions_expiry_idx ON client_submissions(submitted_at) WHERE converted_at IS NULL")
-    await query("CREATE INDEX IF NOT EXISTS client_submissions_inbox_idx ON client_submissions(owner_user_id, submitted_at DESC, id DESC)")
     const quotedRole = '"' + browserRole.replaceAll('"', '""') + '"'
-    await query(`REVOKE ALL ON client_submissions, client_submission_files, submission_email_verifications, submission_verification_limits FROM PUBLIC, ${quotedRole}`)
+    // IF NOT EXISTS alone does not prevent concurrent PostgreSQL catalog creation.
+    await query(`DO $migration$ BEGIN
+      PERFORM pg_advisory_xact_lock(hashtext('absoluterevision:submission-verification-schema'));
+      CREATE TABLE IF NOT EXISTS submission_email_verifications (
+        id UUID PRIMARY KEY, email TEXT NOT NULL, code_hash TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        attempts INTEGER NOT NULL DEFAULT 0, verified_at TIMESTAMPTZ, proof_hash TEXT UNIQUE, used_at TIMESTAMPTZ
+      );
+      CREATE TABLE IF NOT EXISTS submission_verification_limits (
+        key TEXT PRIMARY KEY, attempts INTEGER NOT NULL, started_at TIMESTAMPTZ NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS submission_verifications_expiry_idx ON submission_email_verifications(expires_at);
+      ALTER TABLE client_submissions ADD COLUMN IF NOT EXISTS cleanup_started_at TIMESTAMPTZ;
+      CREATE INDEX IF NOT EXISTS client_submissions_expiry_idx ON client_submissions(submitted_at) WHERE converted_at IS NULL;
+      REVOKE ALL ON client_submissions, client_submission_files, submission_email_verifications, submission_verification_limits FROM PUBLIC, ${quotedRole};
+    END $migration$`)
+    await query("CREATE INDEX IF NOT EXISTS client_submissions_inbox_idx ON client_submissions(owner_user_id, submitted_at DESC, id DESC)")
     const access = await query<{ unsafe: boolean }>(`SELECT
       has_table_privilege($1, 'client_submissions', 'SELECT, INSERT, UPDATE, DELETE') OR
       has_table_privilege($1, 'client_submission_files', 'SELECT, INSERT, UPDATE, DELETE') OR
