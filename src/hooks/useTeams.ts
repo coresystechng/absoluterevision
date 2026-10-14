@@ -1,112 +1,42 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
-
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import * as teamsApi from "@/api/teams"
-import type { Team, TeamMember } from "@/types"
+import { isWorkspaceClientCurrent, purgeTeamAssignments, workspaceKeys } from "@/lib/workspace-cache"
+import type { UserProfile } from "@/types"
 
 export function useTeams(userId: string | null, selectedTeamId?: number | null) {
-  const [teams, setTeams] = useState<Team[]>([])
-  const [members, setMembers] = useState<TeamMember[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isMembersLoading, setIsMembersLoading] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
-  const [membersError, setMembersError] = useState<Error | null>(null)
-
-  const reloadTeams = useCallback(async () => {
-    if (!userId) {
-      setTeams([])
-      setIsLoading(false)
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-    try {
-      setTeams(await teamsApi.getTeams(userId))
-    } catch (caught) {
-      setError(caught instanceof Error ? caught : new Error("Unknown error"))
-    } finally {
-      setIsLoading(false)
-    }
-  }, [userId])
-
-  const reloadMembers = useCallback(async () => {
-    if (!userId || !selectedTeamId) {
-      setMembers([])
-      setMembersError(null)
-      return
-    }
-
-    setIsMembersLoading(true)
-    setMembersError(null)
-    try {
-      setMembers(await teamsApi.getTeamMembers(userId, selectedTeamId))
-    } catch (caught) {
-      setMembersError(caught instanceof Error ? caught : new Error("Unknown error"))
-    } finally {
-      setIsMembersLoading(false)
-    }
-  }, [selectedTeamId, userId])
-
-  useEffect(() => {
-    void reloadTeams()
-  }, [reloadTeams])
-
-  useEffect(() => {
-    void reloadMembers()
-  }, [reloadMembers])
-
-  const actions = useMemo(
-    () => ({
-      createTeam: async (name: string) => {
-        if (!userId) {
-          throw new Error("Missing user")
-        }
-        const team = await teamsApi.createTeam(userId, name)
-        await reloadTeams()
-        return team
-      },
-      updateTeamName: async (teamId: number, name: string) => {
-        if (!userId) {
-          throw new Error("Missing user")
-        }
-        await teamsApi.updateTeamName(userId, teamId, name)
-        await reloadTeams()
-      },
-      deleteTeam: async (teamId: number) => {
-        if (!userId) {
-          throw new Error("Missing user")
-        }
-        const nextTeamId = await teamsApi.deleteTeam(userId, teamId)
-        await reloadTeams()
-        return nextTeamId
-      },
-      addTeamMember: async (teamId: number, email: string) => {
-        if (!userId) {
-          throw new Error("Missing user")
-        }
-        await teamsApi.addTeamMember(userId, teamId, email)
-        await Promise.all([reloadTeams(), reloadMembers()])
-      },
-      removeTeamMember: async (teamId: number, memberUserId: string) => {
-        if (!userId) {
-          throw new Error("Missing user")
-        }
-        await teamsApi.removeTeamMember(userId, teamId, memberUserId)
-        await Promise.all([reloadTeams(), reloadMembers()])
-      },
-    }),
-    [reloadMembers, reloadTeams, userId],
-  )
-
+  const client = useQueryClient()
+  const teams = useQuery({ queryKey: workspaceKeys.teams(userId ?? ""), enabled: Boolean(userId), queryFn: () => teamsApi.getTeams(userId!) })
+  const members = useQuery({ queryKey: workspaceKeys.members(userId ?? "", selectedTeamId ?? 0), enabled: Boolean(userId && selectedTeamId && selectedTeamId > 0), queryFn: () => teamsApi.getTeamMembers(userId!, selectedTeamId!) })
+  const requireUser = () => { if (!userId) throw new Error("Missing user"); return userId }
+  const refreshTeam = async (teamId: number) => {
+    const id = requireUser()
+    if (!isWorkspaceClientCurrent(client, id)) return
+    await purgeTeamAssignments(client, id, [teamId])
+    if (!isWorkspaceClientCurrent(client, id)) return
+    await Promise.all([
+      client.resetQueries({ queryKey: workspaceKeys.teams(id) }),
+      client.invalidateQueries({ queryKey: workspaceKeys.members(id, teamId) }),
+    ])
+  }
   return {
-    teams,
-    members,
-    isLoading,
-    isMembersLoading,
-    error,
-    membersError,
-    reloadTeams,
-    reloadMembers,
-    ...actions,
+    teams: teams.data ?? [], members: members.data ?? [],
+    isLoading: Boolean(userId) && teams.isPending,
+    isMembersLoading: Boolean(userId && selectedTeamId) && members.isPending,
+    error: teams.error, membersError: members.error,
+    reloadTeams: async () => { if (userId) await teams.refetch() },
+    reloadMembers: async () => { if (userId && selectedTeamId) await members.refetch() },
+    createTeam: async (name: string) => { const id = requireUser(); const result = await teamsApi.createTeam(id, name); if (isWorkspaceClientCurrent(client, id)) await teams.refetch(); return result },
+    updateTeamName: async (teamId: number, name: string) => { await teamsApi.updateTeamName(requireUser(), teamId, name); await refreshTeam(teamId) },
+    deleteTeam: async (teamId: number) => {
+      const id = requireUser()
+      const next = await teamsApi.deleteTeam(id, teamId)
+      await refreshTeam(teamId)
+      if (!isWorkspaceClientCurrent(client, id)) return next
+      client.removeQueries({ queryKey: workspaceKeys.members(id, teamId) })
+      client.setQueryData<UserProfile>(workspaceKeys.profile(id), (profile) => profile ? { ...profile, activeTeamId: next } : profile)
+      return next
+    },
+    addTeamMember: async (teamId: number, email: string) => { await teamsApi.addTeamMember(requireUser(), teamId, email); await refreshTeam(teamId) },
+    removeTeamMember: async (teamId: number, memberUserId: string) => { await teamsApi.removeTeamMember(requireUser(), teamId, memberUserId); await refreshTeam(teamId) },
   }
 }

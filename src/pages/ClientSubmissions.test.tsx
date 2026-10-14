@@ -1,19 +1,24 @@
-import { screen, within } from "@testing-library/react"
+import { act, screen, within, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ClientSubmissionsError, convertClientSubmission, getClientSubmissionDownloadUrl, getClientSubmissions } from "@/api/client-submissions"
+import { Route, Routes } from "react-router-dom"
+import { acquireWorkspace, getWorkspaceGeneration, workspaceKeys } from "@/lib/workspace-cache"
+import { toast } from "sonner"
 import { ClientSubmissions } from "./ClientSubmissions"
 import { renderWithRouter } from "@/test/render"
 import type { ClientSubmissionsPage } from "../../shared/client-submissions"
 
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock("@/api/client-submissions", async (importOriginal) => ({ ...await importOriginal<typeof import("@/api/client-submissions")>(), getClientSubmissions: vi.fn(), getClientSubmissionDownloadUrl: vi.fn(), convertClientSubmission: vi.fn() }))
 vi.mock("@/components/Navbar", () => ({ Navbar: () => <nav>Navigation</nav> }))
+vi.mock("@/api/users", () => ({ getOrCreateUser: vi.fn(async (user) => ({ ...user, activeTeamId: 1, dashboardFilters: { types: [], priorities: [], statuses: [] }, createdAt: "2026-01-01" })) }))
 const userProfile = { id: "admin", email: "admin@example.com", displayName: "Admin" }
 const page: ClientSubmissionsPage = {
   submissions: [{ id: "b0d8c443-e1bc-49f1-8e68-f0f19c02a862", fullName: "Test Client", email: "client@example.com", submittedAt: "2026-10-12T10:00:00Z", convertedAt: null, assignmentId: null, teamId: null, files: [{ index: 0, name: "draft.pdf", mimeType: "application/pdf", sizeBytes: 100, status: "ready" }, { index: 1, name: "figure.png", mimeType: "image/png", sizeBytes: 200, status: "ready" }] }],
   teams: [{ id: 1, name: "Editorial", members: [{ userId: "admin", email: "admin@example.com", displayName: "Admin" }, { userId: "editor", email: "editor@example.com", displayName: "Editor" }] }],
   nextCursor: null,
 }
-const renderPage = () => renderWithRouter(<ClientSubmissions user={userProfile} onSignOut={() => undefined} />)
+const renderPage = () => renderWithRouter(<ClientSubmissions user={userProfile} onSignOut={() => undefined} />, { workspaceUser: userProfile })
 
 beforeEach(() => {
   vi.mocked(getClientSubmissions).mockReset().mockResolvedValue(page)
@@ -74,4 +79,31 @@ describe("client submissions inbox", () => {
     await user.click(await screen.findByRole("button", { name: "Load more submissions" }))
     expect(getClientSubmissions).toHaveBeenLastCalledWith({ search: "Client", status: "new", cursor: "next-page" })
   })
+})
+
+it("invalidates the destination list and navigates without waiting for list revalidation", async () => {
+  vi.mocked(convertClientSubmission).mockResolvedValue({ assignmentId: 42 })
+  const { user } = renderWithRouter(<Routes><Route path="/" element={<ClientSubmissions user={userProfile} onSignOut={() => undefined} />} /><Route path="/assignments/:id" element={<h1>Destination assignment</h1>} /></Routes>, { workspaceUser: userProfile })
+  await user.click(await screen.findByRole("button", { name: "Create assignment" }))
+  const client = getWorkspaceGeneration()!.client
+  client.setQueryData(workspaceKeys.assignments("admin", 1), [])
+  client.setQueryData(workspaceKeys.assignments("admin", 2), [])
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Create assignment" }))
+  expect(await screen.findByRole("heading", { name: "Destination assignment" })).toBeVisible()
+  expect(client.getQueryState(workspaceKeys.assignments("admin", 1))?.isInvalidated).toBe(true)
+  expect(client.getQueryState(workspaceKeys.assignments("admin", 2))?.isInvalidated).toBe(false)
+})
+it("ignores a deferred conversion completion after account transition", async () => {
+  vi.mocked(toast.success).mockClear()
+  let resolve!: (value: { assignmentId: number }) => void
+  vi.mocked(convertClientSubmission).mockReturnValueOnce(new Promise((done) => { resolve = done }))
+  const { user } = renderWithRouter(<Routes><Route path="/" element={<ClientSubmissions user={userProfile} onSignOut={() => undefined} />} /><Route path="/assignments/:id" element={<h1>Destination assignment</h1>} /></Routes>, { workspaceUser: userProfile })
+  await user.click(await screen.findByRole("button", { name: "Create assignment" }))
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Create assignment" }))
+  await waitFor(() => expect(convertClientSubmission).toHaveBeenCalled())
+  act(() => { acquireWorkspace("new-account") })
+  await act(async () => resolve({ assignmentId: 42 }))
+  expect(screen.queryByRole("heading", { name: "Destination assignment" })).not.toBeInTheDocument()
+  expect(toast.success).not.toHaveBeenCalled()
+  expect(getWorkspaceGeneration()?.userId).toBe("new-account")
 })

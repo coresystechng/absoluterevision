@@ -6,6 +6,7 @@ import { defineConfig, loadEnv, type Plugin } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 import { siteMetadataPlugin } from "./build/site-metadata"
 import { getPublicScriptDependencies } from "./build/prerender"
+import { bundleAnalysisPlugin } from "./build/bundle-analysis"
 
 type LocalApiRoute = {
   file: string
@@ -184,6 +185,7 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       siteMetadataPlugin(),
+      bundleAnalysisPlugin(),
       VitePWA({
         registerType: "autoUpdate",
         includeAssets: ["icons/apple-touch-icon.png"],

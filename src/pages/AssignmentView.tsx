@@ -3,7 +3,9 @@ import { Navigate, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import * as assignmentApi from "@/api/assignments"
-import { getOrCreateUser } from "@/api/users"
+import { useAssignment } from "@/hooks/useAssignment"
+import { useWorkspace } from "@/hooks/useWorkspace"
+import { confirmAssignmentRemoval, reconcileAssignment } from "@/lib/workspace-cache"
 import { AssignmentDialog } from "@/components/AssignmentDialog"
 import { AssignmentFiles } from "@/components/AssignmentFiles"
 import { DetailPageLayout } from "@/components/DetailPageLayout"
@@ -20,7 +22,6 @@ import { uploadAssignmentFileSelection } from "@/lib/assignment-file-uploads"
 import { splitTrackingCode } from "@/lib/public-assignment-status"
 import type { Assignment, AssignmentActivity as Activity, AssignmentFileUpload, AssignmentInput, AssignmentProgressStage, AssignmentStatus, AuthUser } from "@/types"
 
-type LoadState = "loading" | "success" | "not-found" | "error"
 function actorName(user: AuthUser) { return user.displayName?.trim() || user.email.split("@")[0] || "User" }
 function activityItems(assignment: Assignment, activities: Activity[], name: string): AssignmentActivityItem[] {
   const values: AssignmentActivityItem[] = activities.some((item) => item.action === "created") ? activities : [{ id: "created", message: `${name} created the assignment`, createdAt: assignment.createdAt }, ...activities]
@@ -29,11 +30,13 @@ function activityItems(assignment: Assignment, activities: Activity[], name: str
 
 export function AssignmentView({ user, onSignOut }: { user: AuthUser; onSignOut: () => void | Promise<void> }) {
   const id = Number(useParams().id); const navigate = useNavigate(); const name = actorName(user)
-  const [assignment, setAssignment] = useState<Assignment | null>(null)
-  const assignmentRef = useRef(assignment); assignmentRef.current = assignment
+  const { client } = useWorkspace()
+  const detail = useAssignment(user.id, id)
+  const assignment = detail.data ?? null
+  const loadState = detail.isPending ? "loading" : detail.isError && !assignment ? "error" : !assignment ? "not-found" : "success"
+  const refreshing = detail.isFetching && detail.data !== undefined
+  const load = detail.refetch
   const [activities, setActivities] = useState<Activity[]>([])
-  const [loadState, setLoadState] = useState<LoadState>("loading")
-  const [refreshing, setRefreshing] = useState(false)
   const [activityError, setActivityError] = useState(false)
   const [editing, setEditing] = useState(false)
   const [filesVersion, setFilesVersion] = useState(0)
@@ -48,22 +51,17 @@ export function AssignmentView({ user, onSignOut }: { user: AuthUser; onSignOut:
     try { setActivities(await assignmentApi.getActivities(user.id, id)) } catch { setActivityError(true) }
   }, [id, user.id])
 
-  const load = useCallback(async () => {
-    if (!Number.isFinite(id)) return
-    const token = ++requestId.current; const same = assignmentRef.current?.id === id
-    if (same) setRefreshing(true); else { assignmentRef.current = null; setAssignment(null); setActivities([]); setLoadState("loading") }
-    try {
-      await getOrCreateUser(user); const result = await assignmentApi.getById(user.id, id)
-      if (token !== requestId.current) return
-      if (!result) { setLoadState("not-found"); return }
-      setAssignment(result); setLoadState("success"); setActivityError(false)
-      try { const resultActivities = await assignmentApi.getActivities(user.id, id); if (token === requestId.current) setActivities(resultActivities) } catch { if (token === requestId.current) setActivityError(true) }
-    } catch { if (token === requestId.current && !assignmentRef.current) setLoadState("error") }
-    finally { if (token === requestId.current) setRefreshing(false) }
-  }, [id, user])
-  useEffect(() => { void load(); return () => { requestId.current += 1 } }, [load])
+  const hasAssignment = Boolean(assignment)
+  useEffect(() => {
+    if (!hasAssignment) return
+    const token = ++requestId.current
+    setActivities([])
+    setActivityError(false)
+    void assignmentApi.getActivities(user.id, id).then((values) => { if (token === requestId.current) setActivities(values) }).catch(() => { if (token === requestId.current) setActivityError(true) })
+    return () => { requestId.current += 1 }
+  }, [id, user.id, hasAssignment])
 
-  if (!Number.isFinite(id)) return <Navigate to="/dashboard" replace />
+  if (!Number.isInteger(id) || id <= 0) return <Navigate to="/dashboard" replace />
 
   const uploadFiles = async (files: AssignmentFileUpload[]) => {
     if (!files.length) return false
@@ -73,16 +71,17 @@ export function AssignmentView({ user, onSignOut }: { user: AuthUser; onSignOut:
   }
   const updateAssignment = async (input: AssignmentInput, files: AssignmentFileUpload[]) => {
     const updated = await assignmentApi.update(user.id, id, input, name)
-    if (updated) { setAssignment(updated); const fileUploadFailed = await uploadFiles(files); await refreshActivities(); return { fileUploadFailed } }
+    await reconcileAssignment(client, user.id, updated)
+    if (updated) { const fileUploadFailed = await uploadFiles(files); await refreshActivities(); return { fileUploadFailed } }
   }
   const mutateWorkflow = async (request: () => Promise<Assignment | null>, message: string) => {
     if (workflowPending.current) return
     workflowPending.current = true; setWorkflowSaving(true); setWorkflowError(false)
-    try { const updated = await request(); if (!updated) throw new Error("Not accepted"); setAssignment(updated); await refreshActivities(); toast.success(message) }
+    try { const updated = await request(); if (!updated) throw new Error("Not accepted"); await reconcileAssignment(client, user.id, updated); await refreshActivities(); toast.success(message) }
     catch { setWorkflowError(true); toast.error("Something went wrong. Try again.") }
     finally { workflowPending.current = false; setWorkflowSaving(false) }
   }
-  const deleteAssignment = async () => { try { await assignmentApi.remove(user.id, id); toast.success("Assignment deleted"); navigate("/dashboard") } catch (error) { toast.error("Something went wrong. Try again."); throw error } }
+  const deleteAssignment = async () => { try { await confirmAssignmentRemoval(client, user.id, id); toast.success("Assignment removed or unavailable"); navigate("/dashboard") } catch (error) { toast.error("Something went wrong. Try again."); throw error } }
   const copyDetails = async () => { const value = assignment && splitTrackingCode(assignment.trackingCode); if (!value) return; try { await navigator.clipboard.writeText(`Reference: ${value.reference}\nAccess code: ${value.accessCode}`); toast.success("Tracking details copied") } catch { toast.error("Could not copy the tracking details") } }
   const copyLink = async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/track-assignment`); toast.success("Tracking link copied") } catch { toast.error("Could not copy the tracking link") } }
 

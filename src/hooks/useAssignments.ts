@@ -1,106 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import * as assignmentApi from "@/api/assignments"
+import { confirmAssignmentRemoval, reconcileAssignment, workspaceKeys } from "@/lib/workspace-cache"
 import type { Assignment, AssignmentInput, AssignmentProgressStage, AssignmentStatus } from "@/types"
 
-export type AssignmentFilter =
-  | "all"
-  | "not-started"
-  | "ongoing"
-  | "completed"
-  | "high-priority"
-  | "overdue"
-
+export type AssignmentFilter = "all" | "not-started" | "ongoing" | "completed" | "high-priority" | "overdue"
 function isOverdue(assignment: Assignment) {
-  if (!assignment.dueDate || assignment.status === "completed") {
-    return false
-  }
+  if (!assignment.dueDate || assignment.status === "completed") return false
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   return new Date(`${assignment.dueDate}T00:00:00`) < today
 }
-
-export function useAssignments(
-  userId: string | null,
-  actorName?: string | null,
-  teamId?: number | null,
-) {
-  const [assignments, setAssignments] = useState<Assignment[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
-  const assignmentsRef = useRef(assignments)
-  assignmentsRef.current = assignments
-
-  const reload = useCallback(async () => {
-    if (!userId) {
-      setAssignments([])
-      setIsLoading(false)
-      return
-    }
-
-    const hasKnownData = assignmentsRef.current.length > 0
-    setIsLoading(!hasKnownData)
-    setIsRefreshing(hasKnownData)
-    setError(null)
-    try {
-      setAssignments(await assignmentApi.getAll(userId, teamId))
-    } catch (caught) {
-      setError(caught instanceof Error ? caught : new Error("Unknown error"))
-    } finally {
-      setIsLoading(false)
-      setIsRefreshing(false)
-    }
-  }, [teamId, userId])
-
-  useEffect(() => {
-    void reload()
-  }, [reload])
-
-  const actions = useMemo(
-    () => ({
-      create: async (input: AssignmentInput) => {
-        if (!userId) {
-          throw new Error("Missing user")
-        }
-        const assignment = await assignmentApi.create(userId, input, actorName)
-        await reload()
-        return assignment
-      },
-      update: async (id: number, input: AssignmentInput) => {
-        if (!userId) {
-          throw new Error("Missing user")
-        }
-        const assignment = await assignmentApi.update(userId, id, input, actorName)
-        await reload()
-        return assignment
-      },
-      updateStatus: async (id: number, status: AssignmentStatus) => {
-        if (!userId) {
-          throw new Error("Missing user")
-        }
-        const assignment = await assignmentApi.updateStatus(userId, id, status, actorName)
-        await reload()
-        return assignment
-      },
-      updateProgressStage: async (id: number, progressStage: AssignmentProgressStage) => {
-        if (!userId) {
-          throw new Error("Missing user")
-        }
-        const assignment = await assignmentApi.updateProgressStage(userId, id, progressStage, actorName)
-        await reload()
-        return assignment
-      },
-      remove: async (id: number) => {
-        if (!userId) {
-          throw new Error("Missing user")
-        }
-        await assignmentApi.remove(userId, id)
-        await reload()
-      },
-    }),
-    [actorName, reload, userId],
-  )
-
-  return { assignments, isLoading, isRefreshing, error, reload, isOverdue, ...actions }
+export function useAssignments(userId: string | null, actorName?: string | null, teamId?: number | null) {
+  const client = useQueryClient()
+  const enabled = Boolean(userId && Number.isInteger(teamId) && Number(teamId) > 0)
+  const query = useQuery({ queryKey: workspaceKeys.assignments(userId ?? "", teamId ?? 0), enabled, queryFn: () => assignmentApi.getAll(userId!, teamId!) })
+  const requireUser = () => { if (!userId) throw new Error("Missing user"); return userId }
+  const reconcile = (result: Assignment | null) => reconcileAssignment(client, requireUser(), result)
+  return {
+    assignments: query.data ?? [],
+    isLoading: enabled && query.isPending,
+    isRefreshing: query.isFetching && query.data !== undefined,
+    error: query.error,
+    reload: async () => { if (enabled) await query.refetch() },
+    isOverdue,
+    create: async (input: AssignmentInput) => reconcile(await assignmentApi.create(requireUser(), input, actorName)),
+    update: async (id: number, input: AssignmentInput) => reconcile(await assignmentApi.update(requireUser(), id, input, actorName)),
+    updateStatus: async (id: number, status: AssignmentStatus) => reconcile(await assignmentApi.updateStatus(requireUser(), id, status, actorName)),
+    updateProgressStage: async (id: number, progressStage: AssignmentProgressStage) => reconcile(await assignmentApi.updateProgressStage(requireUser(), id, progressStage, actorName)),
+    remove: async (id: number) => confirmAssignmentRemoval(client, requireUser(), id),
+  }
 }

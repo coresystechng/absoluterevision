@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useWorkspace } from "@/hooks/useWorkspace"
+import { workspaceKeys, isWorkspaceCurrent } from "@/lib/workspace-cache"
 import type { AuthUser } from "@/types"
 import type { ClientSubmission, ClientSubmissionsPage, SubmissionAssignmentInput } from "../../shared/client-submissions"
 
@@ -21,6 +23,7 @@ function formatBytes(bytes: number) {
 
 export function ClientSubmissions({ user, onSignOut }: { user: AuthUser; onSignOut: () => void | Promise<void> }) {
   const navigate = useNavigate()
+  const { client, identity } = useWorkspace()
   const [page, setPage] = useState<ClientSubmissionsPage | null>(null)
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
@@ -70,6 +73,8 @@ export function ClientSubmissions({ user, onSignOut }: { user: AuthUser; onSignO
 
   const convert = async (input: SubmissionAssignmentInput) => {
     const { assignmentId } = await convertClientSubmission(input)
+    if (!isWorkspaceCurrent(identity)) return
+    void client.invalidateQueries({ queryKey: workspaceKeys.assignments(user.id, input.teamId) })
     setSelected(null)
     toast.success("Assignment created with the client's uploaded files.")
     navigate(`/assignments/${assignmentId}`)

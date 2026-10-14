@@ -3,13 +3,15 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import * as assignmentApi from "@/api/assignments"
+import { WorkspaceProvider } from "@/components/WorkspaceProvider"
+import { disposeWorkspace } from "@/lib/workspace-cache"
 import { AssignmentView } from "@/pages/AssignmentView"
 import type { Assignment, AuthUser } from "@/types"
 
 vi.mock("@/api/assignments", () => ({
   getById: vi.fn(), getActivities: vi.fn(), update: vi.fn(), updateStatus: vi.fn(), updateProgressStage: vi.fn(), remove: vi.fn(),
 }))
-vi.mock("@/api/users", () => ({ getOrCreateUser: vi.fn().mockResolvedValue({}) }))
+vi.mock("@/api/users", () => ({ getOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1", email: "user@example.com", displayName: "User", activeTeamId: 1, dashboardFilters: { types: [], priorities: [], statuses: [] }, createdAt: "2026-01-01" }) }))
 vi.mock("@/hooks/useTeams", () => ({ useTeams: () => ({ members: [] }) }))
 vi.mock("@/components/Navbar", () => ({ Navbar: () => <nav>Navigation</nav> }))
 vi.mock("@/components/AssignmentFiles", () => ({ AssignmentFiles: () => <div>Files section</div> }))
@@ -28,18 +30,26 @@ const assignment: Assignment = {
 }
 
 function renderView(path = "/assignments/42") {
+  disposeWorkspace()
   const router = createMemoryRouter([{ path: "/assignments/:id", element: <AssignmentView user={user} onSignOut={vi.fn()} /> }, { path: "/dashboard", element: <h1>Dashboard</h1> }], { initialEntries: [path] })
-  return { router, ...render(<RouterProvider router={router} />) }
+  return { router, ...render(<WorkspaceProvider user={user}><RouterProvider router={router} /></WorkspaceProvider>) }
 }
 
 describe("AssignmentView load states", () => {
   beforeEach(() => { vi.clearAllMocks(); getActivities.mockResolvedValue([]) })
+
+  it.each(["0", "-1", "1.5", "invalid"])("redirects invalid id %s without requesting an entity", async (id) => {
+    renderView(`/assignments/${id}`)
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeVisible()
+    expect(getById).not.toHaveBeenCalled()
+  })
 
   it("shows loading then the privacy-safe not-found state only for a null result", async () => {
     let resolve!: (value: Assignment | null) => void
     getById.mockReturnValue(new Promise((done) => { resolve = done }))
     renderView()
     expect(document.querySelector('[aria-busy="true"]')).toBeTruthy()
+    await waitFor(() => expect(getById).toHaveBeenCalled())
     resolve(null)
     expect(await screen.findByRole("heading", { name: "Assignment not found" })).toBeVisible()
   })
@@ -84,6 +94,7 @@ describe("AssignmentView load states", () => {
     let resolveOld!: (value: Assignment | null) => void
     getById.mockReturnValueOnce(new Promise((done) => { resolveOld = done })).mockResolvedValueOnce({ ...assignment, id: 43, title: "Current assignment" })
     const { router } = renderView()
+    await waitFor(() => expect(getById).toHaveBeenCalled())
     await router.navigate("/assignments/43")
     expect(await screen.findByRole("heading", { name: "Current assignment" })).toBeVisible()
     resolveOld({ ...assignment, title: "Stale assignment" })

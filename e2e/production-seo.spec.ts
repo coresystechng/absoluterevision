@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises"
 import { test as base, expect } from "@playwright/test"
 import { preview } from "vite"
+import path from "node:path"
+import { getPublicScriptDependencies } from "../build/prerender"
 
 const test = base.extend<{ productionUrl: string }>({
   productionUrl: async ({ request }, provide, testInfo) => {
@@ -18,6 +20,20 @@ const test = base.extend<{ productionUrl: string }>({
 })
 
 test.use({ serviceWorkers: "block" })
+
+test("public import graph excludes workspace query modules", async () => {
+  const outputDirectory = path.resolve("dist")
+  const metadata = JSON.parse(await readFile("node_modules/.cache/absolute-revision-bundle-analysis/modules.json", "utf8")) as { outputDirectory: string; chunks: Record<string, string[]> }
+  expect(metadata.outputDirectory).toBe(outputDirectory)
+  const graph = await getPublicScriptDependencies(outputDirectory)
+  expect(graph.size).toBeGreaterThan(0)
+  for (const chunk of graph) {
+    expect(metadata.chunks[chunk], chunk).toBeDefined()
+    for (const moduleId of metadata.chunks[chunk]) {
+      expect(moduleId, chunk).not.toMatch(/src\/(?:components\/WorkspaceProvider\.tsx|hooks\/useWorkspace\.ts|lib\/workspace-cache\.ts)|node_modules\/@tanstack\/(?:react-query|query-core)\//)
+    }
+  }
+})
 
 test.describe("static marketing content", () => {
   test.use({ javaScriptEnabled: false })

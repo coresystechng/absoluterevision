@@ -197,6 +197,35 @@ The committed social PNG is 1200 × 630. Edit `public/social/absolute-revision.s
 
 Before release, run `npm run lint`, `npm test`, and `npm run test:e2e` (which builds production artifacts first). The browser suite exercises both Vite development and the built production preview, including no-JavaScript content, hydration, pricing, generic private metadata, chunk loading, and real 404 responses. Inspect deployed Vercel utility response headers, host redirects, and unknown-URL status codes as a final deployment check: local preview middleware mirrors routing but cannot confirm Vercel's live configuration. Preserve Vercel's default preview-deployment `noindex` behavior.
 
+## Workspace query lifetime and invalidation
+
+Authenticated routes share one in-memory TanStack Query v5 client for the active account, outside the pathname-remounted page tree. Profile provisioning runs once per successful client generation with infinite freshness and no automatic retry, focus, or reconnect reprovisioning. Pending provisioning is single-flight per user even when a client is disposed: SQL writes already sent cannot be physically cancelled. Failed initialization offers an explicit retry.
+
+Team, member, assignment-list, and assignment-detail reads are fresh for 30 seconds and retained for five minutes after their last observer leaves. They have no retries or polling; stale reads can revalidate on mount, focus, or reconnect. Assignment lists require a resolved positive integer team ID. Keys include the account and team/entity ID, and a team's data is never another team's loading placeholder. Confirmed empty lists remain usable during background refresh.
+
+Sign-out hides private consumers and cancels/clears the captured account's client before calling the auth SDK. An unsuccessful sign-out reacquires a new generation if the account remains authenticated. The pending sign-out guard survives route remounts, is owned by its initiating identity, and cannot redirect a newer account after a late SDK response. Session pending alone preserves the client; resolved session loss and account changes dispose it. There is no private local-storage, IndexedDB, or service-worker data persistence. This cache does not replace database authorization.
+
+Successful assignment writes cancel older affected reads, patch returned entities into existing scoped lists/detail, and mark those queries stale without requesting a full list to acknowledge the write. Unrequested destination lists are not seeded with partial data. Null mutation results are rejected. Individual removals require a fresh scoped detail confirmation because the existing delete API can resolve after a no-op: still-accessible entities are retained and the action fails; a null confirmation removes the entity from the cache with removal/unavailability wording.
+
+Team/member changes refresh roles and membership and purge affected assignment permissions, including unresolved details whose team is unknown. Bulk assignment removal purges every confirmed administered team while preserving member-only team caches; unknown team scope cancels and revalidates current-account assignment queries. Submission conversion invalidates its destination list without delaying navigation for a read. Profile preference writes patch the shared profile; Settings drafts do not reset during background updates. Activity/file fetching retains its existing behavior.
+
+### Deterministic request-count evidence
+
+The before column describes the audited `01595e7` control flow, not production timings. The after column is asserted by real query-hook/provider tests with mocked API boundaries:
+
+| Scenario | Before | After |
+| --- | --- | --- |
+| Initial dashboard team reads | Mount read plus bootstrap-triggered reload: 2 | 1 |
+| Initial assignment-list reads | Unresolved/all-team read plus selected-team read: 2 | 0 before readiness, then 1 with the selected integer ID |
+| Dashboard → detail → dashboard profile provisioning | One call on each page mount: 3 | 1 |
+| Returning to the same dashboard team inside 30 seconds | Another list read | 0 additional list or team reads |
+| Successful assignment update acknowledgement | 1 awaited list reload | 0 additional list reads, including when an older read remains pending |
+| Individual removal acknowledgement | List reload without scoped confirmation | 1 fresh detail confirmation; no whole-list reload |
+
+Verification on 2026-10-14: lint and all three TypeScript checks passed; 52 Vitest files / 294 tests passed. The full CI browser suite passed 37 tests with one pre-existing mobile visual-foundations skip. Final focused production graph/hydration and mocked inbox tests passed 3/3. No timing-based speedup is claimed.
+
+The build-only `build/bundle-analysis.ts` plugin records repository-relative module IDs in ignored `node_modules/.cache/absolute-revision-bundle-analysis/modules.json`, tagged with the output-directory identity. Production tests walk the actual public static import graph and reject reachable workspace bootstrap/cache/TanStack modules, missing chunk metadata, or an incorrect output directory. This diagnostic JSON is not shipped in `dist/`.
+
 ## Dropbox Troubleshooting
 
 If the Files panel shows that Dropbox is not configured or the browser console reports `/api/dropbox/status` failing, check these items in order:

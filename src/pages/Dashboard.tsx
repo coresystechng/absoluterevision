@@ -5,7 +5,7 @@ import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { BookOpenCheck, Inbox, Plus, Search, SlidersHorizontal, X } from "lucide-react"
 
-import { getOrCreateUser } from "@/api/users"
+import { useWorkspace } from "@/hooks/useWorkspace"
 import { AssignmentCard } from "@/components/AssignmentCard"
 import { AssignmentDialog } from "@/components/AssignmentDialog"
 import { MultiSelectFilter } from "@/components/MultiSelectFilter"
@@ -159,13 +159,14 @@ export function Dashboard({
   user: AuthUser
   onSignOut: () => void | Promise<void>
 }) {
-  const [filters, setFilters] = useState<DashboardFilterPreferences>(defaultDashboardFilters)
+  const { profile } = useWorkspace()
+  const [filters, setFilters] = useState<DashboardFilterPreferences>(profile.dashboardFilters)
   const [sortField, setSortField] = useState<SortField>("deadline")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [searchQuery, setSearchQuery] = useState("")
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [activeTeamId, setActiveTeamId] = useState<number | null>(null)
+  const [activeTeamId, setActiveTeamId] = useState<number | null>(profile.activeTeamId)
   const actorName = getActorName(user)
   const {
     teams,
@@ -185,18 +186,8 @@ export function Dashboard({
   const { assignments, isLoading, isRefreshing, error, reload, create, update, remove } = useAssignments(
     user.id,
     actorName,
-    activeTeam?.id ?? null,
+    !teamsLoading ? activeTeam?.id ?? null : null,
   )
-
-  useEffect(() => {
-    void getOrCreateUser(user)
-      .then((profile) => {
-        setFilters(profile.dashboardFilters)
-        setActiveTeamId(profile.activeTeamId)
-        return reloadTeams()
-      })
-      .catch(() => toast.error("Something went wrong. Try again."))
-  }, [reloadTeams, user])
 
   useEffect(() => {
     if (teamsLoading) {

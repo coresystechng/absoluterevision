@@ -11,8 +11,14 @@ const submission = {
 
 test("admin inbox and conversion form work at desktop and mobile sizes", async ({ page }, testInfo) => {
   const errors: string[] = []
+  await page.route("**/src/api/users.ts*", (route) => route.fulfill({ contentType: "application/javascript", body: `
+    export const getOrCreateUser = async user => ({ ...user, activeTeamId: 1, dashboardFilters: { types: [], priorities: [], statuses: [] }, createdAt: '2026-01-01' });
+    export const updateProfile = async () => { throw new Error('Outside this fixture'); };
+    export const updateDashboardFilters = updateProfile;
+    export const updateActiveTeamSelection = updateProfile;
+  ` }))
   page.on("pageerror", (error) => errors.push(error.message))
-  // Mock only the auth boundary and inbox HTTP responses; render the real page,
+  // Mock the auth/provisioning boundaries and inbox HTTP responses; render the real page,
   // components, routing, and styles without connecting to a live account/database.
   await page.route("**/src/lib/auth.ts*", (route) => route.fulfill({ contentType: "application/javascript", body: `
     export const isNeonAuthConfigured = true;

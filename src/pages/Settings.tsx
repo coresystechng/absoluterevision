@@ -4,7 +4,6 @@ import { MoreHorizontal, Pencil, Plus, Trash2, UserMinus, UserPlus, UsersRound }
 
 import { removeAll } from "@/api/assignments"
 import {
-  getOrCreateUser,
   updateActiveTeamSelection,
   updateDashboardFilters,
   updateProfile,
@@ -53,10 +52,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useWorkspace } from "@/hooks/useWorkspace"
+import { purgeTeamAssignments, workspaceKeys } from "@/lib/workspace-cache"
 import { useTeams } from "@/hooks/useTeams"
 import { assignmentStatuses } from "@/lib/assignment-status"
 import { assignmentTypes } from "@/lib/assignment-types"
-import { defaultDashboardFilters } from "@/lib/dashboard-preferences"
 import type {
   AssignmentPriority,
   AuthUser,
@@ -87,13 +87,14 @@ export function Settings({
   user: AuthUser
   onSignOut: () => void | Promise<void>
 }) {
-  const [displayName, setDisplayName] = useState(user.displayName ?? "")
+  const { profile, updateProfile: patchProfile, client } = useWorkspace()
+  const [displayName, setDisplayName] = useState(profile.displayName ?? "")
   const [isSaving, setIsSaving] = useState(false)
   const [dashboardFilters, setDashboardFilters] = useState<DashboardFilterPreferences>(
-    defaultDashboardFilters,
+    profile.dashboardFilters,
   )
   const [isSavingFilters, setIsSavingFilters] = useState(false)
-  const [activeTeamId, setActiveTeamId] = useState<number | null>(null)
+  const [activeTeamId, setActiveTeamId] = useState<number | null>(profile.activeTeamId)
   const [isSavingTeam, setIsSavingTeam] = useState(false)
   const [createTeamOpen, setCreateTeamOpen] = useState(false)
   const [editTeamOpen, setEditTeamOpen] = useState(false)
@@ -121,17 +122,6 @@ export function Settings({
   const canManageActiveTeam = activeTeam?.role === "admin"
 
   useEffect(() => {
-    void getOrCreateUser(user)
-      .then((profile) => {
-        setDisplayName(profile.displayName ?? "")
-        setDashboardFilters(profile.dashboardFilters)
-        setActiveTeamId(profile.activeTeamId)
-      })
-      .then(() => reloadTeams())
-      .catch(() => toast.error("Something went wrong. Try again."))
-  }, [reloadTeams, user])
-
-  useEffect(() => {
     if (teamsLoading) {
       return
     }
@@ -147,13 +137,12 @@ export function Settings({
       : teams[0]
 
     setActiveTeamId(nextActiveTeam.id)
-    setTeamName(nextActiveTeam.name)
   }, [activeTeamId, teams, teamsLoading])
 
   const saveProfile = async () => {
     setIsSaving(true)
     try {
-      await updateProfile(user.id, displayName)
+      patchProfile(await updateProfile(user.id, displayName))
       toast.success("Profile saved")
     } catch {
       toast.error("Something went wrong. Try again.")
@@ -165,7 +154,13 @@ export function Settings({
   const deleteAssignments = async () => {
     try {
       await removeAll(user.id)
-      toast.success("Assignments deleted")
+      if (!teamsError && !teamsLoading) {
+        await purgeTeamAssignments(client, user.id, teams.filter((team) => team.role === "admin").map((team) => team.id))
+      } else {
+        await client.cancelQueries({ queryKey: workspaceKeys.root(user.id), predicate: (query) => query.queryKey[2] === "assignments" || query.queryKey[2] === "assignment" })
+        await client.invalidateQueries({ queryKey: workspaceKeys.root(user.id), predicate: (query) => query.queryKey[2] === "assignments" || query.queryKey[2] === "assignment" })
+      }
+      toast.success("Assignment removal requested")
     } catch (error) {
       toast.error("Something went wrong. Try again.")
       throw error
@@ -176,6 +171,7 @@ export function Settings({
     setIsSavingFilters(true)
     try {
       const profile = await updateDashboardFilters(user.id, dashboardFilters)
+      patchProfile(profile)
       setDashboardFilters(profile.dashboardFilters)
       toast.success("Dashboard preferences saved")
     } catch {
@@ -192,6 +188,7 @@ export function Settings({
 
     try {
       const profile = await updateActiveTeamSelection(user.id, teamId)
+      patchProfile(profile)
       setActiveTeamId(profile.activeTeamId)
       toast.success("Dashboard team saved")
     } catch (error) {
@@ -230,6 +227,7 @@ export function Settings({
     setActiveTeamId(team.id)
     try {
       const profile = await updateActiveTeamSelection(user.id, team.id)
+      patchProfile(profile)
       setActiveTeamId(profile.activeTeamId)
       toast.success("Team created and selected")
     } catch {
