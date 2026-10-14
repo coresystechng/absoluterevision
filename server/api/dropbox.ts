@@ -41,6 +41,38 @@ type DropboxTokenResponse = {
   error_description?: string
 }
 
+type AccessToken = { accessToken: string; expiresAt?: number }
+const TOKEN_EXPIRY_MARGIN_MS = 60_000
+let connectionFingerprint: string | null = null
+let connectionGeneration = 0
+let cachedAccessToken: AccessToken | undefined
+let pendingRefresh: Promise<AccessToken> | undefined
+
+function invalidateOwnerToken() {
+  connectionGeneration += 1
+  connectionFingerprint = null
+  cachedAccessToken = undefined
+  pendingRefresh = undefined
+}
+
+function invalidateRejectedToken(response: Response, accessToken: string) {
+  if (response.status === 401 && cachedAccessToken?.accessToken === accessToken) {
+    invalidateOwnerToken()
+  }
+}
+
+function fingerprintConnection(connection: OwnerConnectionRow) {
+  return createHash("sha256").update(JSON.stringify([
+    connection.owner_user_id,
+    connection.refresh_token_ciphertext,
+    connection.refresh_token_iv,
+    connection.refresh_token_tag,
+    connection.scopes,
+    getClientId(),
+    getClientSecret(),
+  ])).digest("hex")
+}
+
 type DropboxFileMetadata = {
   ".tag": "file"
   id: string
@@ -263,9 +295,11 @@ export async function exchangeDropboxCode(input: {
     refreshTokenTag: encrypted.tag,
     scopes: tokenResponse.scope ?? DROPBOX_SCOPES,
   })
+  invalidateOwnerToken()
 }
 
 async function refreshAccessToken(refreshToken: string) {
+  const requestStartedAt = Date.now()
   const response = await fetch(DROPBOX_TOKEN_ENDPOINT, {
     method: "POST",
     headers: {
@@ -282,16 +316,84 @@ async function refreshAccessToken(refreshToken: string) {
     throw new HttpError(502, "Dropbox did not return an access token.")
   }
 
-  return tokenResponse.access_token
+  const lifetime = tokenResponse.expires_in
+  const expiry = typeof lifetime === "number" && Number.isFinite(lifetime) && lifetime > 0
+    ? requestStartedAt + lifetime * 1000
+    : undefined
+  const expiresAt = expiry !== undefined && Number.isFinite(expiry) ? expiry : undefined
+  if (expiresAt !== undefined && expiresAt <= Date.now()) {
+    throw new HttpError(502, "Dropbox returned an expired access token.")
+  }
+  return { accessToken: tokenResponse.access_token, expiresAt }
 }
 
 export async function getOwnerAccessToken() {
-  const connection = await getOwnerConnection()
-  if (!connection) {
-    throw new HttpError(409, "Dropbox is not connected.")
+  let recoveries = 0
+  const recover = () => {
+    if (recoveries++ >= 1) {
+      throw new HttpError(502, "Dropbox connection changed. Please retry the operation.")
+    }
   }
-
-  return refreshAccessToken(decryptToken(connection))
+  for (;;) {
+    const readGeneration = connectionGeneration
+    const readFingerprint = connectionFingerprint
+    const connection = await getOwnerConnection()
+    const fingerprint = connection ? fingerprintConnection(connection) : null
+    if (readGeneration !== connectionGeneration) {
+      const sameInitialConnection = readFingerprint === null &&
+        connectionGeneration === readGeneration + 1 && fingerprint !== null &&
+        connectionFingerprint === fingerprint
+      if (!sameInitialConnection) {
+        recover()
+        continue
+      }
+    }
+    if (!connection) {
+      invalidateOwnerToken()
+      throw new HttpError(409, "Dropbox is not connected.")
+    }
+    if (connectionFingerprint !== fingerprint) {
+      const changedDuringRecovery = connectionFingerprint !== null && recoveries > 0
+      invalidateOwnerToken()
+      connectionFingerprint = fingerprint
+      if (changedDuringRecovery) recover()
+    }
+    const generation = connectionGeneration
+    if (cachedAccessToken?.expiresAt !== undefined &&
+        cachedAccessToken.expiresAt - Date.now() > TOKEN_EXPIRY_MARGIN_MS) {
+      return cachedAccessToken.accessToken
+    }
+    if (!pendingRefresh) {
+      const promise = refreshAccessToken(decryptToken(connection)).then((token) => {
+        if (generation === connectionGeneration && token.expiresAt !== undefined &&
+            token.expiresAt - Date.now() > TOKEN_EXPIRY_MARGIN_MS) {
+          cachedAccessToken = token
+        }
+        return token
+      }).finally(() => {
+        if (generation === connectionGeneration && pendingRefresh === promise) pendingRefresh = undefined
+      })
+      pendingRefresh = promise
+    }
+    let token: AccessToken
+    try {
+      token = await pendingRefresh
+    } catch (error) {
+      if (generation !== connectionGeneration) {
+        recover()
+        continue
+      }
+      throw error
+    }
+    if (generation !== connectionGeneration) {
+      recover()
+      continue
+    }
+    if (token.expiresAt !== undefined && token.expiresAt <= Date.now()) {
+      throw new HttpError(502, "Dropbox returned an expired access token.")
+    }
+    return token.accessToken
+  }
 }
 
 async function dropboxApiFetch<T>(accessToken: string, path: string, body: unknown) {
@@ -304,6 +406,7 @@ async function dropboxApiFetch<T>(accessToken: string, path: string, body: unkno
     body: JSON.stringify(body),
   })
 
+  invalidateRejectedToken(response, accessToken)
   return readDropboxJson<T>(response)
 }
 
@@ -317,6 +420,7 @@ async function ensureFolder(accessToken: string, path: string) {
     body: JSON.stringify({ path, autorename: false }),
   })
 
+  invalidateRejectedToken(response, accessToken)
   if (response.ok) {
     return
   }
@@ -398,6 +502,7 @@ export async function uploadDropboxFile(input: {
     body: getRequestBody(input.fileBytes),
   })
 
+  invalidateRejectedToken(response, input.accessToken)
   return readDropboxJson<DropboxFileMetadata>(response)
 }
 
@@ -412,6 +517,7 @@ export async function startDropboxUploadSession(accessToken: string, fileBytes: 
     body: getRequestBody(fileBytes),
   })
 
+  invalidateRejectedToken(response, accessToken)
   return readDropboxJson<DropboxUploadSessionStart>(response)
 }
 
@@ -437,6 +543,7 @@ export async function appendDropboxUploadSession(input: {
     body: getRequestBody(input.fileBytes),
   })
 
+  invalidateRejectedToken(response, input.accessToken)
   await readDropboxJson<Record<string, never>>(response)
 }
 
@@ -471,6 +578,7 @@ export async function finishDropboxUploadSession(input: {
     body: getRequestBody(input.fileBytes),
   })
 
+  invalidateRejectedToken(response, input.accessToken)
   return readDropboxJson<DropboxFileMetadata>(response)
 }
 

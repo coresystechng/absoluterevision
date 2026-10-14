@@ -266,3 +266,10 @@ The app refuses new intakes until the email proof is valid. Configure and test S
 
 
 The public intake and email-verification URLs are rewritten to the client-submissions function, which dispatches only these two allowlisted public handlers. Inbox, download, conversion, cron, and assignment endpoints retain their authorization checks. This keeps the deployment at the Hobby plan limit of 12 serverless functions. Local Vite routing uses the same aliases.
+
+
+### Dropbox access-token reuse
+
+Valid Dropbox access tokens are reused in server-only memory within each warm function instance, with a 60-second expiry margin. Concurrent requests for the same connection share one refresh exchange. The encrypted owner connection is still read on every lookup to detect reconnects performed by other instances; successful local reconnects also invalidate the cache. This is per-instance reuse, not a global cache.
+
+Authenticated resource responses with HTTP 401 invalidate only the matching cached token. The failed operation still returns its existing error; uploads and chunks are never silently replayed. The next explicit operation or retry refreshes the token. Refresh credentials remain encrypted in Neon, and this requires no new environment variable, migration, cache service, or deployable function.
