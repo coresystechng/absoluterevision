@@ -1,13 +1,61 @@
-import { readFile } from "node:fs/promises"
+import { readFile, mkdir } from "node:fs/promises"
 import { test as base, expect } from "@playwright/test"
 import { preview } from "vite"
 import path from "node:path"
 import { getPublicScriptDependencies } from "../build/prerender"
+import { generateSW } from "workbox-build"
 
-const test = base.extend<{ productionUrl: string }>({
+const test = base.extend<{ productionUrl: string; workerUpgrade: { origin: string; upgrade: () => void } }>({
+  workerUpgrade: async ({ request }, provide, testInfo) => {
+    const fixtureDirectory = testInfo.outputPath("legacy-worker")
+    await mkdir(fixtureDirectory, { recursive: true })
+    const publicScripts = await getPublicScriptDependencies(path.resolve("dist"))
+    await generateSW({
+      globDirectory: path.resolve("dist"), globPatterns: ["**/*.{js,css,html}", "icons/*.png", "manifest.webmanifest"],
+      globIgnores: ["sw.js", "workbox-*.js"], swDest: path.join(fixtureDirectory, "sw.js"),
+      skipWaiting: true, clientsClaim: true, cleanupOutdatedCaches: true,
+      navigateFallback: "index.html", navigateFallbackDenylist: [/^\/api\//],
+      navigateFallbackAllowlist: [/^\/$/, /^\/(?:pricing|login|sign-in|sign-up|document-upload|track-assignment|dashboard|client-submissions|settings)\/?$/, /^\/assignments\/[^/]+\/?$/],
+      manifestTransforms: [async (entries) => ({ manifest: entries.filter((entry) => entry.url !== "404.html" && (!entry.url.endsWith(".js") || entry.url === "registerSW.js" || publicScripts.has(entry.url))), warnings: [] })],
+      runtimeCaching: [{ urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/assets/") && url.pathname.endsWith(".js"), handler: "CacheFirst", options: { cacheName: "application-chunks", expiration: { maxEntries: 64, maxAgeSeconds: 30 * 24 * 60 * 60 }, cacheableResponse: { statuses: [200] } } }],
+    })
+    let upgraded = false
+    const port = 4280 + testInfo.workerIndex
+    const server = await preview({
+      preview: { host: "127.0.0.1", port, strictPort: true },
+      plugins: [{ name: "isolated-worker-upgrade", configurePreviewServer(server) {
+        server.middlewares.use(async (req, res, next) => {
+          const pathname = new URL(req.url ?? "/", "http://localhost").pathname
+          if (pathname !== "/sw.js" && !/^\/workbox-[\w-]+\.js$/.test(pathname)) return next()
+          try {
+            const source = pathname === "/sw.js" && upgraded ? path.resolve("dist/sw.js") : path.join(fixtureDirectory, pathname.slice(1))
+            res.setHeader("Content-Type", "application/javascript")
+            res.setHeader("Cache-Control", "no-store")
+            res.end(await readFile(source))
+          } catch (error) { next(error) }
+        })
+      } }],
+    })
+    try {
+      expect((await request.get(`http://127.0.0.1:${port}`)).status()).toBe(200)
+      await provide({ origin: `http://127.0.0.1:${port}`, upgrade: () => { upgraded = true } })
+    }
+    finally {
+      server.httpServer.closeAllConnections()
+      await new Promise<void>((resolve, reject) => server.httpServer.close((error) => error ? reject(error) : resolve()))
+    }
+  },
   productionUrl: async ({ request }, provide, testInfo) => {
     const port = 4180 + testInfo.workerIndex
-    const server = await preview({ preview: { host: "127.0.0.1", port, strictPort: true } })
+    const server = await preview({ preview: { host: "127.0.0.1", port, strictPort: true }, plugins: [{
+      name: "synthetic-api-navigation-probe", configurePreviewServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url !== "/api/worker-navigation-probe") return next()
+          res.setHeader("Content-Type", "application/json")
+          res.end(JSON.stringify({ probe: "network-api-response" }))
+        })
+      },
+    }] })
     const origin = `http://127.0.0.1:${port}`
     try {
       expect((await request.get(origin)).status()).toBe(200)
@@ -122,12 +170,149 @@ test("an installed service worker preserves real unknown-page 404 responses", as
     await page.evaluate(() => navigator.serviceWorker.ready)
     await page.reload()
     await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller))
+    for (const [route, title, marker] of [["/", "Academic Editing &amp; Proofreading | Absolute Revision", "/"], ["/pricing", "Editing &amp; Proofreading Prices | Absolute Revision", "/pricing"]]) {
+      const document = await page.goto(productionUrl + route)
+      expect(document?.status()).toBe(200)
+      const html = await document!.text()
+      expect(html).toContain(`<title data-site-metadata>${title}</title>`)
+      expect(html).toContain(`data-prerendered="${marker}"`)
+      expect(html).toContain(`href="https://absoluterevision.com${route}"`)
+      expect(html).toContain('name="robots" content="index, follow, max-image-preview:large"')
+    }
+    const dashboard = await page.goto(productionUrl + "/dashboard")
+    const dashboardHtml = await dashboard!.text()
+    expect(dashboardHtml).toContain('<title data-site-metadata>Dashboard | Absolute Revision</title>')
+    expect(dashboardHtml).toContain('name="robots" content="noindex, nofollow"')
+    expect(dashboardHtml).toContain('<div id="root"></div>')
+    expect(dashboardHtml).not.toContain('data-prerendered=')
     const response = await page.goto(`${productionUrl}/unknown-after-service-worker`)
     expect(response?.status()).toBe(404)
     await expect(page.getByRole("heading", { name: "We couldn't find that page." })).toBeVisible()
   } finally {
     await context.close()
   }
+})
+
+test("controlled navigation serves static route documents online and offline", async ({ browser, productionUrl }) => {
+  const context = await browser.newContext({ serviceWorkers: "allow" })
+  try {
+    const page = await context.newPage()
+    await page.goto(productionUrl)
+    await page.evaluate(() => navigator.serviceWorker.ready)
+    await page.reload()
+    await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller))
+    expect(await page.evaluate(() => navigator.serviceWorker.controller!.scriptURL)).toBe(productionUrl + "/sw.js")
+    const keys = await page.evaluate(async () => {
+      const names = (await caches.keys()).filter((name) => name.includes("precache"))
+      return (await Promise.all(names.map(async (name) => (await (await caches.open(name)).keys()).map((request) => new URL(request.url).pathname.slice(1))))).flat()
+    })
+    const graph = await getPublicScriptDependencies(path.resolve("dist"))
+    expect(keys.filter((key) => key.endsWith(".js")).sort()).toEqual([...graph, "registerSW.js"].sort())
+    expect(keys).not.toContain("404.html")
+    for (const document of ["pricing.html", "_pages/dashboard.html", "_pages/login.html", "_pages/assignment.html"]) expect(keys).toContain(document)
+    // Leave the worker running while suppressing application execution: assertions
+    // concern original navigation responses, including never-visited private routes.
+    await context.route("**/assets/*.js", (route) => route.fulfill({ contentType: "application/javascript", body: "" }))
+    const documents = [
+      ["/", "Academic Editing &amp; Proofreading", "/"],
+      ["/pricing", "Editing &amp; Proofreading Prices", "/pricing"],
+      ["/pricing/", "Editing &amp; Proofreading Prices", "/pricing"],
+      ["/dashboard", "Dashboard", "/dashboard"], ["/login", "Sign In", "/login"],
+      ["/dashboard///", "Dashboard", "/dashboard"],
+      ["/sign-in/", "Sign In", "/login"], ["/sign-up", "Create an Account", "/sign-up"],
+      ["/document-upload", "Submit Your Manuscript", "/document-upload"],
+      ["/track-assignment", "Track Your Assignment", "/track-assignment"],
+      ["/settings", "Settings", "/settings"], ["/client-submissions", "Client Submissions", "/client-submissions"],
+      ["/assignments/42", "Assignment", ""],
+      ["/assignments/42///", "Assignment", ""],
+    ]
+    for (const offline of [false, true]) {
+      await context.setOffline(offline)
+      for (const [pathname, title, canonical] of documents) {
+        const response = await page.goto(`${productionUrl}${pathname}?token=synthetic-private-value`, { waitUntil: "domcontentloaded" })
+        expect(response?.status(), `${pathname} offline=${offline}`).toBe(200)
+        expect(response?.fromServiceWorker()).toBe(true)
+        const html = await response!.text()
+        expect(html).toContain(`<title data-site-metadata>${title} | Absolute Revision</title>`)
+        expect(html).not.toContain("synthetic-private-value")
+        if (canonical) expect(html).toContain(`rel="canonical" href="https://absoluterevision.com${canonical}"`)
+        else {
+          expect(html).not.toContain('rel="canonical"')
+          expect(html).not.toContain("/assignments/42")
+        }
+        if (pathname === "/" || pathname.startsWith("/pricing")) {
+          expect(html).toContain(`data-prerendered="${canonical}"`)
+          expect(html).toContain('name="robots" content="index, follow, max-image-preview:large"')
+          if (pathname.startsWith("/pricing")) expect(html).toContain("Clear pricing for your next paper.")
+        } else {
+          expect(html).toContain('name="robots" content="noindex, nofollow"')
+          expect(html).toContain('<div id="root"></div>')
+          expect(html).not.toContain('data-prerendered=')
+          expect(html).not.toContain("Academic Editing &amp; Proofreading")
+        }
+      }
+    }
+    await expect(page.goto(productionUrl + "/offline-unknown")).rejects.toThrow()
+    await context.setOffline(false)
+    expect((await page.goto(productionUrl + "/online-unknown"))?.status()).toBe(404)
+    const api = await page.goto(productionUrl + "/api/worker-navigation-probe")
+    expect(api?.status()).toBe(200)
+    expect(api?.fromServiceWorker()).toBe(false)
+    expect(await api!.text()).toContain("network-api-response")
+    expect(await api!.text()).not.toContain('data-site-metadata')
+  } finally { await context.setOffline(false); await context.close() }
+})
+
+test("a generated worker upgrades at sw.js without reloading the controlled page", async ({ browser, workerUpgrade }) => {
+  const context = await browser.newContext({ serviceWorkers: "allow" })
+  try {
+    const page = await context.newPage()
+    await page.goto(workerUpgrade.origin)
+    await page.evaluate(() => navigator.serviceWorker.ready)
+    await page.reload()
+    await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller))
+    const legacyResponse = await page.goto(workerUpgrade.origin + "/dashboard")
+    expect(await legacyResponse!.text()).toContain('data-prerendered="/"')
+    await page.goto(workerUpgrade.origin)
+    let navigations = 0
+    page.on("framenavigated", (frame) => { if (frame === page.mainFrame()) navigations++ })
+    await page.evaluate(() => {
+      const sentinel = document.createElement("div")
+      sentinel.id = "worker-upgrade-sentinel"
+      document.body.append(sentinel)
+      navigator.serviceWorker.addEventListener("controllerchange", () => { sentinel.dataset.changed = "true" }, { once: true })
+    })
+    workerUpgrade.upgrade()
+    await page.evaluate(async () => { await (await navigator.serviceWorker.ready).update() })
+    await expect(page.locator("#worker-upgrade-sentinel")).toHaveAttribute("data-changed", "true")
+    expect(await page.evaluate(() => navigator.serviceWorker.controller!.scriptURL)).toBe(workerUpgrade.origin + "/sw.js")
+    expect(navigations).toBe(0)
+    const mapped = await page.goto(workerUpgrade.origin + "/dashboard?token=synthetic-upgrade-value")
+    expect(mapped?.fromServiceWorker()).toBe(true)
+    const html = await mapped!.text()
+    expect(html).toContain('<title data-site-metadata>Dashboard | Absolute Revision</title>')
+    expect(html).toContain('<div id="root"></div>')
+    expect(html).not.toContain('data-prerendered=')
+    expect(html).not.toContain("synthetic-upgrade-value")
+  } finally { await context.close() }
+})
+
+test("controlled public hydration has no errors", async ({ browser, productionUrl }) => {
+  const context = await browser.newContext({ serviceWorkers: "allow" })
+  try {
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on("pageerror", (error) => errors.push(error.message))
+    page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()) })
+    await page.goto(productionUrl)
+    await page.evaluate(() => navigator.serviceWorker.ready)
+    await page.reload()
+    await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller))
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Academic Editing & Proofreading")
+    await page.goto(productionUrl + "/pricing?campaign=synthetic")
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Clear pricing for your next paper.")
+    expect(errors).toEqual([])
+  } finally { await context.close() }
 })
 
 

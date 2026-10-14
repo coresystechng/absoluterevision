@@ -187,6 +187,9 @@ export default defineConfig(({ mode }) => {
       siteMetadataPlugin(),
       bundleAnalysisPlugin(),
       VitePWA({
+        strategies: "injectManifest",
+        srcDir: "src",
+        filename: "sw.ts",
         registerType: "autoUpdate",
         includeAssets: ["icons/apple-touch-icon.png"],
         manifest: {
@@ -220,10 +223,7 @@ export default defineConfig(({ mode }) => {
             },
           ],
         },
-        workbox: {
-          navigateFallbackDenylist: [/^\/api\//],
-          navigateFallbackAllowlist: [/^\/$/, /^\/(?:pricing|login|sign-in|sign-up|document-upload|track-assignment|dashboard|client-submissions|settings)\/?$/, /^\/assignments\/[^/]+\/?$/],
-          cleanupOutdatedCaches: true,
+        injectManifest: {
           // Do not undo route splitting by downloading every private chunk when
           // a visitor installs the homepage's service worker.
           manifestTransforms: [async (entries) => {
@@ -231,11 +231,6 @@ export default defineConfig(({ mode }) => {
             // Workbox rejects non-2xx precache responses. The error document is
             // served with 404 locally and is never a navigation fallback.
             return { manifest: entries.filter((entry) => entry.url !== "404.html" && (!entry.url.endsWith(".js") || entry.url === "registerSW.js" || publicScripts.has(entry.url))), warnings: [] }
-          }],
-          runtimeCaching: [{
-            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/assets/") && url.pathname.endsWith(".js"),
-            handler: "CacheFirst",
-            options: { cacheName: "application-chunks", expiration: { maxEntries: 64, maxAgeSeconds: 30 * 24 * 60 * 60 }, cacheableResponse: { statuses: [200] } },
           }],
         },
       }),
